@@ -479,12 +479,7 @@ function updateProgress() {
 async function submitScore() {
     console.log('=== Submit clicked ===');
 
-    // Check if any items have been marked
-    const markedItems = Object.keys(evaluations).length;
-    if (markedItems === 0) {
-        showWarning('Please mark at least one item before submitting.');
-        return;
-    }
+   
 
     const unansweredItems = findUnansweredItems();
 

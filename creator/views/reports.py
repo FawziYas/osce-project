@@ -44,7 +44,11 @@ def reports_scoresheets(request, session_id):
         else:
             student_stations = Station.objects.none()
 
-        scores_qs = StationScore.objects.filter(session_student=student).select_related('examiner')
+        # Only count submitted scores, ignore draft/in-progress with 0 marks
+        scores_qs = StationScore.objects.filter(
+            session_student=student,
+            status='submitted'
+        ).select_related('examiner')
         # Map all scores by station (not just one per station)
         score_map_all = {}
         for score in scores_qs:
@@ -111,7 +115,11 @@ def reports_student_scoresheet(request, student_id):
     else:
         student_stations = Station.objects.none()
 
-    scores_qs = StationScore.objects.filter(session_student=student).select_related('examiner')
+    # Only count submitted scores, ignore draft/in-progress with 0 marks
+    scores_qs = StationScore.objects.filter(
+        session_student=student,
+        status='submitted'
+    ).select_related('examiner')
     # Map all scores by station (not just one per station)
     score_map_all = {}
     for score in scores_qs:

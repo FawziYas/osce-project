@@ -242,7 +242,11 @@ def export_students_xlsx(request, session_id):
     row_num = 5
     for student in students:
         # Get all scores for this student
-        scores_qs = StationScore.objects.filter(session_student=student)
+        # Only count submitted scores, ignore draft/in-progress with 0 marks
+        scores_qs = StationScore.objects.filter(
+            session_student=student,
+            status='submitted'
+        ).select_related('examiner')
         
         # Build row with station scores
         row = [student.student_number, student.full_name]
