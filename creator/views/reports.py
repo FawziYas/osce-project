@@ -44,8 +44,13 @@ def reports_scoresheets(request, session_id):
         else:
             student_stations = Station.objects.none()
 
-        scores_qs = StationScore.objects.filter(session_student=student)
-        score_map = {s.station_id: s for s in scores_qs}
+        scores_qs = StationScore.objects.filter(session_student=student).select_related('examiner')
+        # Map all scores by station (not just one per station)
+        score_map_all = {}
+        for score in scores_qs:
+            if score.station_id not in score_map_all:
+                score_map_all[score.station_id] = []
+            score_map_all[score.station_id].append(score)
 
         max_possible = 0
         for st in student_stations:
@@ -72,7 +77,7 @@ def reports_scoresheets(request, session_id):
         student_data.append({
             'student': student,
             'stations': student_stations,
-            'scores': score_map,
+            'scores': score_map_all,
             'total_score': round(total_score, 1),
             'max_score': max_possible,
             'percentage_display': round(percentage, 1),
@@ -99,8 +104,13 @@ def reports_student_scoresheet(request, student_id):
     else:
         student_stations = Station.objects.none()
 
-    scores_qs = StationScore.objects.filter(session_student=student)
-    score_map = {s.station_id: s for s in scores_qs}
+    scores_qs = StationScore.objects.filter(session_student=student).select_related('examiner')
+    # Map all scores by station (not just one per station)
+    score_map_all = {}
+    for score in scores_qs:
+        if score.station_id not in score_map_all:
+            score_map_all[score.station_id] = []
+        score_map_all[score.station_id].append(score)
 
     max_possible = 0
     for st in student_stations:
@@ -127,7 +137,7 @@ def reports_student_scoresheet(request, student_id):
     student_data = [{
         'student': student,
         'stations': student_stations,
-        'scores': score_map,
+        'scores': score_map_all,
         'total_score': round(_total, 1),
         'max_score': max_possible,
         'percentage_display': round(_pct, 1),

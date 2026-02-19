@@ -196,20 +196,40 @@
     <h6 class="text-uppercase text-muted mb-3 text-center">Station Scores</h6>
 
     {% for station in data.stations %}
-    {% with score=data.scores|get_item:station.id %}
+    {% with scores_list=data.scores|get_item:station.id %}
     <div class="station-score-row">
         <div>
             <strong>{{ station.name }}</strong>
-            {% if score and score.examiner_id %}
-            <small class="text-muted ms-2">(Examiner: {{ score.examiner.full_name|default:"N/A" }})</small>
+            {% if scores_list %}
+                {% if scores_list|length == 1 %}
+                    {% with score=scores_list|first %}
+                    {% if score.examiner_id %}
+                    <small class="text-muted ms-2">(Examiner: {{ score.examiner.full_name|default:"N/A" }})</small>
+                    {% endif %}
+                    {% endwith %}
+                {% else %}
+                    <small class="text-muted ms-2">({{ scores_list|length }} Examiners)</small>
+                {% endif %}
             {% endif %}
         </div>
         <div>
-            {% if score %}
-            <span class="badge {% if score.percentage and score.percentage >= 60 %}bg-success{% else %}bg-danger{% endif %}">
-                {{ score.total_score|default:0 }} / {{ score.max_score|default:0 }}
-                ({{ score.percentage_display }}%)
-            </span>
+            {% if scores_list %}
+                {% if scores_list|length == 1 %}
+                    {% with score=scores_list|first %}
+                    <span class="badge {% if score.percentage and score.percentage >= 60 %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ score.total_score|default:0 }} / {{ score.max_score|default:0 }}
+                        ({{ score.percentage_display }}%)
+                    </span>
+                    {% endwith %}
+                {% else %}
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        {% for score in scores_list %}
+                        <span class="badge {% if score.percentage and score.percentage >= 60 %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ score.total_score|default:0 }} / {{ score.max_score|default:0 }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             {% else %}
             <span class="badge bg-secondary">Not Scored</span>
             {% endif %}
