@@ -156,6 +156,7 @@ let examTimer = null;
 let checklistItems = [];
 let evaluations = {}; // { itemId: "done" | "partial" | "not-done" | null }
 let stationData = null;
+let hasUnsavedChanges = false;  // Track if there are unsaved changes
 
 // ============================================================================
 // INITIALIZATION
@@ -170,7 +171,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load checklist data
     loadChecklist();
+
+    // Set up unsaved changes tracking
+    setupUnsavedChangesTracking();
+    
+    // Set up beforeunload listener
+    setupBeforeUnloadListener();
 });
+
+function setupUnsavedChangesTracking() {
+    // Track changes to comments textarea
+    const commentsField = document.getElementById('comments');
+    if (commentsField) {
+        commentsField.addEventListener('input', () => {
+            hasUnsavedChanges = true;
+            console.log('Comments changed - unsaved changes tracked');
+        });
+    }
+}
+
+function setupBeforeUnloadListener() {
+    window.addEventListener('beforeunload', (e) => {
+        // Only show warning if there are actual unsaved changes
+        if (hasUnsavedChanges) {
+            e.preventDefault();
+            e.returnValue = 'You have unsaved changes. Do you really want to leave?';
+            return 'You have unsaved changes. Do you really want to leave?';
+        }
+    });
+}
 
 function initializeTimer() {
     if (!MARKING_DATA.duration) {
@@ -372,6 +401,7 @@ function setEvaluation(itemId, score, maxPoints) {
     console.log(`Setting evaluation: item ${itemId}, score ${score}/${maxPoints}`);
 
     evaluations[itemId] = { score, maxPoints };
+    hasUnsavedChanges = true;  // Mark as having unsaved changes
 
     const card = document.querySelector(`[data-item-id="${itemId}"]`);
     if (card) {
@@ -581,6 +611,9 @@ async function confirmSubmit() {
 
         if (result.success) {
             if (examTimer) examTimer.stop();
+
+            // Clear unsaved changes flag so no warning appears on redirect
+            hasUnsavedChanges = false;
 
             window.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
         } else {
