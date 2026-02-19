@@ -48,5 +48,25 @@ def get_item_filter(dictionary, key):
         return None
     try:
         return dictionary.get(key) if isinstance(dictionary, dict) else None
+    except (AttributeError, TypeError):
+        return None
+
+
+@register.filter(name='average_score')
+def average_score_filter(scores_list):
+    """
+    Calculate average total_score from a list of StationScore objects.
+    
+    Usage: {{ scores_list|average_score }}
+    """
+    if not scores_list:
+        return 0
+    
+    try:
+        total = sum(s.total_score or 0 for s in scores_list)
+        avg = total / len(scores_list)
+        return round(avg, 1)
+    except (TypeError, AttributeError, ZeroDivisionError):
+        return 0
     except (KeyError, TypeError):
         return None

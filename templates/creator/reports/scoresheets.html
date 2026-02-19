@@ -204,11 +204,13 @@
                 {% if scores_list|length == 1 %}
                     {% with score=scores_list|first %}
                     {% if score.examiner_id %}
-                    <small class="text-muted ms-2">(Examiner: {{ score.examiner.full_name|default:"N/A" }})</small>
+                    <small class="text-muted ms-2">(Dr: {{ score.examiner.full_name|default:"N/A" }})</small>
                     {% endif %}
                     {% endwith %}
                 {% else %}
-                    <small class="text-muted ms-2">({{ scores_list|length }} Examiners)</small>
+                    <small class="text-muted ms-2">
+                        (Dr: {% for score in scores_list %}{{ score.examiner.full_name|default:"Unknown" }}{% if not forloop.last %}, {% endif %}{% endfor %})
+                    </small>
                 {% endif %}
             {% endif %}
         </div>
@@ -222,13 +224,11 @@
                     </span>
                     {% endwith %}
                 {% else %}
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        {% for score in scores_list %}
-                        <span class="badge {% if score.percentage and score.percentage >= 60 %}bg-success{% else %}bg-danger{% endif %}">
-                            {{ score.total_score|default:0 }} / {{ score.max_score|default:0 }}
-                        </span>
-                        {% endfor %}
-                    </div>
+                    {% with first_score=scores_list|first %}
+                    <span class="badge bg-info">
+                        Avg: {{ scores_list|average_score }} / {{ first_score.max_score|default:0 }}
+                    </span>
+                    {% endwith %}
                 {% endif %}
             {% else %}
             <span class="badge bg-secondary">Not Scored</span>
