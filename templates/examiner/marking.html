@@ -61,11 +61,51 @@
                 <span id="student-mark">0.0</span><span class="stat-max">/{{ max_score }}</span>
             </div>
         </div>
+        {% if co_examiner_name %}
+        <div class="stat-box" style="background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.4);">
+            <div class="stat-label" style="color:#38bdf8">Co-Examiner</div>
+            <div class="stat-value" style="font-size:0.85rem; color:#38bdf8">
+                <i class="bi bi-person-check me-1"></i>{{ co_examiner_name }}
+                {% if co_examiner_score is not None %}<span style="opacity:0.8">({{ co_examiner_score }})</span>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% if both_finalized %}
+        <div class="stat-box" style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4);">
+            <div class="stat-label" style="color:#818cf8">Finalized</div>
+            <div class="stat-value" style="color:#818cf8">
+                <i class="bi bi-check-all me-1"></i>Avg {{ final_avg }}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </header>
 
 <div class="container-fluid py-3 px-2">
     <div class="content-wrapper">
+
+    <!-- Review / Lock Banner -->
+    {% if review_mode %}
+    <div id="review-banner" style="background:#1e293b; border:2px solid #f59e0b; border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <i class="bi bi-lock-fill" style="font-size:1.4rem; color:#f59e0b;"></i>
+            <div>
+                <div style="color:#f59e0b; font-weight:700; font-size:0.95rem;">Evaluation Submitted — Read Only</div>
+                <div style="color:#94a3b8; font-size:0.82rem;">Contact a coordinator to unlock this evaluation for correction.</div>
+            </div>
+        </div>
+        <span class="badge bg-warning text-dark" style="font-size:0.8rem; padding:6px 12px;"><i class="bi bi-shield-lock me-1"></i>Locked</span>
+    </div>
+    {% elif score.unlocked_for_correction %}
+    <div style="background:#1e293b; border:2px solid #22c55e; border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+        <i class="bi bi-unlock-fill" style="font-size:1.4rem; color:#22c55e;"></i>
+        <div>
+            <div style="color:#22c55e; font-weight:700; font-size:0.95rem;">Unlocked for Correction</div>
+            <div style="color:#94a3b8; font-size:0.82rem;">A coordinator has allowed you to correct this evaluation. Re-submit when done.</div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Case Scenario Card (populated from API) -->
     <div class="case-card" id="case-card" style="display: none;">
         <h3 class="case-title">
@@ -90,7 +130,8 @@
             Comments (Optional)
         </div>
         <textarea id="comments" class="feedback-textarea"
-                  placeholder="Add feedback for this student's performance..."></textarea>
+                  placeholder="Add feedback for this student's performance..."
+                  {% if review_mode %}readonly style="opacity:0.7; cursor:not-allowed;"{% endif %}>{{ saved_comments }}</textarea>
     </div>
 
     </div> <!-- /content-wrapper -->
@@ -107,9 +148,15 @@
 
             <div class="footer-total">
                 <div class="total-mark" id="footer-total-mark"><span class="student-mark">0.0</span><span class="mark-max">/{{ max_score }}</span></div>
+                {% if review_mode %}
+                <div id="locked-footer" style="display:flex; align-items:center; gap:8px; background:#f59e0b22; border:1px solid #f59e0b66; border-radius:10px; padding:8px 16px; color:#f59e0b; font-weight:600; font-size:0.9rem;">
+                    <i class="bi bi-lock-fill"></i> Submitted
+                </div>
+                {% else %}
                 <button type="button" class="btn-submit" onclick="submitScore()" id="submit-btn">
                     <i class="bi bi-check-circle me-2"></i>Submit Evaluation
                 </button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -141,7 +188,8 @@
         maxScore: {{ max_score }},
         duration: {{ duration }},
         savedItemScores: {{ saved_item_scores_json|safe }},
-        csrfToken: "{{ csrf_token }}"
+        csrfToken: "{{ csrf_token }}",
+        reviewMode: {{ review_mode|yesno:'true,false' }}
     };
 </script>
 {% endblock %}
@@ -369,6 +417,7 @@ function renderQuestionCard(item, itemNum) {
 // ============================================================================
 
 function setEvaluation(itemId, score, maxPoints) {
+    if (MARKING_DATA.reviewMode) return; // locked in review mode
     console.log(`Setting evaluation: item ${itemId}, score ${score}/${maxPoints}`);
 
     evaluations[itemId] = { score, maxPoints };
@@ -440,6 +489,18 @@ function loadSavedScores() {
     updateStudentMark();
     updateProgress();
     console.log('✓ Saved scores loaded');
+
+    // If in review mode, visually lock all buttons
+    if (MARKING_DATA.reviewMode) {
+        document.querySelectorAll('.eval-btn').forEach(btn => {
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = btn.classList.contains('active') ? '1' : '0.35';
+            btn.style.pointerEvents = 'none';
+        });
+        document.querySelectorAll('.question-card').forEach(card => {
+            card.style.opacity = '0.85';
+        });
+    }
 }
 
 // ============================================================================
@@ -478,8 +539,6 @@ function updateProgress() {
 
 async function submitScore() {
     console.log('=== Submit clicked ===');
-
-   
 
     const unansweredItems = findUnansweredItems();
 

@@ -188,9 +188,10 @@ def station_dashboard(request, assignment_id):
         ).values_list('session_student_id', flat=True)
     )
 
-    # All scores for dual-examiner view
+    # All scores for dual-examiner view - only submitted scores
     all_scores = StationScore.objects.filter(
         station_id=assignment.station_id,
+        status='submitted'
     ).select_related('examiner')
 
     student_scores = {}
@@ -278,16 +279,24 @@ def marking_interface(request, assignment_id, student_id):
         messages.error(request, 'You are not assigned to this station.')
         return redirect('examiner:home')
 
-    # Check session status
+    # Check session status — only block if NOT already submitted (review is allowed)
     session = assignment.session
     if session and session.status != 'in_progress':
-        status_messages = {
-            'scheduled': ('This session is not yet active. Marking is disabled.', 'warning'),
-            'completed': ('This session has been completed. No further marking allowed.', 'info'),
-        }
-        msg, level = status_messages.get(session.status, ('This session is currently paused. Marking is disabled.', 'warning'))
-        getattr(messages, level)(request, msg)
-        return redirect('examiner:home')
+        # Allow if already submitted (review mode) even after session ends
+        existing_score = StationScore.objects.filter(
+            session_student=student,
+            station_id=assignment.station_id,
+            examiner=request.user,
+            status='submitted',
+        ).first()
+        if not existing_score:
+            status_messages = {
+                'scheduled': ('This session is not yet active. Marking is disabled.', 'warning'),
+                'completed': ('This session has been completed. No further marking allowed.', 'info'),
+            }
+            msg, level = status_messages.get(session.status, ('This session is currently paused. Marking is disabled.', 'warning'))
+            getattr(messages, level)(request, msg)
+            return redirect('examiner:home')
 
     if str(student.session_id) != str(assignment.session_id):
         messages.error(request, 'Student is not in this exam session.')
@@ -311,6 +320,26 @@ def marking_interface(request, assignment_id, student_id):
             status='in_progress',
         )
 
+    # Review mode: score is submitted and NOT unlocked for correction
+    review_mode = (score.status == 'submitted' and not score.unlocked_for_correction)
+
+    # Check for co-examiner submission (dual-examiner finalize info)
+    co_score = StationScore.objects.filter(
+        session_student=student,
+        station_id=assignment.station_id,
+        status='submitted',
+    ).exclude(examiner=request.user).select_related('examiner').first()
+    co_examiner_name = None
+    co_examiner_score = None
+    both_finalized = False
+    final_avg = None
+    if co_score:
+        co_examiner_name = co_score.examiner.display_name if co_score.examiner else 'Co-Examiner'
+        co_examiner_score = co_score.total_score
+        if score.status == 'submitted':
+            both_finalized = True
+            final_avg = round((score.total_score + co_score.total_score) / 2, 2)
+
     # Get saved item scores
     saved_item_scores = {}
     for is_obj in ItemScore.objects.filter(station_score=score):
@@ -329,4 +358,10 @@ def marking_interface(request, assignment_id, student_id):
         'saved_item_scores_json': json.dumps(saved_item_scores),
         'max_score': max_score,
         'duration': duration,
+        'review_mode': review_mode,
+        'saved_comments': score.comments or '',
+        'co_examiner_name': co_examiner_name,
+        'co_examiner_score': co_examiner_score,
+        'both_finalized': both_finalized,
+        'final_avg': final_avg,
     })

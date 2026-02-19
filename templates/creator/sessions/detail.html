@@ -278,6 +278,65 @@
     </div>
 </div>
 
+{% if submitted_scores %}
+<!-- Score Management Panel (Coordinator/Admin only) -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-shield-lock me-2"></i>Score Management — Unlock for Correction</h5>
+        <span class="badge bg-secondary">{{ submitted_scores|length }} submitted score{{ submitted_scores|length|pluralize }}</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Student</th>
+                        <th>Station</th>
+                        <th>Examiner</th>
+                        <th class="text-center">Score</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sc in submitted_scores %}
+                    <tr>
+                        <td>
+                            <div class="fw-bold">{{ sc.session_student.full_name }}</div>
+                            <small class="text-muted">{{ sc.session_student.student_number }}</small>
+                        </td>
+                        <td>{{ sc.station.name|default:sc.station_id }}</td>
+                        <td>{{ sc.examiner.display_name|default:"Deleted Examiner" }}</td>
+                        <td class="text-center">
+                            <span class="badge bg-primary">{{ sc.total_score }}/{{ sc.max_score }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% if sc.unlocked_for_correction %}
+                            <span class="badge bg-success"><i class="bi bi-unlock me-1"></i>Unlocked</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark"><i class="bi bi-lock me-1"></i>Locked</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if not sc.unlocked_for_correction %}
+                            <button type="button" class="btn btn-sm btn-outline-warning"
+                                    onclick="unlockScore('{{ sc.id }}', '{{ sc.session_student.full_name|escapejs }}', '{{ sc.examiner.display_name|default:"Deleted Examiner"|escapejs }}', '{{ sc.station.name|default:sc.station_id|escapejs }}')"
+                                    title="Allow examiner to correct this evaluation">
+                                <i class="bi bi-unlock me-1"></i>Unlock
+                            </button>
+                            {% else %}
+                            <span class="text-success small"><i class="bi bi-check-circle me-1"></i>Awaiting correction</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Assign Examiner Modal -->
 <div class="modal fade" id="assignExaminerModal" tabindex="-1">
     <div class="modal-dialog"><div class="modal-content">
@@ -459,6 +518,24 @@ function submitBatchPathForm() {
     const count = parseInt(document.getElementById('pathCount').value);
     if (count < 1 || count > 26) { alert('Enter 1-26'); return; }
     if (confirm(`Create ${count} path(s)?`)) document.getElementById('batchPathForm').submit();
+}
+
+function unlockScore(scoreId, studentName, examinerName, stationName) {
+    if (!confirm(`Unlock score for "${studentName}" at "${stationName}" by "${examinerName}"?\n\nThis will allow the examiner to correct and re-submit their evaluation.`)) return;
+    fetch(`/creator/scores/${scoreId}/unlock/`, {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}'},
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✓ ' + data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Could not unlock'));
+        }
+    })
+    .catch(err => alert('Error: ' + err.message));
 }
 </script>
 {% endblock %}

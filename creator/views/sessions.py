@@ -9,11 +9,12 @@ from io import BytesIO
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.http import require_POST
 
 from core.models import (
     Exam, ExamSession, SessionStudent, Path, Station, ChecklistItem,
-    Examiner, ExaminerAssignment,
+    Examiner, ExaminerAssignment, StationScore,
 )
 from core.utils.naming import generate_path_name
 
@@ -193,6 +194,12 @@ def session_detail(request, session_id):
         'examiner_assignments': examiner_assignments,
         'all_examiners': all_examiners,
         'session_metrics': session_metrics,
+        'submitted_scores': StationScore.objects.filter(
+            session_student__session=session,
+            status='submitted',
+        ).select_related('examiner', 'session_student', 'station').order_by(
+            'session_student__student_number', 'station__station_number'
+        ),
     })
 
 
@@ -348,3 +355,26 @@ def assign_examiner(request, session_id):
     examiner = get_object_or_404(Examiner, pk=int(examiner_id))
     messages.success(request, f'Assigned {examiner.display_name} to station.')
     return redirect('creator:session_detail', session_id=str(session_id))
+
+
+@login_required
+@require_POST
+def unlock_score_for_correction(request, score_id):
+    """Allow coordinator/admin to unlock a submitted score so the examiner can correct it."""
+    if request.user.role not in ('coordinator', 'admin') and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permission denied'}, status=403)
+
+    score = get_object_or_404(StationScore, pk=score_id)
+
+    if score.status != 'submitted':
+        return JsonResponse({'error': 'Score is not in submitted state'}, status=400)
+
+    score.unlocked_for_correction = True
+    score.save(update_fields=['unlocked_for_correction'])
+
+    examiner_name = score.examiner.display_name if score.examiner else 'Examiner'
+    student_name = score.session_student.full_name if score.session_student else 'Student'
+    return JsonResponse({
+        'success': True,
+        'message': f'Score for {student_name} by {examiner_name} has been unlocked for correction.',
+    })

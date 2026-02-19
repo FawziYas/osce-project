@@ -238,6 +238,7 @@ def submit_score(request, station_score_id):
     score.comments = data.get('comments', '')
     score.completed_at = utc_timestamp()
     score.status = 'submitted'
+    score.unlocked_for_correction = False  # clear any coordinator unlock on re-submit
     score.updated_at = utc_timestamp()
     score.save()
 

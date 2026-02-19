@@ -44,6 +44,9 @@ class StationScore(models.Model):
     # Status: in_progress, submitted, reviewed, flagged
     status = models.CharField(max_length=20, default='in_progress')
 
+    # Coordinator can unlock a submitted score for correction
+    unlocked_for_correction = models.BooleanField(default=False)
+
     # Offline sync fields
     local_uuid = models.UUIDField(default=uuid.uuid4, unique=True)
     client_id = models.CharField(max_length=50, blank=True, default='')
