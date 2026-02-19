@@ -75,7 +75,7 @@ def get_session_summary(request, session_id):
                     student_scores[header['number']] = final['final_score']
                     total_score += final['final_score']
                 else:
-                    student_scores[header['number']] = 0
+                    student_scores[header['number']] = None
             else:
                 student_scores[header['number']] = None
 
@@ -162,7 +162,7 @@ def _student_rows(students, station_headers, station_info_map):
                     score_val = round(final['final_score'], 1)
                     total_score += final['final_score']
                 else:
-                    score_val = 0
+                    score_val = ''
             row.append(score_val)
 
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
@@ -271,7 +271,7 @@ def export_students_xlsx(request, session_id):
                     score_val = round(final['final_score'], 1)
                     total_score += final['final_score']
                 else:
-                    score_val = 0
+                    score_val = ''
             row.append(score_val)
 
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
