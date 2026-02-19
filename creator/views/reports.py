@@ -44,14 +44,12 @@ def reports_scoresheets(request, session_id):
         else:
             student_stations = Station.objects.none()
 
-        # Only count submitted scores with marks, ignore empty submissions
+        # Only count submitted scores, ignore abandoned/in-progress evaluations
         scores_qs = StationScore.objects.filter(
             session_student=student,
             status='submitted'
         ).exclude(
             total_score__isnull=True
-        ).exclude(
-            total_score=0
         ).select_related('examiner')
         # Map all scores by station (not just one per station)
         score_map_all = {}
@@ -119,14 +117,12 @@ def reports_student_scoresheet(request, student_id):
     else:
         student_stations = Station.objects.none()
 
-    # Only count submitted scores with marks, ignore empty submissions
+    # Only count submitted scores, ignore abandoned/in-progress evaluations
     scores_qs = StationScore.objects.filter(
         session_student=student,
         status='submitted'
     ).exclude(
         total_score__isnull=True
-    ).exclude(
-        total_score=0
     ).select_related('examiner')
     # Map all scores by station (not just one per station)
     score_map_all = {}

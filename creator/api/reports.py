@@ -242,14 +242,12 @@ def export_students_xlsx(request, session_id):
     row_num = 5
     for student in students:
         # Get all scores for this student
-        # Only count submitted scores with marks, ignore empty submissions
+        # Only count submitted scores, ignore abandoned/in-progress evaluations
         scores_qs = StationScore.objects.filter(
             session_student=student,
             status='submitted'
         ).exclude(
             total_score__isnull=True
-        ).exclude(
-            total_score=0
         ).select_related('examiner')
         
         # Build row with station scores
