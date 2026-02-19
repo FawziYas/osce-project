@@ -20,7 +20,8 @@ class StationScore(models.Model):
         related_name='scores', db_index=True
     )
     examiner = models.ForeignKey(
-        'core.Examiner', on_delete=models.CASCADE,
+        'core.Examiner', on_delete=models.SET_NULL,
+        null=True, blank=True,
         related_name='station_scores', db_index=True
     )
 
@@ -55,12 +56,6 @@ class StationScore(models.Model):
 
     class Meta:
         db_table = 'station_scores'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['session_student', 'station', 'examiner'],
-                name='unique_student_station_examiner'
-            ),
-        ]
         indexes = [
             models.Index(fields=['station', 'status'], name='idx_station_score_status'),
             models.Index(fields=['sync_status'], name='idx_sync_status'),
@@ -99,7 +94,7 @@ class StationScore(models.Model):
         for score in scores_list:
             result['examiner_scores'].append({
                 'examiner_id': score.examiner_id,
-                'examiner_name': score.examiner.display_name if score.examiner else 'Unknown',
+                'examiner_name': score.examiner.display_name if score.examiner else 'Deleted Examiner',
                 'score': score.total_score,
                 'submitted_at': score.completed_at,
             })

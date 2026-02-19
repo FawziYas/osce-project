@@ -162,7 +162,11 @@ def examiner_restore(request, examiner_id):
 
 @login_required
 def examiner_permanent_delete(request, examiner_id):
-    """Permanently delete an examiner and all their records. Superuser only."""
+    """Permanently delete an examiner. Superuser only.
+    
+    Station assignments are removed, but all scoring records are preserved
+    with examiner shown as 'Deleted Examiner' in reports.
+    """
     if not request.user.is_superuser:
         messages.error(request, 'Only superusers can permanently delete examiners.')
         return redirect('creator:examiner_list')
@@ -172,10 +176,11 @@ def examiner_permanent_delete(request, examiner_id):
 
     examiner = get_object_or_404(Examiner, pk=examiner_id, is_deleted=True)
     name = examiner.display_name
-    ExaminerAssignment.objects.filter(examiner=examiner).delete()
+    # StationScore records are preserved (SET_NULL on examiner FK)
+    # ExaminerAssignment records are removed via CASCADE
     examiner.delete()
 
-    messages.success(request, f'Examiner "{name}" permanently deleted.')
+    messages.success(request, f'Examiner "{name}" permanently deleted. Their scoring records have been preserved.')
     return redirect('creator:examiner_list')
 
 
