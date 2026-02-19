@@ -151,7 +151,7 @@ def session_detail(request, session_id):
     examiner_assignments = ExaminerAssignment.objects.filter(session=session).select_related(
         'examiner', 'station'
     )
-    all_examiners = Examiner.objects.filter(is_active=True).order_by('full_name')
+    all_examiners = Examiner.objects.filter(is_active=True, role='examiner').order_by('full_name')
 
     # Session metrics
     rotation_display = 'Not set'

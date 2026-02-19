@@ -15,7 +15,7 @@ from core.models import Examiner, ExaminerAssignment
 @require_GET
 def get_examiners(request):
     """GET /api/creator/examiners"""
-    examiners = Examiner.objects.filter(is_active=True).order_by('full_name')
+    examiners = Examiner.objects.filter(is_active=True, role='examiner').order_by('full_name')
     return JsonResponse([{
         'id': e.id,
         'username': e.username,
