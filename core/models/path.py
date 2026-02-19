@@ -63,6 +63,11 @@ class Path(TimestampMixin):
         return sum(s.duration_minutes or 0 for s in self.stations.filter(active=True))
 
     @property
+    def ordered_stations(self):
+        """Return stations ordered by station_number."""
+        return self.stations.filter(active=True).order_by('station_number')
+
+    @property
     def exam(self):
         return self.session.exam if self.session else None
 

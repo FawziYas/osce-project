@@ -29,9 +29,32 @@ def _safe_filename(name: str) -> str:
 
 @login_required
 def get_session_summary(request, session_id):
-    """GET /api/creator/reports/session/<id>/summary"""
+    """GET /api/creator/reports/session/<id>/summary - with pagination and search"""
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    
     session = get_object_or_404(ExamSession, pk=session_id)
-    students = list(SessionStudent.objects.filter(session=session))
+    
+    # Get all students and apply search filter
+    search_query = request.GET.get('search', '').strip()
+    students_qs = SessionStudent.objects.filter(session=session).order_by('full_name')
+    
+    if search_query:
+        students_qs = students_qs.filter(
+            full_name__icontains=search_query
+        ) | SessionStudent.objects.filter(
+            session=session, student_number__icontains=search_query
+        ).order_by('full_name')
+        students_qs = students_qs.order_by('full_name').distinct()
+    
+    # Pagination: 20 students per page
+    page_num = request.GET.get('page', 1)
+    paginator = Paginator(students_qs, per_page=20)
+    try:
+        page_obj = paginator.page(page_num)
+    except (PageNotAnInteger, EmptyPage):
+        page_obj = paginator.page(1)
+    
+    students = list(page_obj.object_list)
 
     # Unique station numbers across all paths
     paths = list(Path.objects.filter(session=session))
@@ -109,12 +132,23 @@ def get_session_summary(request, session_id):
         'data': {
             'session_id': str(session_id),
             'session_name': session.name,
-            'total_students': total_students,
+            'total_students': page_obj.paginator.count,
             'completed_students': completed_students,
             'average_percentage': round(avg_percentage, 1),
             'pass_rate': round(pass_rate, 1),
             'station_headers': station_headers,
             'students': sorted(student_data, key=lambda x: x['full_name']),
+            'pagination': {
+                'current_page': page_obj.number,
+                'total_pages': page_obj.paginator.num_pages,
+                'total_count': page_obj.paginator.count,
+                'per_page': 20,
+                'has_previous': page_obj.has_previous(),
+                'has_next': page_obj.has_next(),
+                'previous_page_number': page_obj.previous_page_number() if page_obj.has_previous() else None,
+                'next_page_number': page_obj.next_page_number() if page_obj.has_next() else None,
+            },
+            'search_query': search_query,
         },
     })
 

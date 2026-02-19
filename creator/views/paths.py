@@ -26,18 +26,6 @@ def path_detail(request, path_id):
         'exam': exam,
     })
 
-
-@login_required
-def session_paths(request, session_id):
-    """Manage paths for a session."""
-    session = get_object_or_404(ExamSession, pk=session_id)
-    paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
-    return render(request, 'creator/sessions/paths.html', {
-        'session': session,
-        'paths': paths,
-    })
-
-
 @login_required
 def create_path(request, session_id):
     """Create a new path, optionally copying stations from another."""
@@ -130,11 +118,11 @@ def delete_path(request, path_id):
 
     if path.session and path.session.actual_start:
         messages.error(request, 'Cannot delete paths after session has been activated.')
-        return redirect('creator:session_paths', session_id=session_id)
+        return redirect('creator:session_detail', session_id=session_id)
 
     path.soft_delete()
     messages.success(request, f"Path '{path.name}' has been deleted.")
-    return redirect('creator:session_paths', session_id=session_id)
+    return redirect('creator:session_detail', session_id=session_id)
 
 
 @login_required

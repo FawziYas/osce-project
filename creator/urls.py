@@ -55,7 +55,6 @@ urlpatterns = [
 
     # ── Paths ──────────────────────────────────────────────────────────────
     path('paths/<uuid:path_id>/', paths.path_detail, name='path_detail'),
-    path('sessions/<uuid:session_id>/paths/', paths.session_paths, name='session_paths'),
     path('sessions/<uuid:session_id>/paths/new/', paths.create_path, name='create_path'),
     path('sessions/<uuid:session_id>/paths/batch-create/', paths.batch_create_paths, name='batch_create_paths'),
     path('paths/<uuid:path_id>/edit/', paths.edit_path, name='edit_path'),
@@ -98,6 +97,7 @@ urlpatterns = [
     # ── Coordinators ───────────────────────────────────────────
     path('coordinators/', examiners.coordinator_list, name='coordinator_list'),
     path('coordinators/new/', examiners.coordinator_create, name='coordinator_create'),
+    path('coordinators/<int:coordinator_id>/edit/', examiners.coordinator_edit, name='coordinator_edit'),
     path('coordinators/<int:coordinator_id>/delete/', examiners.coordinator_delete, name='coordinator_delete'),
     # ── Students ───────────────────────────────────────────────────────────
     path('sessions/<uuid:session_id>/students/add/', students.add_students, name='add_students'),

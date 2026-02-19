@@ -8,6 +8,7 @@ from io import BytesIO
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from core.models.mixins import TimestampMixin
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
@@ -21,12 +22,23 @@ from core.utils.naming import generate_path_name
 
 @login_required
 def session_list(request, exam_id):
-    """List sessions for an exam."""
+    """List sessions for an exam with search."""
     exam = get_object_or_404(Exam, pk=exam_id)
-    sessions = ExamSession.objects.filter(exam=exam).order_by('-session_date')
+    search_query = request.GET.get('search', '').strip()
+    sessions_qs = ExamSession.objects.filter(exam=exam).order_by('-session_date')
+    
+    if search_query:
+        sessions_qs = sessions_qs.filter(
+            name__icontains=search_query
+        ) | ExamSession.objects.filter(
+            exam=exam, session_date__icontains=search_query
+        ).order_by('-session_date')
+        sessions_qs = sessions_qs.order_by('-session_date').distinct()
+    
     return render(request, 'creator/sessions/list.html', {
         'exam': exam,
-        'sessions': sessions,
+        'sessions': sessions_qs,
+        'search_query': search_query,
     })
 
 
@@ -146,8 +158,31 @@ def session_delete(request, session_id):
 @login_required
 def session_detail(request, session_id):
     """View session details, paths, students."""
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    
     session = get_object_or_404(ExamSession, pk=session_id)
-    students = SessionStudent.objects.filter(session=session).order_by('student_number')
+    
+    # Search and pagination for students
+    search_query = request.GET.get('search', '').strip()
+    students_qs = SessionStudent.objects.filter(session=session).order_by('student_number')
+    
+    if search_query:
+        students_qs = students_qs.filter(
+            full_name__icontains=search_query
+        ) | SessionStudent.objects.filter(
+            session=session, student_number__icontains=search_query
+        )
+        students_qs = students_qs.order_by('student_number').distinct()
+    
+    # Pagination: 50 students per page
+    page_num = request.GET.get('page', 1)
+    paginator = Paginator(students_qs, per_page=50)
+    try:
+        page_obj = paginator.page(page_num)
+    except (PageNotAnInteger, EmptyPage):
+        page_obj = paginator.page(1)
+    students = page_obj.object_list
+    
     paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
     examiner_assignments = ExaminerAssignment.objects.filter(session=session).select_related(
         'examiner', 'station'
@@ -187,19 +222,33 @@ def session_detail(request, session_id):
         'station_detail': station_detail,
     }
 
+    # Calculate grace period status for each submitted score
+    submitted_scores_list = list(StationScore.objects.filter(
+        session_student__session=session,
+        status='submitted',
+    ).select_related('examiner', 'session_student', 'station').order_by(
+        'session_student__student_number', 'station__station_number'
+    ))
+    
+    _now = TimestampMixin.utc_timestamp()
+    for score in submitted_scores_list:
+        score.within_undo_window = (
+            score.completed_at is not None
+            and (_now - score.completed_at) <= 300
+        )
+
     return render(request, 'creator/sessions/detail.html', {
         'session': session,
         'students': students,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'search_query': search_query,
+        'total_students': students_qs.count(),
         'paths': paths,
         'examiner_assignments': examiner_assignments,
         'all_examiners': all_examiners,
         'session_metrics': session_metrics,
-        'submitted_scores': StationScore.objects.filter(
-            session_student__session=session,
-            status='submitted',
-        ).select_related('examiner', 'session_student', 'station').order_by(
-            'session_student__student_number', 'station__station_number'
-        ),
+        'submitted_scores': submitted_scores_list,
     })
 
 

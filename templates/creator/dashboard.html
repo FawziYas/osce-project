@@ -8,15 +8,6 @@
     <p class="text-muted mb-0">OSCE Creator &amp; Examiner System</p>
 </div>
 
-<!-- Draft Exams Alert -->
-{% if stats.draft_exams > 0 %}
-<div class="alert alert-warning mt-4" role="alert">
-    <i class="bi bi-exclamation-triangle me-2"></i>
-    You have <strong>{{ stats.draft_exams }}</strong> exam(s) in draft status.
-    <a href="{% url 'creator:exam_list' %}" class="alert-link">Review and finalize</a>
-</div>
-{% endif %}
-
 
 
 <!-- Stats Row -->

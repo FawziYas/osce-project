@@ -1,0 +1,81 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Edit Coordinator - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:coordinator_list' %}">Coordinators</a></li>
+            <li class="breadcrumb-item active">Edit Coordinator</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-pencil-square me-2"></i>Edit Coordinator</h1>
+    <p class="text-muted mb-0">{{ coordinator.full_name }}</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-7">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-3">
+
+                    <div class="col-12">
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="full_name" required
+                               value="{{ coordinator.full_name }}"
+                               placeholder="Dr. Jane Smith">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" value="{{ coordinator.username }}" disabled>
+                        <small class="text-muted">Username cannot be changed</small>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" name="email" required
+                               value="{{ coordinator.email }}"
+                               placeholder="jsmith@hospital.edu">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Status</label>
+                        <div class="form-check form-switch pt-2">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                   {% if coordinator.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                Active
+                            </label>
+                        </div>
+                        <small class="text-muted d-block mt-2">Inactive coordinators cannot log in</small>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="alert alert-info d-flex align-items-start gap-2 mb-0">
+                            <i class="bi bi-info-circle-fill mt-1"></i>
+                            <div>
+                                <strong>Note:</strong> To change the coordinator's password, contact the Django admin
+                                or reset it through the system administration panel.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Save Changes
+                        </button>
+                        <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

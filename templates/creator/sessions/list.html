@@ -21,6 +21,18 @@
     </a>
 </div>
 
+<!-- Search Bar -->
+<div class="mb-3 d-flex gap-2 align-items-center">
+    <form method="get" class="d-flex gap-2 align-items-center flex-grow-1">
+        <input type="text" name="search" class="form-control" placeholder="Search sessions by name or date..." value="{{ search_query|default:'' }}" style="max-width:400px;">
+        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search me-1"></i>Search</button>
+        {% if search_query %}
+        <a href="{% url 'creator:session_list' exam.id %}" class="btn btn-outline-danger"><i class="bi bi-x me-1"></i>Clear</a>
+        {% endif %}
+    </form>
+    <small class="text-muted text-nowrap">{{ sessions|length }} session{{ sessions|length|pluralize }}</small>
+</div>
+
 <div class="table-card">
     <table class="table table-hover mb-0">
         <thead>
@@ -50,10 +62,12 @@
             {% empty %}
             <tr>
                 <td colspan="6" class="text-center text-muted py-5">
-                    <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>No sessions scheduled yet.<br>
+                    <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                    {% if search_query %}No sessions match "{{ search_query }}".
+                    {% else %}No sessions scheduled yet.<br>
                     <a href="{% url 'creator:session_create' exam.id %}" class="btn btn-primary mt-3">
                         <i class="bi bi-plus-lg me-1"></i>Schedule First Session
-                    </a>
+                    </a>{% endif %}
                 </td>
             </tr>
             {% endfor %}

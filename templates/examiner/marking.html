@@ -129,7 +129,7 @@
     <div class="bottom-actions">
         <div class="action-buttons">
             <a href="{% url 'examiner:station_dashboard' assignment.id %}"
-               class="btn-back">
+               class="btn-back" id="back-btn">
                 <i class="bi bi-arrow-left"></i>
             </a>
 
@@ -142,11 +142,39 @@
                     <i class="bi bi-lock-fill"></i> Submitted
                 </div>
                 {% else %}
+                {% if within_undo_window %}
+                <div id="undo-banner" style="display:flex; align-items:center; gap:8px; background:#0ea5e922; border:1px solid #0ea5e966; border-radius:10px; padding:8px 14px; color:#0ea5e9; font-weight:600; font-size:0.85rem;">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Submitted &mdash; still editable within grace period</span>
+                </div>
+                {% endif %}
                 <button type="button" class="btn-submit" onclick="submitScore()" id="submit-btn">
+                    {% if within_undo_window %}
+                    <i class="bi bi-arrow-repeat me-2"></i>Re-submit Evaluation
+                    {% else %}
                     <i class="bi bi-check-circle me-2"></i>Submit Evaluation
+                    {% endif %}
                 </button>
                 {% endif %}
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Back-navigation Warning Modal -->
+<div id="back-warn-modal" class="confirm-modal" style="display: none;">
+    <div class="confirm-content">
+        <h3 class="confirm-title">Evaluation Not Submitted</h3>
+        <p class="confirm-message">
+            Your evaluation has <strong>not been submitted</strong> yet. If you go back now, the marks you entered may not be saved.
+        </p>
+        <div class="confirm-buttons">
+            <button class="confirm-btn cancel" onclick="closeBackWarnModal()">
+                <i class="bi bi-x-circle me-2"></i>Stay
+            </button>
+            <button class="confirm-btn confirm" onclick="confirmGoBack()" style="background:#ef4444;">
+                <i class="bi bi-arrow-left me-2"></i>Go Back Anyway
+            </button>
         </div>
     </div>
 </div>
@@ -178,7 +206,9 @@
         duration: {{ duration }},
         savedItemScores: {{ saved_item_scores_json|safe }},
         csrfToken: "{{ csrf_token }}",
-        reviewMode: {{ review_mode|yesno:'true,false' }}
+        reviewMode: {{ review_mode|yesno:'true,false' }},
+        withinUndoWindow: {{ within_undo_window|yesno:'true,false' }},
+        scoreStatus: "{{ score_status }}"
     };
 </script>
 {% endblock %}
@@ -193,6 +223,8 @@ let examTimer = null;
 let checklistItems = [];
 let evaluations = {}; // { itemId: "done" | "partial" | "not-done" | null }
 let stationData = null;
+let scoreIsSubmitted = MARKING_DATA.scoreStatus === 'submitted';
+let _backNavHref = null;
 
 // ============================================================================
 // INITIALIZATION
@@ -207,6 +239,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load checklist data
     loadChecklist();
+
+    // Back button guard
+    setupBackButton();
+
+    // Warn on browser back/close when evaluation is not yet submitted
+    if (!MARKING_DATA.reviewMode && !scoreIsSubmitted) {
+        window.addEventListener('beforeunload', function(e) {
+            if (!scoreIsSubmitted) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    }
 });
 
 function initializeTimer() {
@@ -631,6 +676,7 @@ async function confirmSubmit() {
 
         if (result.success) {
             if (examTimer) examTimer.stop();
+            scoreIsSubmitted = true; // disable beforeunload guard
 
             window.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
         } else {
@@ -643,6 +689,31 @@ async function confirmSubmit() {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Submit Evaluation';
     }
+}
+
+// ============================================================================
+// BACK BUTTON GUARD
+// ============================================================================
+
+function setupBackButton() {
+    const btn = document.getElementById('back-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function(e) {
+        // Allow free navigation in review mode or when already submitted
+        if (MARKING_DATA.reviewMode || scoreIsSubmitted) return;
+        e.preventDefault();
+        _backNavHref = btn.href;
+        document.getElementById('back-warn-modal').style.display = 'flex';
+    });
+}
+
+function closeBackWarnModal() {
+    document.getElementById('back-warn-modal').style.display = 'none';
+}
+
+function confirmGoBack() {
+    closeBackWarnModal();
+    if (_backNavHref) window.location.href = _backNavHref;
 }
 
 // ============================================================================

@@ -10,7 +10,7 @@
             <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
             <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' session.exam_id %}">{{ session.exam.name|default:"Exam" }}</a></li>
             <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:session_paths' session.id %}">Paths</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">Session</a></li>
             <li class="breadcrumb-item active">{% if path %}Edit{% else %}Create{% endif %} Path</li>
         </ol>
     </nav>
@@ -114,7 +114,7 @@
     
     <div class="card mt-4">
         <div class="card-body d-flex justify-content-between">
-            <a href="{% url 'creator:session_paths' session.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Cancel</a>
+            <a href="{% url 'creator:session_detail' session.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Cancel</a>
             <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-check-lg me-1"></i>{% if path %}Update{% else %}Create{% endif %} Path</button>
         </div>
     </div>

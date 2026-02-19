@@ -3,7 +3,14 @@ Session and SessionStudent models.
 """
 import uuid
 from django.db import models
+from django.core.exceptions import ValidationError
 from .mixins import TimestampMixin
+
+
+def validate_student_number(value):
+    """Validate that student number contains only digits."""
+    if not value.isdigit():
+        raise ValidationError('Registration number must contain numbers only.')
 
 
 class ExamSession(models.Model):
@@ -76,7 +83,7 @@ class SessionStudent(models.Model):
         null=True, blank=True, related_name='students', db_index=True
     )
 
-    student_number = models.CharField(max_length=50)
+    student_number = models.CharField(max_length=50, validators=[validate_student_number])
     full_name = models.CharField(max_length=150)
     photo_url = models.CharField(max_length=500, blank=True, default='')
 

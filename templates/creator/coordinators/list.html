@@ -20,6 +20,18 @@
     {% endif %}
 </div>
 
+<!-- Search Bar -->
+<div class="mb-3 d-flex gap-2 align-items-center">
+    <form method="get" class="d-flex gap-2 align-items-center flex-grow-1">
+        <input type="text" name="search" class="form-control" placeholder="Search coordinators by name, username, or email..." value="{{ search_query|default:'' }}" style="max-width:400px;">
+        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search me-1"></i>Search</button>
+        {% if search_query %}
+        <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-danger"><i class="bi bi-x me-1"></i>Clear</a>
+        {% endif %}
+    </form>
+    <small class="text-muted text-nowrap">{{ coordinators|length }} coordinator{{ coordinators|length|pluralize }}</small>
+</div>
+
 <div class="stat-card">
     {% if coordinators %}
     <div class="table-responsive">
@@ -30,7 +42,7 @@
                     <th>Username</th>
                     <th>Email</th>
                     <th>Status</th>
-                    {% if request.user.is_superuser %}<th class="text-end">Actions</th>{% endif %}
+                    {% if request.user.is_superuser or request.user.role == 'admin' %}<th class="text-end">Actions</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -46,15 +58,22 @@
                             <span class="badge bg-secondary">Inactive</span>
                         {% endif %}
                     </td>
-                    {% if request.user.is_superuser %}
+                    {% if request.user.is_superuser or request.user.role == 'admin' %}
                     <td class="text-end">
-                        <form method="POST" action="{% url 'creator:coordinator_delete' coordinator.id %}"
-                              onsubmit="return confirm('Delete coordinator {{ coordinator.full_name }}?')">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </form>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'creator:coordinator_edit' coordinator.id %}" class="btn btn-outline-primary" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% if request.user.is_superuser %}
+                            <form method="POST" action="{% url 'creator:coordinator_delete' coordinator.id %}" class="d-inline"
+                                  onsubmit="return confirm('Delete coordinator {{ coordinator.full_name }}?')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </td>
                     {% endif %}
                 </tr>
@@ -65,7 +84,10 @@
     {% else %}
     <div class="text-center py-5 text-muted">
         <i class="bi bi-people fs-1 d-block mb-3 opacity-25"></i>
-        <p class="mb-0">No coordinators found.</p>
+        <p class="mb-0">
+            {% if search_query %}No coordinators match "{{ search_query }}".
+            {% else %}No coordinators found.{% endif %}
+        </p>
         {% if request.user.is_superuser or request.user.role == 'admin' %}
         <a href="{% url 'creator:coordinator_create' %}" class="btn btn-primary mt-3">
             Add First Coordinator

@@ -120,10 +120,6 @@ class CreatorPageViewTests(CreatorTestBase):
         r = self.client.get(reverse('creator:session_detail', args=[self.session.id]))
         self.assertEqual(r.status_code, 200)
 
-    def test_session_paths(self):
-        r = self.client.get(reverse('creator:session_paths', args=[self.session.id]))
-        self.assertEqual(r.status_code, 200)
-
     def test_library_list(self):
         r = self.client.get(reverse('creator:library_list'))
         self.assertEqual(r.status_code, 200)

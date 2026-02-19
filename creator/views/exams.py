@@ -7,6 +7,7 @@ from datetime import datetime, time
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse
 
 from core.models import (
@@ -17,10 +18,25 @@ from core.utils.naming import generate_path_name
 
 @login_required
 def exam_list(request):
-    """List all exams (active and deleted)."""
-    exams = Exam.objects.filter(is_deleted=False) \
-        .select_related('course') \
-        .order_by('-created_at')
+    """List all exams with search and pagination."""
+    search_query = request.GET.get('search', '').strip()
+    exams_qs = Exam.objects.filter(is_deleted=False).select_related('course').order_by('-created_at')
+    if search_query:
+        exams_qs = exams_qs.filter(
+            name__icontains=search_query
+        ) | Exam.objects.filter(
+            is_deleted=False, course__name__icontains=search_query
+        ).select_related('course') | Exam.objects.filter(
+            is_deleted=False, department__icontains=search_query
+        ).select_related('course')
+        exams_qs = exams_qs.order_by('-created_at').distinct()
+
+    page_num = request.GET.get('page', 1)
+    paginator = Paginator(exams_qs, per_page=20)
+    try:
+        page_obj = paginator.page(page_num)
+    except (PageNotAnInteger, EmptyPage):
+        page_obj = paginator.page(1)
 
     # Deleted exams visible to superuser and admin only
     can_see_deleted = request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'
@@ -29,7 +45,10 @@ def exam_list(request):
         if can_see_deleted else []
     )
     return render(request, 'creator/exams/list.html', {
-        'exams': exams,
+        'exams': page_obj.object_list,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'search_query': search_query,
         'deleted_exams': deleted_exams,
     })
 

@@ -4,8 +4,16 @@ Student management views – add from textarea and XLSX upload.
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.core.exceptions import ValidationError
 
 from core.models import ExamSession, SessionStudent, Path
+
+
+def validate_registration_number(number):
+    """Validate that registration number contains only digits."""
+    if not number.isdigit():
+        return False, 'Registration number must contain numbers only.'
+    return True, None
 
 
 @login_required
@@ -18,11 +26,30 @@ def add_students(request, session_id):
     path_id = request.POST.get('path_id', '')
 
     students_to_add = []
-    for line in student_data.strip().split('\n'):
+    validation_errors = []
+    for line_num, line in enumerate(student_data.strip().split('\n'), 1):
         if ',' in line:
             parts = line.strip().split(',', 1)
             if len(parts) == 2:
-                students_to_add.append((parts[0].strip(), parts[1].strip()))
+                number = parts[0].strip()
+                name = parts[1].strip()
+                
+                # Validate registration number
+                if number:
+                    is_valid, error_msg = validate_registration_number(number)
+                    if not is_valid:
+                        validation_errors.append(f'Line {line_num}: {error_msg}')
+                        continue
+                
+                students_to_add.append((number, name))
+    
+    # Return validation errors if any
+    if validation_errors:
+        return JsonResponse({
+            'success': False,
+            'message': 'Validation errors found:',
+            'errors': validation_errors,
+        })
 
     if not students_to_add:
         return JsonResponse({
@@ -96,7 +123,10 @@ def upload_students_xlsx(request, session_id):
 
         students_to_add = []
         first_row = True
+        validation_errors = []
+        row_num = 0
         for row in ws.iter_rows(values_only=True):
+            row_num += 1
             if not any(row):
                 continue
             number = str(row[0]).strip() if row[0] is not None else ''
@@ -109,32 +139,53 @@ def upload_students_xlsx(request, session_id):
                 first_row = False
 
             if number and name:
+                # Validate registration number
+                is_valid, error_msg = validate_registration_number(number)
+                if not is_valid:
+                    validation_errors.append(f'Row {row_num}: {error_msg}')
+                    continue
                 students_to_add.append((number, name))
+        
+        # Return validation errors if any
+        if validation_errors:
+            return JsonResponse({
+                'success': False,
+                'message': 'Validation errors found in XLSX:',
+                'errors': validation_errors,
+            })
 
         if not students_to_add:
-            return JsonResponse({'success': False, 'message': 'No valid student data found in XLSX.'})
+            error_msg = 'No valid student data found in XLSX.'
+            if validation_errors:
+                error_msg += ' Check registration numbers - they must contain only digits.'
+            return JsonResponse({'success': False, 'message': error_msg})
 
         added = 0
         skipped = 0
+        invalid_count = 0
         for i, (number, name) in enumerate(students_to_add):
             if SessionStudent.objects.filter(session=session, student_number=number).exists():
                 skipped += 1
                 continue
-
+            
             assigned_path_id = None
             if path_id:
                 assigned_path_id = path_id
             elif paths:
                 assigned_path_id = str(paths[i % len(paths)].id)
-
-            SessionStudent.objects.create(
-                session=session,
-                student_number=number,
-                full_name=name,
-                path_id=assigned_path_id,
-                status='registered',
-            )
-            added += 1
+            
+            try:
+                SessionStudent.objects.create(
+                    session=session,
+                    student_number=number,
+                    full_name=name,
+                    path_id=assigned_path_id,
+                    status='registered',
+                )
+                added += 1
+            except ValidationError as ve:
+                invalid_count += 1
+                continue
 
         if added > 0 and skipped > 0:
             return JsonResponse({
@@ -152,4 +203,7 @@ def upload_students_xlsx(request, session_id):
         return JsonResponse({'success': False, 'message': 'No students found in XLSX.'})
 
     except Exception as e:
+        error_msg = str(e)
+        if 'Registration number must contain' in error_msg:
+            return JsonResponse({'success': False, 'message': error_msg})
         return JsonResponse({'success': False, 'message': f'Error reading XLSX: {e}'})

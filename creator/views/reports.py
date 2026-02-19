@@ -3,6 +3,7 @@ Reports views – scoresheets and report index.
 """
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Sum
 
 from core.models import (
@@ -31,9 +32,31 @@ def reports_index(request):
 
 @login_required
 def reports_scoresheets(request, session_id):
-    """Print-ready score sheets for a session."""
+    """Print-ready score sheets for a session with pagination, search, and print_all mode."""
     session = get_object_or_404(ExamSession, pk=session_id)
-    students = SessionStudent.objects.filter(session=session).order_by('full_name')
+    
+    # Search filter
+    search_query = request.GET.get('search', '').strip()
+    print_all = request.GET.get('print_all') == '1'
+
+    students_qs = SessionStudent.objects.filter(session=session)
+    if search_query:
+        students_qs = students_qs.filter(full_name__icontains=search_query) | SessionStudent.objects.filter(
+            session=session, student_number__icontains=search_query
+        )
+    students_qs = students_qs.order_by('full_name').distinct()
+
+    # Paginate: 10 per page normally; all students in print_all mode
+    per_page = students_qs.count() if print_all else 10
+    page_num = 1 if print_all else request.GET.get('page', 1)
+    paginator = Paginator(students_qs, per_page=max(per_page, 1))
+
+    try:
+        students_page = paginator.page(page_num)
+    except (PageNotAnInteger, EmptyPage):
+        students_page = paginator.page(1)
+
+    students = students_page.object_list
 
     student_data = []
     for student in students:
@@ -101,6 +124,10 @@ def reports_scoresheets(request, session_id):
     return render(request, 'creator/reports/scoresheets.html', {
         'session': session,
         'students': student_data,
+        'page_obj': students_page,
+        'paginator': paginator,
+        'search_query': search_query,
+        'print_all': print_all,
     })
 
 

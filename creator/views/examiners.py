@@ -343,14 +343,27 @@ def examiner_bulk_upload(request):
 
 @login_required
 def coordinator_list(request):
-    """List all coordinators. Admin/superuser only."""
+    """List all coordinators with search. Admin/superuser only."""
     if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
         messages.error(request, 'You do not have permission to manage coordinators.')
         return redirect('creator:dashboard')
 
-    coordinators = Examiner.objects.filter(role='coordinator').order_by('full_name')
+    search_query = request.GET.get('search', '').strip()
+    coordinators_qs = Examiner.objects.filter(role='coordinator').order_by('full_name')
+    
+    if search_query:
+        coordinators_qs = coordinators_qs.filter(
+            full_name__icontains=search_query
+        ) | Examiner.objects.filter(
+            role='coordinator', username__icontains=search_query
+        ) | Examiner.objects.filter(
+            role='coordinator', email__icontains=search_query
+        )
+        coordinators_qs = coordinators_qs.order_by('full_name').distinct()
+    
     return render(request, 'creator/coordinators/list.html', {
-        'coordinators': coordinators,
+        'coordinators': coordinators_qs,
+        'search_query': search_query,
     })
 
 
@@ -389,6 +402,40 @@ def coordinator_create(request):
         return redirect('creator:coordinator_list')
 
     return render(request, 'creator/coordinators/form.html')
+
+
+@login_required
+def coordinator_edit(request, coordinator_id):
+    """Edit coordinator details. Admin/superuser only."""
+    if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
+        messages.error(request, 'You do not have permission to edit coordinators.')
+        return redirect('creator:coordinator_list')
+    
+    coordinator = get_object_or_404(Examiner, pk=coordinator_id, role='coordinator')
+    
+    if request.method == 'POST':
+        full_name = request.POST.get('full_name', '').strip()
+        email = request.POST.get('email', '').strip().lower()
+        is_active = request.POST.get('is_active') == 'on'
+        
+        if not full_name:
+            messages.error(request, 'Full name is required.')
+            return render(request, 'creator/coordinators/edit.html', {'coordinator': coordinator})
+        
+        # Check if email is already used by another coordinator
+        if email != coordinator.email and Examiner.objects.filter(email=email, role='coordinator').exclude(id=coordinator_id).exists():
+            messages.error(request, f'Email "{email}" is already used by another coordinator.')
+            return render(request, 'creator/coordinators/edit.html', {'coordinator': coordinator})
+        
+        coordinator.full_name = full_name
+        coordinator.email = email
+        coordinator.is_active = is_active
+        coordinator.save()
+        
+        messages.success(request, f'Coordinator "{full_name}" updated successfully.')
+        return redirect('creator:coordinator_list')
+    
+    return render(request, 'creator/coordinators/edit.html', {'coordinator': coordinator})
 
 
 @login_required

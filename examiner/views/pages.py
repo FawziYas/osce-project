@@ -15,6 +15,7 @@ from core.models import (
     ExaminerAssignment, ExamSession, SessionStudent, Station,
     StationScore, ItemScore, Path,
 )
+from core.models.mixins import TimestampMixin
 from core.utils.audit import log_action
 
 
@@ -310,7 +311,6 @@ def marking_interface(request, assignment_id, student_id):
     ).first()
 
     if not score:
-        from core.models.mixins import TimestampMixin
         score = StationScore.objects.create(
             session_student=student,
             station_id=assignment.station_id,
@@ -320,8 +320,19 @@ def marking_interface(request, assignment_id, student_id):
             status='in_progress',
         )
 
-    # Review mode: score is submitted and NOT unlocked for correction
-    review_mode = (score.status == 'submitted' and not score.unlocked_for_correction)
+    # Review mode: score is submitted, NOT unlocked, and past the 5-min grace window
+    _now = TimestampMixin.utc_timestamp()
+    within_undo_window = (
+        score.status == 'submitted'
+        and score.completed_at is not None
+        and (_now - score.completed_at) <= 300
+    )
+    review_mode = (
+        score.status == 'submitted'
+        and not score.unlocked_for_correction
+        and not within_undo_window
+    )
+
 
     # Check for co-examiner submission (dual-examiner finalize info)
     co_score = StationScore.objects.filter(
@@ -359,6 +370,8 @@ def marking_interface(request, assignment_id, student_id):
         'max_score': max_score,
         'duration': duration,
         'review_mode': review_mode,
+        'within_undo_window': within_undo_window,
+        'score_status': score.status,
         'saved_comments': score.comments or '',
         'co_examiner_name': co_examiner_name,
         'co_examiner_score': co_examiner_score,

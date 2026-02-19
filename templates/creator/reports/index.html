@@ -104,8 +104,11 @@
                 <p class="card-text text-muted small">
                     Individual student scores, station breakdown, pass/fail status
                 </p>
-                <div class="d-flex gap-2 justify-content-center">
-                    <button type="button" class="btn btn-primary" onclick="generateStudentResults('xlsx')" disabled id="btnStudentResults">
+                <div class="d-flex gap-2 justify-content-center flex-wrap">
+                    <button type="button" class="btn btn-primary" onclick="viewResults()" disabled id="btnViewResults">
+                        <i class="bi bi-eye me-1"></i>View Results
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" onclick="generateStudentResults('xlsx')" disabled id="btnStudentResults">
                         <i class="bi bi-file-earmark-excel me-1"></i>Export XLSX
                     </button>
                 </div>
@@ -199,15 +202,34 @@
 
 <!-- Results Table Section -->
 <div class="card shadow-sm mt-4" id="resultsSection" style="display: none;">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-table me-2"></i>Student Results</h5>
-        <div class="btn-group btn-group-sm">
-            <button type="button" class="btn btn-outline-secondary" onclick="toggleView('table')">
-                <i class="bi bi-table"></i>
-            </button>
-            <button type="button" class="btn btn-outline-secondary" onclick="toggleView('cards')">
-                <i class="bi bi-grid"></i>
-            </button>
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-table me-2"></i>Student Results</h5>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleView('table')">
+                    <i class="bi bi-table"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleView('cards')">
+                    <i class="bi bi-grid"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Search Bar -->
+        <div class="row g-2">
+            <div class="col-md-6">
+                <div class="input-group input-group-sm">
+                    <input type="text" class="form-control" id="studentSearchInput" placeholder="Search by name or student number..." />
+                    <button class="btn btn-outline-secondary" type="button" onclick="searchStudents()">
+                        <i class="bi bi-search"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" type="button" onclick="clearSearch()" id="clearSearchBtn" style="display:none;">
+                        <i class="bi bi-x"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <small class="text-muted" id="resultCount"></small>
+            </div>
         </div>
     </div>
     <div class="card-body p-0">
@@ -230,17 +252,68 @@
             </table>
         </div>
     </div>
+    <!-- Pagination Controls -->
+    <div class="card-footer bg-light d-flex justify-content-between align-items-center" id="paginationSection" style="display:none;">
+        <small class="text-muted" id="paginationInfo"></small>
+        <nav aria-label="Page navigation">
+            <ul class="pagination pagination-sm mb-0" id="paginationControls"></ul>
+        </nav>
+    </div>
 </div>
+
+<style>
+    #paginationSection {
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    #paginationSection .pagination {
+        margin-bottom: 0;
+    }
+    
+    #paginationInfo {
+        min-width: 150px;
+    }
+    
+    .search-section {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    #studentSearchInput {
+        flex: 1;
+        min-width: 200px;
+        max-width: none;
+    }
+    
+    .search-section button {
+        white-space: nowrap;
+    }
+    
+    #clearSearchBtn {
+        display: none;
+    }
+    
+    #resultCount {
+        display: block;
+        margin-top: 0.5rem;
+        color: #6c757d;
+    }
+</style>
 
 <script>
 let selectedSessionId = null;
 let sessionData = null;
+let currentPage = 1;
+let currentSearch = '';
 
 function loadSessionData() {
     const select = document.getElementById('sessionSelect');
     selectedSessionId = select.value;
 
-    const btns = ['btnRefresh', 'btnStudentResults', 'btnStationAnalysis',
+    const btns = ['btnRefresh', 'btnViewResults', 'btnStudentResults', 'btnStationAnalysis',
                   'btnExaminerSummary', 'btnItemAnalysis', 'btnScoreSheets', 'btnRawData'];
 
     if (!selectedSessionId) {
@@ -250,16 +323,48 @@ function loadSessionData() {
         return;
     }
 
-    btns.forEach(id => document.getElementById(id).disabled = false);
+    // Enable View Results and export buttons
+    document.getElementById('btnViewResults').disabled = false;
+    document.getElementById('btnStudentResults').disabled = false;
+    document.getElementById('btnStationAnalysis').disabled = false;
+    document.getElementById('btnExaminerSummary').disabled = false;
+    document.getElementById('btnScoreSheets').disabled = false;
+    document.getElementById('btnRefresh').disabled = false;
+    
+    // Reset search and pagination
+    currentPage = 1;
+    currentSearch = '';
+    document.getElementById('studentSearchInput').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
+    
+    // Hide results section until View Results is clicked
+    document.getElementById('sessionStatsSection').style.display = 'none';
+    document.getElementById('resultsSection').style.display = 'none';
+}
 
-    // Fetch session data
-    fetch(`/api/creator/reports/session/${selectedSessionId}/summary`)
+function viewResults() {
+    // Load and display results when button is clicked
+    if (!selectedSessionId) {
+        alert('Please select a session first');
+        return;
+    }
+    fetchSessionData(1, '');
+}
+
+function fetchSessionData(page = 1, search = '') {
+    let url = `/api/creator/reports/session/${selectedSessionId}/summary?page=${page}`;
+    if (search) {
+        url += `&search=${encodeURIComponent(search)}`;
+    }
+    
+    fetch(url)
         .then(r => r.json())
         .then(data => {
             if (data.success) {
                 sessionData = data.data;
                 updateStats(sessionData);
                 updateResultsTable(sessionData.students || [], sessionData.station_headers || []);
+                updatePagination(sessionData.pagination);
                 document.getElementById('sessionStatsSection').style.display = 'block';
                 document.getElementById('resultsSection').style.display = 'block';
             }
@@ -268,6 +373,35 @@ function loadSessionData() {
             console.error('Error loading session data:', err);
             alert('Error loading session data');
         });
+}
+
+function searchStudents() {
+    const searchInput = document.getElementById('studentSearchInput').value.trim();
+    currentSearch = searchInput;
+    currentPage = 1;
+    
+    if (searchInput) {
+        document.getElementById('clearSearchBtn').style.display = 'inline-block';
+    } else {
+        document.getElementById('clearSearchBtn').style.display = 'none';
+    }
+    
+    fetchSessionData(currentPage, currentSearch);
+}
+
+function clearSearch() {
+    document.getElementById('studentSearchInput').value = '';
+    currentSearch = '';
+    currentPage = 1;
+    document.getElementById('clearSearchBtn').style.display = 'none';
+    fetchSessionData(currentPage, '');
+}
+
+function goToPage(page) {
+    currentPage = page;
+    fetchSessionData(currentPage, currentSearch);
+    // Scroll to table
+    document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
 }
 
 function updateStats(data) {
@@ -335,6 +469,91 @@ function updateResultsTable(students, headers = []) {
     }).join('');
 }
 
+function updatePagination(pagination) {
+    if (!pagination) {
+        document.getElementById('paginationSection').style.display = 'none';
+        document.getElementById('resultCount').textContent = '';
+        return;
+    }
+    
+    const { current_page, total_pages, total_count, per_page, has_previous, has_next, previous_page_number, next_page_number } = pagination;
+    
+    // Update result count
+    const startIndex = (current_page - 1) * per_page + 1;
+    const endIndex = Math.min(current_page * per_page, total_count);
+    document.getElementById('resultCount').textContent = `Showing ${startIndex}-${endIndex} of ${total_count} students`;
+    
+    // Show/hide pagination section
+    if (total_pages <= 1) {
+        document.getElementById('paginationSection').style.display = 'none';
+        return;
+    }
+    
+    document.getElementById('paginationSection').style.display = 'flex';
+    
+    // Update pagination info
+    document.getElementById('paginationInfo').textContent = `Page ${current_page} of ${total_pages}`;
+    
+    // Build pagination buttons
+    let paginationHtml = '';
+    
+    // First button
+    if (has_previous) {
+        paginationHtml += `<li class="page-item"><a class="page-link" href="javascript:goToPage(1)"><i class="bi bi-chevron-double-left"></i></a></li>`;
+    } else {
+        paginationHtml += `<li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-left"></i></span></li>`;
+    }
+    
+    // Previous button
+    if (has_previous) {
+        paginationHtml += `<li class="page-item"><a class="page-link" href="javascript:goToPage(${previous_page_number})"><i class="bi bi-chevron-left"></i></a></li>`;
+    } else {
+        paginationHtml += `<li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>`;
+    }
+    
+    // Page number buttons (show 5 pages at most)
+    const pageStart = Math.max(1, current_page - 2);
+    const pageEnd = Math.min(total_pages, current_page + 2);
+    
+    if (pageStart > 1) {
+        paginationHtml += `<li class="page-item"><a class="page-link" href="javascript:goToPage(1)">1</a></li>`;
+        if (pageStart > 2) {
+            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+    
+    for (let i = pageStart; i <= pageEnd; i++) {
+        if (i === current_page) {
+            paginationHtml += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+        } else {
+            paginationHtml += `<li class="page-item"><a class="page-link" href="javascript:goToPage(${i})">${i}</a></li>`;
+        }
+    }
+    
+    if (pageEnd < total_pages) {
+        if (pageEnd < total_pages - 1) {
+            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        paginationHtml += `<li class="page-item"><a class="page-link" href="javascript:goToPage(${total_pages})">${total_pages}</a></li>`;
+    }
+    
+    // Next button
+    if (has_next) {
+        paginationHtml += `<li class="page-item"><a class="page-link" href="javascript:goToPage(${next_page_number})"><i class="bi bi-chevron-right"></i></a></li>`;
+    } else {
+        paginationHtml += `<li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>`;
+    }
+    
+    // Last button
+    if (has_next) {
+        paginationHtml += `<li class="page-item"><a class="page-link" href="javascript:goToPage(${total_pages})"><i class="bi bi-chevron-double-right"></i></a></li>`;
+    } else {
+        paginationHtml += `<li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-right"></i></span></li>`;
+    }
+    
+    document.getElementById('paginationControls').innerHTML = paginationHtml;
+}
+
 function refreshData() {
     loadSessionData();
 }
@@ -374,8 +593,17 @@ function generateRawData() {
     window.location.href = `/api/creator/reports/session/${selectedSessionId}/raw/csv`;
 }
 
-// Load initial data if session is pre-selected
+// Allow Enter key to trigger search
 document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('studentSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchStudents();
+            }
+        });
+    }
+    
     if (document.getElementById('sessionSelect').value) {
         loadSessionData();
     }

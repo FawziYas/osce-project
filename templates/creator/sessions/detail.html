@@ -22,9 +22,6 @@
         </p>
     </div>
     <div class="btn-group">
-        <a href="{% url 'creator:session_paths' session.id %}" class="btn btn-outline-primary">
-            <i class="bi bi-signpost-split me-1"></i>Manage Paths
-        </a>
         {% if session.status == 'scheduled' %}
         <button type="button" class="btn btn-success" onclick="activateSession()"><i class="bi bi-play-fill me-1"></i>Activate</button>
         {% elif session.status == 'in_progress' %}
@@ -105,7 +102,7 @@
     <div class="col-md-8">
         <div class="table-card">
             <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Students ({{ students|length }})</h5>
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Students ({{ total_students }})</h5>
                 {% if students %}
                 <div class="btn-group btn-group-sm">
                     <a href="{% url 'creator:download_student_paths_pdf' session.id %}" class="btn btn-outline-primary" title="Download PDF with student path assignments">
@@ -125,6 +122,8 @@
                 {% endif %}
             </div>
             
+            {# Search moved below add-students form to sit above the students list #}
+            
             <!-- Add Students Form -->
             <div class="p-3 border-bottom">
                 <ul class="nav nav-tabs mb-3" role="tablist">
@@ -137,9 +136,11 @@
                             {% csrf_token %}
                             <div class="mb-3">
                                 <label class="form-label">Add Students (one per line: student_number,full_name)</label>
-                                <textarea class="form-control" name="student_list" rows="4" placeholder="12345,John Doe
+                                <textarea class="form-control" id="studentListInput" name="student_list" rows="4" placeholder="12345,John Doe
 12346,Jane Smith
-12347,Bob Johnson"></textarea>
+12347,Bob Johnson" oninput="validateStudentNumbers()"></textarea>
+                                <div id="studentValidationError" class="invalid-feedback d-block" style="display:none; color:#dc3545; font-size:0.875rem; margin-top:0.25rem;"></div>
+                                <div class="form-text">Format: Registration Number (digits only), Full Name</div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Assign to Path (optional)</label>
@@ -187,42 +188,95 @@
             </div>
             
             {% if students %}
-            <table class="table table-hover mb-0">
-                <thead><tr><th>Student #</th><th>Name</th><th>Path</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>
-                    {% for student in students %}
-                    <tr>
-                        <td><code>{{ student.student_number }}</code></td>
-                        <td>{{ student.full_name }}</td>
-                        <td>
-                            <select class="form-select form-select-sm" style="width: auto;" 
-                                    onchange="updateStudentPath('{{ student.id }}', this.value)"
-                                    {% if student.status != 'registered' %}disabled{% endif %}>
-                                <option value="">Unassigned</option>
-                                {% for path in paths %}
-                                <option value="{{ path.id }}" {% if student.path_id == path.id %}selected{% endif %}>Path {{ path.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td>
-                            {% if student.status == 'registered' %}<span class="badge bg-primary">Registered</span>
-                            {% elif student.status == 'checked_in' %}<span class="badge bg-info">Checked In</span>
-                            {% elif student.status == 'in_progress' %}<span class="badge bg-warning">In Progress</span>
-                            {% elif student.status == 'completed' %}<span class="badge bg-success">Completed</span>
-                            {% elif student.status == 'absent' %}<span class="badge bg-danger">Absent</span>
-                            {% else %}<span class="badge bg-secondary">{{ student.status|title }}</span>{% endif %}
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                    onclick="deleteStudent('{{ student.id }}', '{{ student.full_name }}')"
-                                    {% if session.actual_start %}disabled{% endif %}>
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <!-- Search Bar for Students -->
+            {% if total_students > 10 %}
+            <div class="p-3 border-bottom">
+                <form method="get" class="d-flex gap-2 align-items-center flex-nowrap">
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="Search..." value="{{ search_query|default:'' }}" style="width:200px; flex-shrink:0;">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" style="white-space: nowrap;" title="Search"><i class="bi bi-search me-1"></i>Search</button>
+                    {% if search_query %}
+                    <a href="?{% if page_obj %}page=1{% endif %}" class="btn btn-sm btn-outline-danger" style="white-space: nowrap;" title="Clear search"><i class="bi bi-x me-1"></i>Clear</a>
+                    {% endif %}
+                </form>
+            </div>
+            {% endif %}
+            <!-- Students Table with improved styling for large datasets -->
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-hover mb-0 table-sm">
+                    <thead class="sticky-top" style="background: white; z-index: 10;">
+                        <tr>
+                            <th>Student #</th>
+                            <th>Name</th>
+                            <th>Path</th>
+                            <th>Status</th>
+                            <th class="text-center" style="width: 50px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td><code class="text-primary fw-bold">{{ student.student_number }}</code></td>
+                            <td>{{ student.full_name }}</td>
+                            <td>
+                                <select class="form-select form-select-sm" style="width: auto;" 
+                                        onchange="updateStudentPath('{{ student.id }}', this.value)"
+                                        {% if student.status != 'registered' %}disabled{% endif %}>
+                                    <option value="">Unassigned</option>
+                                    {% for path in paths %}
+                                    <option value="{{ path.id }}" {% if student.path_id == path.id %}selected{% endif %}>Path {{ path.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                {% if student.status == 'registered' %}<span class="badge bg-primary">Registered</span>
+                                {% elif student.status == 'checked_in' %}<span class="badge bg-info">Checked In</span>
+                                {% elif student.status == 'in_progress' %}<span class="badge bg-warning">In Progress</span>
+                                {% elif student.status == 'completed' %}<span class="badge bg-success">Completed</span>
+                                {% elif student.status == 'absent' %}<span class="badge bg-danger">Absent</span>
+                                {% else %}<span class="badge bg-secondary">{{ student.status|title }}</span>{% endif %}
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteStudent('{{ student.id }}', '{{ student.full_name }}')"
+                                        {% if session.actual_start %}disabled{% endif %}
+                                        title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination Controls -->
+            {% if paginator.num_pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                <small class="text-muted">
+                    Page {{ page_obj.number }} of {{ paginator.num_pages }} &mdash; 
+                    Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ paginator.count }}
+                </small>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page=1{% if search_query %}&search={{ search_query|urlencode }}{% endif %}"><i class="bi bi-chevron-double-left"></i></a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}"><i class="bi bi-chevron-left"></i></a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-left"></i></span></li>
+                        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+                        {% endif %}
+                        <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+                        {% if page_obj.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}"><i class="bi bi-chevron-right"></i></a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ paginator.num_pages }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}"><i class="bi bi-chevron-double-right"></i></a></li>
+                        {% else %}
+                        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+                        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-right"></i></span></li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
             {% else %}
             <div class="p-4 text-center text-muted">
                 <i class="bi bi-people fs-1 d-block mb-2"></i>No students added yet.
@@ -240,7 +294,7 @@
                 <li class="mb-2"><span class="text-muted">Rotation Time:</span><br><strong>{{ session_metrics.rotation_display }}</strong>
                     {% if session_metrics.rotation_detail %}<div class="text-muted small">{{ session_metrics.rotation_detail }}</div>{% endif %}
                 </li>
-                <li class="mb-2"><span class="text-muted">Students assigned:</span><br><strong>{{ students|length }} Students</strong></li>
+                <li class="mb-2"><span class="text-muted">Students assigned:</span><br><strong>{{ total_students }} Student{{ total_students|pluralize }}</strong></li>
                 <li class="mb-2"><span class="text-muted">Stations:</span><br><strong>{{ session_metrics.station_display }}</strong>
                     {% if session_metrics.station_detail %}<div class="text-muted small">{{ session_metrics.station_detail }}</div>{% endif %}
                 </li>
@@ -325,7 +379,11 @@
                                     <small class="text-muted">{{ sc.examiner.display_name|default:"Deleted" }}</small>
                                 </td>
                                 <td style="padding:4px 6px; text-align:right; white-space:nowrap;">
-                                    {% if not sc.unlocked_for_correction %}
+                                    {% if sc.within_undo_window %}
+                                    <span style="font-size:0.7rem; background:#dcfce7; border:1px solid #86efac; color:#166534; padding:2px 6px; border-radius:5px; display:inline-block;" title="Examiner can still edit within grace period">
+                                        <i class="bi bi-pencil"></i> Editable
+                                    </span>
+                                    {% elif not sc.unlocked_for_correction %}
                                     <button type="button"
                                             style="background:#fef3c7; border:1px solid #f59e0b; color:#92400e; font-size:0.7rem; padding:2px 7px; border-radius:5px; cursor:pointer;"
                                             onclick="unlockScore('{{ sc.id }}', '{{ sc.session_student.full_name|escapejs }}', '{{ sc.examiner.display_name|default:"Deleted Examiner"|escapejs }}', '{{ sc.station.name|default:"Station"|escapejs }}')"
@@ -505,14 +563,65 @@ function confirmDeleteAllStudents() {
     }
 }
 
+// Validate student number format (digits only)
+function validateStudentNumbers() {
+    const textarea = document.getElementById('studentListInput');
+    const errorDiv = document.getElementById('studentValidationError');
+    const lines = textarea.value.trim().split('\n');
+    const errors = [];
+    
+    lines.forEach((line, idx) => {
+        if (!line.trim()) return; // skip empty lines
+        if (!line.includes(',')) return; // skip lines without comma
+        
+        const parts = line.split(',');
+        if (parts.length < 2) return;
+        
+        const number = parts[0].trim();
+        if (!number) return; // skip empty numbers
+        
+        // Check if number contains only digits
+        if (!/^\d+$/.test(number)) {
+            errors.push(`Line ${idx + 1}: Registration number "${number}" must contain numbers only.`);
+        }
+    });
+    
+    if (errors.length > 0) {
+        errorDiv.style.display = 'block';
+        errorDiv.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>' + errors.join('<br>');
+        textarea.classList.add('is-invalid');
+    } else {
+        errorDiv.style.display = 'none';
+        textarea.classList.remove('is-invalid');
+    }
+}
+
 document.getElementById('addStudentsForm').addEventListener('submit', function(e) {
     e.preventDefault();
+    
+    // Validate before submission
+    validateStudentNumbers();
+    const errorDiv = document.getElementById('studentValidationError');
+    if (errorDiv.style.display !== 'none') {
+        alert('Please fix validation errors before submitting.');
+        return;
+    }
+    
     const btn=document.getElementById('submitAddStudents'), text=document.getElementById('textAddStudents'), spinner=document.getElementById('spinnerAddStudents');
     btn.disabled=true; text.innerHTML='<i class="bi bi-hourglass-split me-1"></i>Adding...'; spinner.classList.remove('d-none');
     fetch(this.action, {method:'POST', body:new FormData(this)})
     .then(r=>r.json()).then(data=>{
         if(data.success){let msg=data.message;if(data.warning)msg+='\n\n'+data.warning;alert(msg);location.reload();}
-        else{alert(data.message);btn.disabled=false;text.innerHTML='<i class="bi bi-plus-lg me-1"></i>Add Students';spinner.classList.add('d-none');}
+        else{
+            let errorMsg = data.message;
+            if(data.errors && data.errors.length > 0) {
+                errorMsg += '\n\nErrors:\n' + data.errors.join('\n');
+            }
+            alert(errorMsg);
+            btn.disabled=false;
+            text.innerHTML='<i class="bi bi-plus-lg me-1"></i>Add Students';
+            spinner.classList.add('d-none');
+        }
     }).catch(err=>{alert('Error: '+err.message);btn.disabled=false;text.innerHTML='<i class="bi bi-plus-lg me-1"></i>Add Students';spinner.classList.add('d-none');});
 });
 
@@ -523,7 +632,16 @@ document.getElementById('uploadExcelForm').addEventListener('submit', function(e
     fetch(this.action, {method:'POST', body:new FormData(this)})
     .then(r=>r.json()).then(data=>{
         if(data.success){let msg=data.message;if(data.warning)msg+='\n\n'+data.warning;alert(msg);location.reload();}
-        else{alert(data.message);btn.disabled=false;text.innerHTML='<i class="bi bi-upload me-1"></i>Upload Excel';spinner.classList.add('d-none');}
+        else{
+            let errorMsg = data.message;
+            if(data.errors && data.errors.length > 0) {
+                errorMsg += '\n\nErrors:\n' + data.errors.join('\n');
+            }
+            alert(errorMsg);
+            btn.disabled=false;
+            text.innerHTML='<i class="bi bi-upload me-1"></i>Upload Excel';
+            spinner.classList.add('d-none');
+        }
     }).catch(err=>{alert('Error: '+err.message);btn.disabled=false;text.innerHTML='<i class="bi bi-upload me-1"></i>Upload Excel';spinner.classList.add('d-none');});
 });
 

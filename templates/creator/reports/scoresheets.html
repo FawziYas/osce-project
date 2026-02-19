@@ -20,7 +20,7 @@
             margin: 0 !important;
             padding: 0 !important;
         }
-        .sidebar, .btn, .no-print, .student-checkbox { display: none !important; }
+        .sidebar, .btn, .no-print, .student-checkbox, .print-controls { display: none !important; }
         .hidden-from-print { display: none !important; }
         .score-sheet.hidden-from-print { display: none !important; }
         .main-content {
@@ -151,25 +151,78 @@
     </div>
 </div>
 
+<!-- Search Box (cross-page) -->
 {% if not single_student %}
-<div class="print-controls no-print">
+<div class="no-print" style="background: white; padding: 15px; margin: 20px 0; border-radius: 8px; border: 1px solid #dee2e6;">
+    <form method="get" style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" name="search" class="form-control" placeholder="Search by student name or number..." value="{{ search_query|default:'' }}" style="max-width: 400px;">
+        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i> Search</button>
+        {% if search_query %}
+        <a href="?" class="btn btn-outline-danger"><i class="bi bi-x"></i> Clear</a>
+        {% endif %}
+        <small class="text-muted ms-auto">{{ paginator.count }} total results</small>
+    </form>
+</div>
+{% endif %}
+
+{% if not single_student %}
+<!-- Pagination Info Bar -->
+<div class="no-print" style="background:#f8f9fa; padding:12px 15px; margin:20px 0; border-radius:8px; border:1px solid #dee2e6;">
     <div class="d-flex justify-content-between align-items-center">
+        <div style="font-size:0.9rem; color:#495057;">
+            {% if print_all %}
+            <strong>All {{ paginator.count }} students</strong> &mdash; Print-ready
+            {% else %}
+            <strong>Page {{ page_obj.number }} of {{ paginator.num_pages }}</strong>
+            &mdash; Showing {{ page_obj.object_list|length }} of {{ paginator.count }} students
+            {% endif %}
+        </div>
+        {% if not print_all %}
         <div>
-            <button class="btn btn-outline-secondary" onclick="toggleSelectAll()">
+            {% if page_obj.has_previous %}
+            <a href="?page=1{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-double-left"></i></a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i></a>
+            {% endif %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-right"></i></a>
+            <a href="?page={{ paginator.num_pages }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-double-right"></i></a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if not print_all %}
+<div class="print-controls no-print">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="toggleSelectAll()" id="selectAllBtn">
                 <i class="bi bi-check-square me-1"></i><span id="selectAllText">Select All</span>
             </button>
-            <span class="ms-3 text-muted"><span id="selectedCount">0</span> of {{ students|length }} selected</span>
+            <button class="btn btn-outline-secondary btn-sm" onclick="deselectAll()">
+                <i class="bi bi-square me-1"></i>Deselect All
+            </button>
+            <span class="text-muted small"><span id="selectedCount">0</span> of {{ page_obj.object_list|length }} selected on this page</span>
         </div>
-        <div>
-            <button class="btn btn-primary me-2" onclick="printSelected()">
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm" onclick="printSelected()">
                 <i class="bi bi-printer me-1"></i>Print Selected
             </button>
-            <button class="btn btn-outline-primary" onclick="window.print()">
-                <i class="bi bi-printer-fill me-1"></i>Print All
+            <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer-fill me-1"></i>Print This Page
             </button>
+            <a href="?print_all=1{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-outline-success btn-sm" target="_blank">
+                <i class="bi bi-printer-fill me-1"></i>Print All {{ paginator.count }} Students
+            </a>
         </div>
     </div>
 </div>
+{% else %}
+<div class="no-print" style="text-align:center; padding:10px 0;">
+    <button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-2"></i>Print All {{ paginator.count }} Students</button>
+    <a href="?" class="btn btn-outline-secondary ms-2"><i class="bi bi-arrow-left me-1"></i>Back to Paginated View</a>
+</div>
+{% endif %}
 {% else %}
 <div class="text-center no-print mb-4">
     <button class="btn btn-primary btn-lg" onclick="window.print()">
@@ -272,30 +325,51 @@
 </div>
 {% endfor %}
 
+<!-- Bottom Pagination -->
+{% if not single_student and not print_all %}
+<div class="no-print" style="background:#f8f9fa; padding:12px 15px; margin:20px 0; border-radius:8px; border:1px solid #dee2e6; text-align:center;">
+    <strong>Page {{ page_obj.number }} of {{ paginator.num_pages }}</strong>
+    <div style="margin-top:10px;">
+        {% if page_obj.has_previous %}
+        <a href="?page=1{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-double-left"></i></a>
+        <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-left"></i> Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary">Next <i class="bi bi-chevron-right"></i></a>
+        <a href="?page={{ paginator.num_pages }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-chevron-double-right"></i></a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <script>
 function updateSelectedCount() {
     const checkboxes = document.querySelectorAll('.student-checkbox');
     const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
-    document.getElementById('selectedCount').textContent = checked;
-    document.getElementById('selectAllText').textContent = checked === checkboxes.length ? 'Deselect All' : 'Select All';
+    const el = document.getElementById('selectedCount');
+    if (el) el.textContent = checked;
+    const txt = document.getElementById('selectAllText');
+    if (txt) txt.textContent = (checkboxes.length > 0 && checked === checkboxes.length) ? 'Deselect All' : 'Select All';
 }
 
 function toggleSelectAll() {
     const checkboxes = document.querySelectorAll('.student-checkbox');
-    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    const allChecked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
     checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectedCount();
+}
+
+function deselectAll() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
     updateSelectedCount();
 }
 
 function printSelected() {
     const sheets = document.querySelectorAll('.score-sheet');
-
     const checkedStudentIds = new Set();
     sheets.forEach(sheet => {
         const checkbox = sheet.querySelector('.student-checkbox');
-        if (checkbox && checkbox.checked) {
-            checkedStudentIds.add(sheet.dataset.studentId);
-        }
+        if (checkbox && checkbox.checked) checkedStudentIds.add(sheet.dataset.studentId);
     });
 
     if (checkedStudentIds.size === 0) {
@@ -306,44 +380,36 @@ function printSelected() {
     sheets.forEach(sheet => {
         if (!checkedStudentIds.has(sheet.dataset.studentId)) {
             sheet.classList.add('hidden-from-print');
-            void sheet.offsetHeight;
         }
     });
 
     setTimeout(() => {
         window.print();
         setTimeout(() => {
-            sheets.forEach(sheet => {
-                sheet.classList.remove('hidden-from-print');
-            });
-        }, 100);
+            sheets.forEach(sheet => sheet.classList.remove('hidden-from-print'));
+        }, 300);
     }, 50);
 }
 
 function printStudent(studentId) {
     const sheets = document.querySelectorAll('.score-sheet');
     const targetStudentId = studentId.toString();
-
     sheets.forEach(sheet => {
-        if (sheet.dataset.studentId !== targetStudentId) {
-            sheet.classList.add('hidden-from-print');
-            void sheet.offsetHeight;
-        }
+        if (sheet.dataset.studentId !== targetStudentId) sheet.classList.add('hidden-from-print');
     });
-
     setTimeout(() => {
         window.print();
-        setTimeout(() => {
-            sheets.forEach(sheet => {
-                sheet.classList.remove('hidden-from-print');
-            });
-        }, 100);
+        setTimeout(() => sheets.forEach(sheet => sheet.classList.remove('hidden-from-print')), 300);
     }, 50);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    {% if not single_student %}
+    {% if not single_student and not print_all %}
     updateSelectedCount();
+    {% endif %}
+    {% if print_all %}
+    // Auto-trigger print in print_all mode
+    setTimeout(() => window.print(), 500);
     {% endif %}
 });
 </script>
