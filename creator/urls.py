@@ -91,6 +91,8 @@ urlpatterns = [
     path('examiners/<int:examiner_id>/', examiners.examiner_detail, name='examiner_detail'),
     path('examiners/<int:examiner_id>/edit/', examiners.examiner_edit, name='examiner_edit'),
     path('examiners/<int:examiner_id>/delete/', examiners.examiner_delete, name='examiner_delete'),
+    path('examiners/<int:examiner_id>/restore/', examiners.examiner_restore, name='examiner_restore'),
+    path('examiners/<int:examiner_id>/permanent-delete/', examiners.examiner_permanent_delete, name='examiner_permanent_delete'),
     path('assignments/<uuid:assignment_id>/delete/', examiners.examiner_unassign, name='examiner_unassign'),
     # ── Coordinators ───────────────────────────────────────────
     path('coordinators/', examiners.coordinator_list, name='coordinator_list'),

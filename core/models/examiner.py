@@ -60,6 +60,8 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     objects = ExaminerManager()
 

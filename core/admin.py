@@ -21,8 +21,8 @@ from .models import (
 # ── Custom User Admin ─────────────────────────────────────────────
 @admin.register(Examiner)
 class ExaminerAdmin(BaseUserAdmin):
-    list_display = ('username', 'email', 'full_name', 'role', 'title', 'department', 'is_active', 'is_staff')
-    list_filter = ('role', 'is_active', 'is_staff', 'department')
+    list_display = ('username', 'email', 'full_name', 'role', 'title', 'department', 'is_active', 'is_deleted', 'is_staff')
+    list_filter = ('role', 'is_active', 'is_deleted', 'is_staff', 'department')
     search_fields = ('username', 'email', 'full_name')
     ordering = ('username',)
 

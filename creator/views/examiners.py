@@ -3,6 +3,7 @@ Examiner management views – list, CRUD, unassign, bulk upload/download templat
 """
 from datetime import datetime
 from io import BytesIO
+from django.utils import timezone
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -14,25 +15,32 @@ from core.models import Examiner, ExaminerAssignment, ExamSession
 
 @login_required
 def examiner_list(request):
-    """List all examiners."""
-    examiners = Examiner.objects.filter(role='examiner').order_by('full_name')
+    """List all examiners (active only). Deleted shown separately for admin/superuser."""
+    examiners = Examiner.objects.filter(role='examiner', is_deleted=False).order_by('full_name')
     today = datetime.now().date()
 
+    can_see_deleted = request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'
+    deleted_examiners = Examiner.objects.filter(role='examiner', is_deleted=True).order_by('full_name') if can_see_deleted else []
+
     stats = {
-        'total': Examiner.objects.filter(role='examiner').count(),
-        'active': Examiner.objects.filter(role='examiner', is_active=True).count(),
+        'total': Examiner.objects.filter(role='examiner', is_deleted=False).count(),
+        'active': Examiner.objects.filter(role='examiner', is_active=True, is_deleted=False).count(),
         'assigned_today': ExaminerAssignment.objects.filter(
             session__session_date=today,
             examiner__role='examiner',
+            examiner__is_deleted=False,
         ).values('examiner_id').distinct().count(),
         'total_assignments': ExaminerAssignment.objects.filter(
             examiner__role='examiner',
+            examiner__is_deleted=False,
         ).count(),
     }
 
     return render(request, 'creator/examiners/list.html', {
         'examiners': examiners,
         'stats': stats,
+        'deleted_examiners': deleted_examiners,
+        'can_see_deleted': can_see_deleted,
     })
 
 
@@ -112,7 +120,7 @@ def examiner_edit(request, examiner_id):
 
 @login_required
 def examiner_delete(request, examiner_id):
-    """Delete an examiner (hard delete). Admin/superuser only."""
+    """Soft-delete an examiner. Admin/superuser only."""
     if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
         messages.error(request, 'Only admins and superusers can delete examiners.')
         return redirect('creator:examiner_list')
@@ -121,13 +129,53 @@ def examiner_delete(request, examiner_id):
         messages.error(request, 'Invalid request method.')
         return redirect('creator:examiner_list')
 
-    examiner = get_object_or_404(Examiner, pk=examiner_id)
+    examiner = get_object_or_404(Examiner, pk=examiner_id, is_deleted=False)
     name = examiner.display_name
+    examiner.is_deleted = True
+    examiner.is_active = False
+    examiner.deleted_at = timezone.now()
+    examiner.save()
 
+    messages.success(request, f'Examiner "{name}" has been deleted. You can restore them from the deleted list.')
+    return redirect('creator:examiner_list')
+
+
+@login_required
+def examiner_restore(request, examiner_id):
+    """Restore a soft-deleted examiner. Admin/superuser only."""
+    if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
+        messages.error(request, 'Only admins and superusers can restore examiners.')
+        return redirect('creator:examiner_list')
+
+    if request.method != 'POST':
+        return redirect('creator:examiner_list')
+
+    examiner = get_object_or_404(Examiner, pk=examiner_id, is_deleted=True)
+    examiner.is_deleted = False
+    examiner.is_active = True
+    examiner.deleted_at = None
+    examiner.save()
+
+    messages.success(request, f'Examiner "{examiner.display_name}" has been restored.')
+    return redirect('creator:examiner_list')
+
+
+@login_required
+def examiner_permanent_delete(request, examiner_id):
+    """Permanently delete an examiner and all their records. Superuser only."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Only superusers can permanently delete examiners.')
+        return redirect('creator:examiner_list')
+
+    if request.method != 'POST':
+        return redirect('creator:examiner_list')
+
+    examiner = get_object_or_404(Examiner, pk=examiner_id, is_deleted=True)
+    name = examiner.display_name
     ExaminerAssignment.objects.filter(examiner=examiner).delete()
     examiner.delete()
 
-    messages.success(request, f'Examiner "{name}" deleted successfully.')
+    messages.success(request, f'Examiner "{name}" permanently deleted.')
     return redirect('creator:examiner_list')
 
 
