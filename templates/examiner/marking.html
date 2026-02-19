@@ -85,18 +85,7 @@
     <div class="content-wrapper">
 
     <!-- Review / Lock Banner -->
-    {% if review_mode %}
-    <div id="review-banner" style="background:#1e293b; border:2px solid #f59e0b; border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-        <div style="display:flex; align-items:center; gap:10px;">
-            <i class="bi bi-lock-fill" style="font-size:1.4rem; color:#f59e0b;"></i>
-            <div>
-                <div style="color:#f59e0b; font-weight:700; font-size:0.95rem;">Evaluation Submitted — Read Only</div>
-                <div style="color:#94a3b8; font-size:0.82rem;">Contact a coordinator to unlock this evaluation for correction.</div>
-            </div>
-        </div>
-        <span class="badge bg-warning text-dark" style="font-size:0.8rem; padding:6px 12px;"><i class="bi bi-shield-lock me-1"></i>Locked</span>
-    </div>
-    {% elif score.unlocked_for_correction %}
+    {% if score.unlocked_for_correction %}
     <div style="background:#1e293b; border:2px solid #22c55e; border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
         <i class="bi bi-unlock-fill" style="font-size:1.4rem; color:#22c55e;"></i>
         <div>
