@@ -1,0 +1,184 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Exams - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Exams</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-calendar-event me-2"></i>OSCE Exams</h1>
+    </div>
+    <a href="{% url 'creator:exam_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Create Exam</a>
+</div>
+
+<div class="table-card">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Name</th><th>Course</th><th>Department</th><th>Exam Date</th><th>Stations</th><th>Status</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for exam in exams %}
+            <tr>
+                <td><a href="{% url 'creator:exam_detail' exam.id %}" class="text-decoration-none fw-bold">{{ exam.name }}</a></td>
+                <td>
+                    {% if exam.course %}
+                        <span class="badge bg-primary me-1">{{ exam.course.short_code|default:exam.course.code }}</span>
+                    {% else %}<span class="text-muted">-</span>{% endif %}
+                </td>
+                <td>
+                    {% if exam.department %}<span class="badge bg-success">{{ exam.department }}</span>{% else %}<span class="text-muted">-</span>{% endif %}
+                </td>
+                <td>
+                    {% if exam.exam_date %}{{ exam.exam_date|date:"Y-m-d" }}{% else %}<span class="text-muted">Not set</span>{% endif %}
+                    {% if exam.session_time %}
+                        <br><small class="text-muted">
+                            {% if exam.session_time == 'morning' %}<i class="bi bi-sunrise"></i> Morning
+                            {% elif exam.session_time == 'afternoon' %}<i class="bi bi-sunset"></i> Afternoon{% endif %}
+                        </small>
+                    {% endif %}
+                </td>
+                <td><span class="badge bg-info text-dark">{{ exam.stations.count }} stations</span></td>
+                <td><span class="badge badge-{{ exam.status }}">{{ exam.status|title }}</span></td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'creator:exam_detail' exam.id %}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
+                        <a href="{% url 'creator:exam_edit' exam.id %}" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                        <a href="{% url 'creator:session_create' exam.id %}" class="btn btn-outline-success" title="Add Session"><i class="bi bi-calendar-plus"></i></a>
+                        {% if exam.status == 'draft' or exam.status == 'ready' %}
+                            <button type="button" class="btn btn-outline-danger" title="Delete Exam"
+                                    data-bs-toggle="modal" data-bs-target="#deleteExamModal" 
+                                    data-exam-id="{{ exam.id }}" data-exam-name="{{ exam.name }}"><i class="bi bi-trash"></i></button>
+                        {% elif exam.status == 'in_progress' or exam.status == 'completed' %}
+                            <button type="button" class="btn btn-outline-warning" title="Archive Exam"
+                                    data-bs-toggle="modal" data-bs-target="#archiveExamModal" 
+                                    data-exam-id="{{ exam.id }}" data-exam-name="{{ exam.name }}"><i class="bi bi-archive"></i></button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>No exams created yet.<br>
+                    <a href="{% url 'creator:exam_create' %}" class="btn btn-primary mt-3"><i class="bi bi-plus-lg me-1"></i>Create First Exam</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Deleted Exams Section – visible to superuser and admin only -->
+{% if deleted_exams and user.is_superuser or deleted_exams and user.role == 'admin' %}
+<div class="mt-5">
+    <button class="btn btn-link p-0 mb-3 d-flex align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#deletedExamsCollapse" id="deletedExamsToggle" style="text-decoration: none;">
+        <i class="bi bi-chevron-down me-2" id="deletedExamsChevron" style="transition: transform 0.2s;"></i>
+        <i class="bi bi-trash me-2"></i><strong>Deleted Exams</strong>
+        <span class="badge bg-secondary ms-2">{{ deleted_exams|length }}</span>
+    </button>
+    <div class="collapse" id="deletedExamsCollapse">
+        <div class="table-card">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Name</th><th>Course</th><th>Deleted</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for exam in deleted_exams %}
+                <tr class="table-danger opacity-75">
+                    <td><a href="{% url 'creator:exam_detail' exam.id %}" class="text-decoration-none fw-bold">{{ exam.name }}</a></td>
+                    <td>{% if exam.course %}<span class="badge bg-primary me-1">{{ exam.course.short_code|default:exam.course.code }}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                    <td>{% if exam.deleted_at %}<small class="text-muted">{{ exam.deleted_at }}</small>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                    <td><span class="badge bg-secondary text-light">Deleted</span></td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-success" title="Restore Exam" onclick="restoreExam('{{ exam.id }}', '{{ exam.name }}')"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                            <button type="button" class="btn btn-outline-danger" title="Permanently Delete" onclick="permanentlyDeleteExam('{{ exam.id }}', '{{ exam.name }}')"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Delete Exam Modal -->
+<div class="modal fade" id="deleteExamModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header bg-danger bg-opacity-10"><h5 class="modal-title text-danger"><i class="bi bi-trash me-2"></i>Delete Exam</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <p class="mb-3"><strong>Delete exam: <span id="deleteExamName">-</span>?</strong></p>
+            <div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i><strong>This will permanently delete:</strong><ul class="mb-0 mt-2"><li>All associated sessions</li><li>All paths and stations</li></ul></div>
+            <p class="small text-muted"><i class="bi bi-info-circle me-1"></i>This exam can be restored later if needed.</p>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-danger" id="deleteExamBtn"><i class="bi bi-trash me-1"></i>Delete Exam</button></div>
+    </div></div>
+</div>
+
+<!-- Archive Exam Modal -->
+<div class="modal fade" id="archiveExamModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header bg-warning bg-opacity-10"><h5 class="modal-title text-warning"><i class="bi bi-archive me-2"></i>Archive Exam</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <p class="mb-3"><strong>Archive exam: <span id="archiveExamName">-</span>?</strong></p>
+            <div class="alert alert-info"><i class="bi bi-info-circle me-2"></i><strong>This will archive:</strong><ul class="mb-0 mt-2"><li>All sessions and student data</li><li>All marks and assessments</li></ul></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-warning" id="archiveExamBtn"><i class="bi bi-archive me-1"></i>Archive Exam</button></div>
+    </div></div>
+</div>
+
+<script>
+let selectedExamId = null;
+
+const dCollapse = document.getElementById('deletedExamsCollapse');
+const dChevron = document.getElementById('deletedExamsChevron');
+if (dCollapse) {
+    dCollapse.addEventListener('show.bs.collapse', function() { if (dChevron) dChevron.style.transform = 'rotate(180deg)'; });
+    dCollapse.addEventListener('hide.bs.collapse', function() { if (dChevron) dChevron.style.transform = 'rotate(0deg)'; });
+}
+
+document.getElementById('deleteExamModal')?.addEventListener('show.bs.modal', function(e) {
+    selectedExamId = e.relatedTarget.dataset.examId;
+    document.getElementById('deleteExamName').textContent = e.relatedTarget.dataset.examName;
+});
+document.getElementById('deleteExamBtn')?.addEventListener('click', function() {
+    if (!selectedExamId) return;
+    fetch(`/creator/exams/${selectedExamId}/delete/`, { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()} })
+    .then(r => r.json()).then(data => { if (data.success) { alert(data.message); location.reload(); } else alert('Error: ' + (data.message || 'Unknown error')); })
+    .catch(err => alert('Error: ' + err.message));
+});
+
+document.getElementById('archiveExamModal')?.addEventListener('show.bs.modal', function(e) {
+    selectedExamId = e.relatedTarget.dataset.examId;
+    document.getElementById('archiveExamName').textContent = e.relatedTarget.dataset.examName;
+});
+document.getElementById('archiveExamBtn')?.addEventListener('click', function() {
+    if (!selectedExamId) return;
+    fetch(`/creator/exams/${selectedExamId}/archive/`, { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()} })
+    .then(r => r.json()).then(data => { if (data.success) { alert(data.message); location.reload(); } else alert('Error: ' + (data.message || 'Unknown error')); })
+    .catch(err => alert('Error: ' + err.message));
+});
+
+function restoreExam(examId, examName) {
+    if (!confirm(`Restore exam "${examName}"?`)) return;
+    fetch(`/creator/exams/${examId}/restore/`, { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()} })
+    .then(r => r.json()).then(data => { if (data.success) { alert(data.message || 'Exam restored'); location.reload(); } else alert('Error: ' + (data.message || 'Unknown error')); })
+    .catch(err => alert('Error: ' + err.message));
+}
+
+function permanentlyDeleteExam(examId, examName) {
+    const userInput = prompt(`⚠️ PERMANENT DELETE: "${examName}"\n\nType "YES" to confirm:`);
+    if (userInput !== 'YES') return;
+    fetch(`/creator/exams/${examId}/permanent-delete/`, { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()} })
+    .then(r => r.json()).then(data => { if (data.success) { alert(data.message || 'Exam permanently deleted'); location.reload(); } else alert('Error: ' + (data.message || 'Unknown error')); })
+    .catch(err => alert('Error: ' + err.message));
+}
+</script>
+{% endblock %}

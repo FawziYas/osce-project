@@ -1,0 +1,172 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Apply Station Templates - {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' session.exam.id %}">{{ session.exam.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
+            <li class="breadcrumb-item active">Apply Templates</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-diagram-3 me-2"></i>Apply Station Templates <small class="text-muted">{{ session.name }}</small></h1>
+</div>
+
+{% if libraries %}
+<div class="card shadow-sm mb-3">
+    <div class="card-body">
+        <div class="d-flex align-items-center gap-3">
+            <label for="librarySelect" class="mb-0 fw-bold"><i class="bi bi-folder me-2"></i>Select Library:</label>
+            <select class="form-select" id="librarySelect" style="max-width: 400px;" onchange="filterByLibrary(this.value)">
+                <option value="">All Templates ({{ templates|length }})</option>
+                {% for lib in libraries %}
+                <option value="{{ lib.id }}" {% if selected_library and selected_library.id == lib.id %}selected{% endif %}>{{ lib.name }} ({{ lib.template_count }} templates)</option>
+                {% endfor %}
+            </select>
+            {% if selected_library %}
+            <span class="badge" style="background-color: {{ selected_library.color }};">{{ selected_library.name }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<form method="post" id="applyTemplatesForm">
+    {% csrf_token %}
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><h5 class="mb-0"><i class="bi bi-collection me-2"></i>Select Templates to Apply</h5></div>
+                <div class="card-body">
+                    {% if templates %}
+                    <div class="list-group">
+                        {% for template in templates %}
+                        <div class="list-group-item">
+                            <div class="form-check">
+                                <input class="form-check-input template-checkbox" type="checkbox" name="template_ids" value="{{ template.id }}" id="template_{{ template.id }}" data-items="{{ template.item_count }}" data-points="{{ template.total_points }}">
+                                <label class="form-check-label w-100" for="template_{{ template.id }}">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">{{ template.name }}</h6>
+                                            {% if template.description %}<small class="text-muted d-block mb-2">{{ template.description|truncatechars:150 }}</small>{% endif %}
+                                            <div class="d-flex gap-2">
+                                                <span class="badge bg-info">{{ template.item_count }} items</span>
+                                                <span class="badge bg-success">{{ template.total_points }} points</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#preview_{{ template.id }}">
+                                    <i class="bi bi-eye me-1"></i>Preview Checklist
+                                </button>
+                                <div class="collapse mt-2" id="preview_{{ template.id }}">
+                                    <div class="card card-body bg-light small">
+                                        {% if template.checklist_items %}
+                                        <ul class="mb-0">
+                                            {% for item in template.checklist_items %}
+                                            <li><strong>{{ item.text|default:"Untitled Item" }}</strong>
+                                                {% if item.section %}<span class="badge bg-secondary">{{ item.section }}</span>{% endif %}
+                                                <span class="badge bg-primary">{{ item.points|default:0 }} pts</span>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% else %}<em class="text-muted">No checklist items</em>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-2" id="selectAll"><i class="bi bi-check-square me-1"></i>Select All</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAll"><i class="bi bi-square me-1"></i>Deselect All</button>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-journal-bookmark fs-1 text-muted d-block mb-3"></i>
+                        <h6 class="text-muted">No Templates Available</h6>
+                        <p class="text-muted small mb-3">Create station templates first</p>
+                        <a href="{% url 'creator:station_library' session.exam.id %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Go to Station Library</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><h5 class="mb-0"><i class="bi bi-arrow-right-circle me-2"></i>Target Paths</h5></div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Selected templates will be applied to all paths:</p>
+                    {% if paths %}
+                    <ul class="list-group list-group-flush">
+                        {% for path in paths %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div><strong>{{ path.name }}</strong><br><small class="text-muted">{% if path.station_count > 0 %}Current: {{ path.station_count }} stations{% else %}No stations yet{% endif %}</small></div>
+                            <span class="badge bg-primary">{{ path.rotation_minutes }} min</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-2"></i>No paths in this session</div>{% endif %}
+                    <div class="mt-4 p-3 bg-light rounded" id="selectionSummary">
+                        <h6 class="mb-2">Selection Summary</h6>
+                        <ul class="mb-0 small">
+                            <li><strong id="selectedCount">0</strong> templates selected</li>
+                            <li><strong id="targetPathsCount">{{ paths|length }}</strong> paths will receive stations</li>
+                            <li><strong id="totalStations">0</strong> new stations will be created</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% if templates and paths %}
+            <div class="card shadow-sm mt-3"><div class="card-body">
+                <button type="submit" class="btn btn-success w-100" id="applyBtn" disabled><i class="bi bi-check-circle me-2"></i>Apply Selected Templates</button>
+                <small class="text-muted d-block mt-2 text-center">This will create stations in all paths above</small>
+            </div></div>
+            {% endif %}
+        </div>
+    </div>
+</form>
+
+<div class="alert alert-info mt-4">
+    <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>How This Works</h6>
+    <ul class="mb-0 small">
+        <li><strong>Select Templates:</strong> Choose one or more station templates to apply</li>
+        <li><strong>Apply to All Paths:</strong> Each selected template creates a station in every path</li>
+        <li><strong>Independent Editing:</strong> After creation, each station can be edited separately</li>
+        <li><strong>No Overwriting:</strong> Existing stations are preserved; new ones are added</li>
+    </ul>
+</div>
+
+<script>
+function filterByLibrary(libraryId) {
+    window.location.href = libraryId ? `?library_id=${libraryId}` : window.location.pathname;
+}
+document.addEventListener('DOMContentLoaded', function() {
+    const getCheckboxes = () => Array.from(document.querySelectorAll('.template-checkbox'));
+    const applyBtn = document.getElementById('applyBtn');
+    const targetPathsCount = {{ paths|length }};
+    function updateSummary() {
+        const c = document.querySelectorAll('.template-checkbox:checked').length;
+        document.getElementById('selectedCount').textContent = c;
+        document.getElementById('totalStations').textContent = c * targetPathsCount;
+        if (applyBtn) applyBtn.disabled = c === 0;
+    }
+    getCheckboxes().forEach(cb => cb.addEventListener('change', updateSummary));
+    document.getElementById('selectAll')?.addEventListener('click', function(e) { e.preventDefault(); getCheckboxes().forEach(cb => cb.checked = true); updateSummary(); });
+    document.getElementById('deselectAll')?.addEventListener('click', function(e) { e.preventDefault(); getCheckboxes().forEach(cb => cb.checked = false); updateSummary(); });
+    document.getElementById('applyTemplatesForm')?.addEventListener('submit', function(e) {
+        const c = document.querySelectorAll('.template-checkbox:checked').length;
+        if (c === 0) { e.preventDefault(); alert('Select at least one template'); return false; }
+        if (!confirm(`Create ${c * targetPathsCount} new stations (${c} templates x ${targetPathsCount} paths)?`)) { e.preventDefault(); return false; }
+    });
+    updateSummary();
+});
+</script>
+{% endblock %}

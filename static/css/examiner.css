@@ -1,0 +1,467 @@
+/**
+ * OSCE Examiner - Mobile-First Styles
+ * 
+ * Design Principles:
+ * - Mobile FIRST (320px+): Single column, vertical stacking
+ * - Touch-first: 48px minimum touch targets
+ * - High contrast for outdoor/bright light use
+ * - Large fonts for quick reading (minimum 16px)
+ * - Tablet (768px+): Can show side-by-side layouts
+ * - Examiner uses personal phones - optimize for 6" screens
+ * 
+ * Breakpoints:
+ * - 320px: Small phones
+ * - 481px: Large phones
+ * - 768px: Tablets
+ */
+
+/* ==========================================================================
+   CSS Variables
+   ========================================================================== */
+:root {
+    --touch-target-min: 48px;
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    
+    --font-size-sm: 14px;
+    --font-size-base: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-xxl: 24px;
+    
+    --color-primary: #0d6efd;
+    --color-success: #198754;
+    --color-danger: #dc3545;
+    --color-warning: #ffc107;
+    --color-info: #0dcaf0;
+    
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+    --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+}
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+.examiner-body {
+    font-size: var(--font-size-base);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation; /* Disable double-tap zoom */
+}
+
+.main-content {
+    padding-bottom: env(safe-area-inset-bottom, 20px); /* iPhone notch support */
+}
+
+/* ==========================================================================
+   Offline Indicator
+   ========================================================================== */
+.offline-banner {
+    position: fixed;
+    top: 56px; /* Below navbar */
+    left: 0;
+    right: 0;
+    background: var(--color-warning);
+    color: #000;
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: center;
+    z-index: 1000;
+    font-weight: 500;
+}
+
+/* ==========================================================================
+   Touch Targets
+   ========================================================================== */
+.btn {
+    min-height: var(--touch-target-min);
+    min-width: var(--touch-target-min);
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.btn-lg {
+    min-height: 56px;
+    font-size: var(--font-size-lg);
+}
+
+.form-control {
+    min-height: var(--touch-target-min);
+    font-size: var(--font-size-base);
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.form-control-lg {
+    min-height: 56px;
+    font-size: var(--font-size-lg);
+}
+
+/* ==========================================================================
+   Station Cards
+   ========================================================================== */
+.station-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.station-card:active {
+    transform: scale(0.98);
+}
+
+.station-card .card-header {
+    padding: var(--spacing-md);
+}
+
+.station-card .card-body {
+    padding: var(--spacing-lg);
+}
+
+/* ==========================================================================
+   Checklist Items
+   ========================================================================== */
+.checklist-container {
+    max-height: calc(100vh - 400px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.checklist-category {
+    margin-bottom: var(--spacing-lg);
+}
+
+.category-header {
+    font-size: var(--font-size-base);
+    padding: var(--spacing-sm) var(--spacing-md);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #f8f9fa;
+}
+
+.checklist-item {
+    border-left: 4px solid #dee2e6;
+    margin-bottom: 2px;
+    transition: all 0.15s ease;
+    background: #fff;
+}
+
+.checklist-item.critical-item {
+    border-left-color: var(--color-danger);
+}
+
+.checklist-item.marked-done {
+    background-color: #d4edda;
+    border-left-color: var(--color-success);
+}
+
+.checklist-item.marked-not-done {
+    background-color: #f8d7da;
+    border-left-color: var(--color-danger);
+}
+
+/* Score Buttons (Done/Not Done) */
+.score-btn {
+    width: 64px;
+    height: 100%;
+    min-height: 45px;
+    border: none;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    font-size: var(--font-size-xl);
+}
+
+.score-btn.done,
+.score-btn.not-done {
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+.score-btn.done:hover,
+.score-btn.done.active {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.score-btn.not-done:hover,
+.score-btn.not-done.active {
+    background-color: var(--color-danger);
+    color: white;
+}
+
+/* Swipe Indicators */
+.checklist-item::before,
+.checklist-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 60px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+/* ==========================================================================
+   Student Info Bar
+   ========================================================================== */
+.student-avatar {
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Timer
+   ========================================================================== */
+#timer {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+/* ==========================================================================
+   Global Rating
+   ========================================================================== */
+.rating-btn {
+    font-size: var(--font-size-xl);
+    font-weight: bold;
+}
+
+.rating-btn.active {
+    background-color: var(--color-warning) !important;
+    border-color: var(--color-warning) !important;
+    color: #000 !important;
+}
+
+/* ==========================================================================
+   Mobile-First: Base Styles (320px+)
+   ========================================================================== */
+
+/* Container: Full width on mobile */
+.container-fluid {
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
+}
+
+/* Marking interface: Vertical layout on mobile */
+.marking-interface {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Sticky header: Compact on mobile */
+.sticky-top {
+    padding: var(--spacing-sm) !important;
+    margin-bottom: var(--spacing-md) !important;
+}
+
+/* Action buttons: Full width stack on mobile */
+.row.g-2.sticky-bottom {
+    margin-left: calc(var(--spacing-sm) * -1);
+    margin-right: calc(var(--spacing-sm) * -1);
+    padding: var(--spacing-sm);
+    gap: var(--spacing-sm) !important;
+}
+
+.row.g-2.sticky-bottom .col-12,
+.row.g-2.sticky-bottom .col-sm-6 {
+    /* Force full width on mobile, split on sm+ */
+    flex: 0 0 100%;
+    max-width: 100%;
+}
+
+/* Buttons: Full width, large touch targets on mobile */
+.btn.w-100 {
+    min-height: 56px;
+    font-size: var(--font-size-lg) !important;
+}
+
+/* Score buttons: Wider on mobile for easier tapping */
+.score-btn {
+    width: 50px;
+    min-width: 50px;
+    height: auto;
+    min-height: 45px;
+}
+
+.score-btn i {
+    font-size: var(--font-size-xl);
+}
+
+/* Rubric buttons: Stack on mobile */
+.rubric-selector {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--spacing-sm);
+}
+
+@media (max-width: 480px) {
+    .rubric-selector {
+        flex-wrap: wrap;
+    }
+    
+    .rubric-btn {
+        flex: 0 0 48%;
+        min-height: 44px;
+        font-size: var(--font-size-base);
+    }
+}
+
+/* Checklist item container: Full width scrolling */
+.checklist-container {
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Student info header: Compact on small screens */
+.student-header {
+    padding: var(--spacing-sm) !important;
+}
+
+@media (min-width: 768px) {
+    .student-header {
+        padding: var(--spacing-md) !important;
+    }
+}
+
+/* Feedback card: Stack below checklist on mobile */
+.feedback-sidebar {
+    margin-top: var(--spacing-lg);
+}
+
+@media (min-width: 768px) {
+    .feedback-sidebar {
+        margin-top: 0;
+        margin-left: var(--spacing-lg);
+        max-width: 300px;
+    }
+}
+
+/* Text truncation for long names on mobile */
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+/* ==========================================================================
+   Tablet and Above (768px+)
+   ========================================================================== */
+@media (min-width: 768px) {
+    /* Multi-column layouts OK on tablets */
+    .row.g-2.sticky-bottom .col-sm-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+    
+    /* Score buttons can be smaller on tablet */
+    .score-btn {
+        width: 64px;
+        min-width: 64px;
+    }
+    
+    /* Side-by-side content on tablet */
+    .marking-interface {
+        flex-direction: row;
+    }
+    
+    .checklist-container {
+        flex: 1;
+    }
+    
+    .feedback-sidebar {
+        width: 300px;
+        flex-shrink: 0;
+        margin-left: var(--spacing-lg);
+    }
+}
+
+/* ==========================================================================
+   Print Styles (for score sheets)
+   ========================================================================== */
+@media print {
+    .navbar,
+    .offline-banner,
+    .btn,
+    #timer {
+        display: none !important;
+    }
+    
+    .checklist-item {
+        break-inside: avoid;
+    }
+}
+
+/* ==========================================================================
+   Station Dashboard - Mobile Optimized
+   ========================================================================== */
+
+.station-header {
+    padding: var(--spacing-sm) !important;
+}
+
+.student-list-item {
+    padding: var(--spacing-sm) !important;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.student-list-item:last-child {
+    border-bottom: none;
+}
+
+/* Progress bar */
+.progress {
+    background-color: #e9ecef;
+    border-radius: 3px;
+    height: 6px;
+}
+
+/* Quick stats cards: Stack on mobile */
+.stat-card {
+    flex: 0 0 100%;
+}
+
+@media (min-width: 481px) {
+    .stat-card {
+        flex: 0 0 48%;
+    }
+}
+
+@media (min-width: 768px) {
+    .stat-card {
+        flex: 0 0 31%;
+    }
+}
+
+/* Mark button: Full width on mobile */
+.mark-btn {
+    width: 100%;
+}
+
+@media (min-width: 768px) {
+    .mark-btn {
+        width: auto;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .checklist-item {
+        border-width: 3px;
+    }
+    
+    .btn {
+        border-width: 2px;
+    }
+}

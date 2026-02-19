@@ -1,0 +1,111 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if ilo %}Edit ILO{% else %}New ILO{% endif %} - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:course_list' %}">Courses</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:course_detail' course.id %}">{{ course.code }}</a></li>
+            <li class="breadcrumb-item active">{% if ilo %}Edit ILO{% else %}New ILO{% endif %}</li>
+        </ol>
+    </nav>
+    <h1>
+        <i class="bi bi-{% if ilo %}pencil{% else %}plus-lg{% endif %} me-2"></i>
+        {% if ilo %}Edit ILO {{ ilo.number }}{% else %}New ILO for {{ course.code }}{% endif %}
+    </h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="description" class="form-label">ILO Description <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="description" name="description" 
+                              rows="3" required placeholder="e.g., Perform a focused cardiovascular examination">{% if ilo %}{{ ilo.description }}{% endif %}</textarea>
+                    <div class="form-text">Describe what the student should be able to do</div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="theme_id" class="form-label">Theme <span class="text-danger">*</span></label>
+                            <select class="form-select" id="theme_id" name="theme_id" required>
+                                <option value="">Select a theme...</option>
+                                {% for theme in themes %}
+                                <option value="{{ theme.id }}" {% if ilo and ilo.theme_id == theme.id %}selected{% endif %}>
+                                    {{ theme.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Choose from institutional themes</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category" name="category">
+                                <option value="Clinical Skills" {% if not ilo or ilo.category == 'Clinical Skills' %}selected{% endif %}>Clinical Skills</option>
+                                <option value="History Taking" {% if ilo and ilo.category == 'History Taking' %}selected{% endif %}>History Taking</option>
+                                <option value="Physical Examination" {% if ilo and ilo.category == 'Physical Examination' %}selected{% endif %}>Physical Examination</option>
+                                <option value="Procedural Skills" {% if ilo and ilo.category == 'Procedural Skills' %}selected{% endif %}>Procedural Skills</option>
+                                <option value="Communication" {% if ilo and ilo.category == 'Communication' %}selected{% endif %}>Communication</option>
+                                <option value="Clinical Reasoning" {% if ilo and ilo.category == 'Clinical Reasoning' %}selected{% endif %}>Clinical Reasoning</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="osce_marks" class="form-label">Allocated OSCE Marks</label>
+                    <input type="number" class="form-control" id="osce_marks" name="osce_marks" 
+                           value="{% if ilo %}{{ ilo.osce_marks }}{% else %}0{% endif %}" min="0" max="100">
+                    <div class="form-text">Total marks allocated to this ILO across all OSCE stations</div>
+                </div>
+                
+                {% if ilo %}
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="active" name="active"
+                               {% if ilo.active %}checked{% endif %}>
+                        <label class="form-check-label" for="active">Active</label>
+                        <div class="form-text">Inactive ILOs won't appear in station design</div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>{% if ilo %}Update ILO{% else %}Create ILO{% endif %}
+                    </button>
+                    <a href="{% url 'creator:course_detail' course.id %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="stat-card">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>About ILOs</h6>
+            <p class="text-muted small">
+                ILOs (Intended Learning Outcomes) define what students should be able to demonstrate. 
+                Each OSCE station's checklist items are linked to ILOs.
+            </p>
+            <hr>
+            <h6 class="mb-2">Standard Themes</h6>
+            <ul class="small text-muted mb-0 list-unstyled">
+                {% for theme in themes %}
+                <li class="mb-2">
+                    <span style="color: {{ theme.color }}; font-size: 1.1em;">&bull;</span>
+                    <strong>{{ theme.name }}</strong>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

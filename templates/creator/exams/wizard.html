@@ -1,0 +1,305 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Create New OSCE Exam Wizard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wizard-container { max-width: 800px; }
+    .wizard-step { display: none; }
+    .wizard-step.active { display: block; }
+    .wizard-progress { display: flex; margin-bottom: 2rem; }
+    .wizard-progress-step { flex: 1; text-align: center; position: relative; }
+    .wizard-progress-step.active .step-number,
+    .wizard-progress-step.completed .step-number { background-color: #0d6efd; color: white; }
+    .wizard-progress-step.completed .step-number { background-color: #198754; }
+    .step-number { width: 40px; height: 40px; border-radius: 50%; background-color: #e9ecef; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; margin-bottom: 0.5rem; transition: all 0.3s ease; }
+    .step-title { font-size: 0.875rem; font-weight: 500; color: #666; }
+    .wizard-progress-step.active .step-title { color: #0d6efd; font-weight: 600; }
+    .wizard-progress-step.completed .step-title { color: #198754; }
+    .wizard-connector { position: absolute; top: 20px; left: 50%; right: -50%; height: 2px; background-color: #e9ecef; }
+    .wizard-progress-step.completed .wizard-connector { background-color: #198754; }
+    .wizard-progress-step:last-child .wizard-connector { display: none; }
+    .wizard-card { background: white; border-radius: 0.5rem; padding: 2rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); margin-bottom: 2rem; }
+    .form-section { margin-bottom: 1.5rem; }
+    .form-section h6 { font-weight: 600; color: #333; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #f0f0f0; }
+    .session-input-group { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem; }
+    .btn-group-wizard { display: flex; gap: 1rem; margin-top: 2rem; }
+    .wizard-button-prev { flex: 0 0 auto; }
+    .wizard-button-next { flex: 1 1 auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-2">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item active">Create New</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-plus-lg me-2"></i>Create New OSCE Exam</h1>
+    <p class="text-muted mb-0">Step-by-step exam setup wizard</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        <!-- Wizard Progress -->
+        <div class="wizard-progress mb-4">
+            <div class="wizard-progress-step active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-title">Exam Info</div>
+                <div class="wizard-connector"></div>
+            </div>
+            <div class="wizard-progress-step" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-title">Sessions</div>
+                <div class="wizard-connector"></div>
+            </div>
+            <div class="wizard-progress-step" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-title">Review</div>
+            </div>
+        </div>
+
+        <!-- Wizard Form -->
+        <form method="POST" id="wizardForm" class="wizard-container">
+            {% csrf_token %}
+            <!-- STEP 1: Exam Info -->
+            <div class="wizard-step active" data-step="1">
+                <div class="wizard-card">
+                    <h4 class="mb-4"><i class="bi bi-clipboard-data me-2"></i>Exam Information</h4>
+                    <div class="form-section">
+                        <div class="mb-3">
+                            <label for="exam_name" class="form-label">Exam Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="exam_name" name="exam_name" placeholder="e.g., Year 2 Clinical Examination OSCE" required>
+                            <div class="form-text">The title of this OSCE examination</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="course_id" class="form-label">Course <span class="text-danger">*</span></label>
+                            <select class="form-select" id="course_id" name="course_id" required>
+                                <option value="">Select a course...</option>
+                                {% for course in courses %}
+                                <option value="{{ course.id }}">{{ course.code }} - {{ course.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">The ILOs from this course will be assessed</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="exam_date" class="form-label">Exam Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="exam_date" name="exam_date" required>
+                            <div class="form-text">Date when the exam will be administered</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
+                            <select class="form-select" id="department" name="department" required>
+                                <option value="">Select department...</option>
+                                <option value="Internal Medicine">Internal Medicine</option>
+                                <option value="Pediatrics">Pediatrics</option>
+                                <option value="General Surgery">General Surgery</option>
+                                <option value="Obstetrics and Gynecology">Obstetrics and Gynecology</option>
+                            </select>
+                            <div class="form-text">This exam belongs to one department</div>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h6>Exam Configuration</h6>
+                        <p class="form-text text-muted small mb-3">Stations will be added separately after exam creation.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 2: Sessions -->
+            <div class="wizard-step" data-step="2">
+                <div class="wizard-card">
+                    <h4 class="mb-4"><i class="bi bi-calendar-event me-2"></i>Exam Sessions</h4>
+                    <p class="form-text text-muted mb-3">Define exam sessions (Morning, Afternoon, All Day, or Custom). Each session can have a different number of rotation paths.</p>
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Session Date Fixed</strong><br>
+                        <small>All sessions will use the exam date: <span id="examDateDisplay">-</span></small>
+                    </div>
+                    <div id="sessionsContainer">
+                        <div class="session-input-group">
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label">Session Type <span class="text-danger">*</span></label>
+                                    <select class="form-select session-type" name="session_type_1" required onchange="updateSessionEndTime(1)">
+                                        <option value="morning">Morning</option>
+                                        <option value="afternoon">Afternoon</option>
+                                        <option value="all_day" selected>All Day</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label class="form-label">Start Time <span class="text-danger">*</span></label>
+                                    <input type="time" class="form-control session-start-time" name="session_start_time_1" value="08:00" required onchange="updateSessionEndTime(1)">
+                                    <div class="form-text small">e.g., 08:00 or 13:00</div>
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label for="station_duration_minutes" class="form-label">Minutes per Station <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="station_duration_minutes" name="station_duration_minutes" value="2" min="1" max="60" required>
+                                    <div class="form-text">Duration per station (1-60 minutes)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 3: Review -->
+            <div class="wizard-step" data-step="3">
+                <div class="wizard-card">
+                    <h4 class="mb-4"><i class="bi bi-check-circle me-2"></i>Review &amp; Create</h4>
+                    <div class="alert alert-light border mb-3">
+                        <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Exam Summary</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <dl class="small mb-0">
+                                    <dt>Exam Name:</dt><dd class="ms-3" id="review_exam_name">-</dd>
+                                    <dt>Course:</dt><dd class="ms-3" id="review_course">-</dd>
+                                    <dt>Exam Date:</dt><dd class="ms-3" id="review_exam_date">-</dd>
+                                </dl>
+                            </div>
+                            <div class="col-md-6">
+                                <dl class="small mb-0">
+                                    <dt>Sessions:</dt><dd class="ms-3" id="review_sessions">-</dd>
+                                    <dt class="mt-3">Session Details:</dt>
+                                    <dd class="ms-3"><ul class="mb-0" id="review_session_details" style="font-size: 0.875rem;"></ul></dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>Next steps:</strong> After creation, you'll add stations to each path and assign students.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="wizard-card pt-0" style="box-shadow: none;">
+                <div class="btn-group-wizard">
+                    <button type="button" class="btn btn-outline-secondary wizard-button-prev" id="prevBtn" onclick="previousStep()" style="display: none;">
+                        <i class="bi bi-chevron-left me-1"></i>Previous
+                    </button>
+                    <button type="button" class="btn btn-primary wizard-button-next" id="nextBtn" onclick="nextStep()">
+                        Next <i class="bi bi-chevron-right ms-1"></i>
+                    </button>
+                    <button type="submit" class="btn btn-success wizard-button-next" id="submitBtn" style="display: none;">
+                        <i class="bi bi-check-lg me-1"></i>Create Exam
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let currentStep = 1;
+const totalSteps = 3;
+let sessionCount = 1;
+
+function showStep(step) {
+    document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.wizard-progress-step').forEach(el => el.classList.remove('active', 'completed'));
+    document.querySelector(`.wizard-step[data-step="${step}"]`).classList.add('active');
+    document.querySelector(`.wizard-progress-step[data-step="${step}"]`).classList.add('active');
+    for (let i = 1; i < step; i++) {
+        document.querySelector(`.wizard-progress-step[data-step="${i}"]`).classList.add('completed');
+    }
+    document.getElementById('prevBtn').style.display = step > 1 ? 'block' : 'none';
+    document.getElementById('nextBtn').style.display = step < totalSteps ? 'block' : 'none';
+    document.getElementById('submitBtn').style.display = step === totalSteps ? 'block' : 'none';
+    if (step === totalSteps) updateReview();
+    currentStep = step;
+}
+
+function nextStep() {
+    if (validateStep(currentStep) && currentStep < totalSteps) showStep(currentStep + 1);
+}
+
+function previousStep() {
+    if (currentStep > 1) showStep(currentStep - 1);
+}
+
+function validateStep(step) {
+    if (step === 1) {
+        const name = document.getElementById('exam_name').value.trim();
+        const course = document.getElementById('course_id').value;
+        const date = document.getElementById('exam_date').value;
+        if (!name || !course || !date) { alert('Please fill in Exam Name, Course, and Date'); return false; }
+    }
+    if (step === 2) {
+        const duration = document.getElementById('station_duration_minutes').value;
+        if (!duration) { alert('Please fill in Minutes per Station'); return false; }
+        const sessions = document.querySelectorAll('.session-input-group');
+        if (sessions.length === 0) { alert('Please add at least one session'); return false; }
+        let valid = true;
+        sessions.forEach(s => {
+            if (!s.querySelector('.session-type').value || !s.querySelector('.session-start-time').value) valid = false;
+        });
+        if (!valid) { alert('Please fill in all session details (Type and Start Time)'); return false; }
+    }
+    return true;
+}
+
+function addSession() {
+    sessionCount++;
+    const container = document.getElementById('sessionsContainer');
+    const html = `<div class="session-input-group"><div class="row">
+        <div class="col-md-5 mb-2"><label class="form-label">Session Type <span class="text-danger">*</span></label>
+        <select class="form-select session-type" name="session_type_${sessionCount}" required onchange="updateSessionEndTime(${sessionCount})">
+            <option value="morning">Morning</option><option value="afternoon" selected>Afternoon</option><option value="all_day">All Day</option><option value="custom">Custom</option>
+        </select></div>
+        <div class="col-md-5 mb-2"><label class="form-label">Start Time <span class="text-danger">*</span></label>
+        <input type="time" class="form-control session-start-time" name="session_start_time_${sessionCount}" value="13:00" required onchange="updateSessionEndTime(${sessionCount})">
+        </div></div></div>`;
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function updateReview() {
+    document.getElementById('review_exam_name').textContent = document.getElementById('exam_name').value || '-';
+    const cs = document.getElementById('course_id');
+    document.getElementById('review_course').textContent = cs.options[cs.selectedIndex].text || '-';
+    document.getElementById('review_exam_date').textContent = document.getElementById('exam_date').value || '-';
+    const sc = document.querySelectorAll('.session-input-group').length;
+    document.getElementById('review_sessions').textContent = sc + ' session(s)';
+    const details = [];
+    document.querySelectorAll('.session-input-group').forEach(s => {
+        const t = s.querySelector('.session-type').value;
+        const tm = s.querySelector('.session-start-time').value;
+        details.push(`${t.charAt(0).toUpperCase() + t.slice(1)} at ${tm}`);
+    });
+    document.getElementById('review_session_details').innerHTML = details.map(d => `<li>${d}</li>`).join('');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const examDateInput = document.getElementById('exam_date');
+    if (examDateInput) {
+        examDateInput.addEventListener('change', function() {
+            const d = new Date(this.value + 'T00:00:00Z').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            document.getElementById('examDateDisplay').textContent = d || '-';
+        });
+    }
+    updateSessionEndTime(1);
+});
+
+function updateSessionEndTime(sessionNum) {
+    const stationDuration = parseInt(document.getElementById('station_duration_minutes').value) || 8;
+    const startTimeInput = document.querySelector(`input[name="session_start_time_${sessionNum}"]`);
+    const endTimeDisplay = document.getElementById(`session_end_time_${sessionNum}`);
+    if (!startTimeInput || !endTimeDisplay) return;
+    const startTime = startTimeInput.value;
+    if (!startTime) { endTimeDisplay.textContent = '-'; return; }
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDate = new Date(2000, 0, 1, hours, minutes, 0);
+    const numStations = parseInt(document.getElementById('number_of_stations')?.value) || 8;
+    const totalMinutes = numStations * stationDuration;
+    const endDate = new Date(startDate.getTime() + totalMinutes * 60000);
+    endTimeDisplay.textContent = `${String(endDate.getHours()).padStart(2,'0')}:${String(endDate.getMinutes()).padStart(2,'0')} (+${totalMinutes} min)`;
+}
+
+showStep(1);
+</script>
+{% endblock %}

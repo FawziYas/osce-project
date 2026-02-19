@@ -1,0 +1,253 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Checklist Library - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Checklist Library</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-collection me-2"></i>Checklist Library</h1>
+        <p class="text-muted mb-0">Reusable checklist items organized by ILO</p>
+    </div>
+    <a href="{% url 'creator:library_item_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Add Item
+    </a>
+</div>
+
+<!-- Search and Filter Controls -->
+<div class="stat-card mb-4">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label"><i class="bi bi-search me-1"></i>Search</label>
+            <input type="text" class="form-control" id="searchInput" placeholder="Search descriptions...">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label"><i class="bi bi-book me-1"></i>Course</label>
+            <select class="form-select" id="courseFilter">
+                <option value="">All Courses</option>
+                {% for course in courses %}
+                <option value="{{ course.id }}">{{ course.code }} - {{ course.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label"><i class="bi bi-palette me-1"></i>Theme</label>
+            <select class="form-select" id="themeFilter">
+                <option value="">All Themes</option>
+                <option value="1">Medical Knowledge</option>
+                <option value="2">Diagnosis</option>
+                <option value="3">Management</option>
+                <option value="4">Health Systems</option>
+                <option value="5">Communication</option>
+                <option value="6">Professionalism</option>
+                <option value="7">Prevention</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="button" class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                <i class="bi bi-x-lg"></i> Clear
+            </button>
+        </div>
+    </div>
+    <div class="mt-2">
+        <small class="text-muted">
+            <span id="resultCount">{{ total_items }}</span> items |
+            <span id="visibleCount">{{ total_items }}</span> visible
+        </small>
+    </div>
+</div>
+
+{% for ilo in ilos %}
+{% if ilo.library_items.count > 0 %}
+<div class="table-card mb-4 ilo-section"
+     data-course-id="{{ ilo.course_id }}"
+     data-ilo-id="{{ ilo.id }}">
+    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+        <div class="d-flex align-items-center">
+            {% with theme_colors=",.#6f42c1,#0d6efd,#198754,#fd7e14,#20c997,#dc3545" %}
+            <span class="badge me-2" style="background: {% widthratio ilo.theme_id|default:1 1 1 %}; color: white;">
+                ILO {{ ilo.number }}
+            </span>
+            {% endwith %}
+            <div>
+                <strong class="course-display">
+                    {% if ilo.course %}
+                        {{ ilo.course.code }}{% if ilo.course.short_code %} ({{ ilo.course.short_code }}){% endif %}
+                    {% endif %}
+                </strong>
+                <span class="text-muted ms-2">{{ ilo.description|truncatechars:60 }}</span>
+            </div>
+        </div>
+        <span class="badge bg-secondary item-count">{{ ilo.library_items.count }} items</span>
+    </div>
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th style="width: 120px;">Theme</th>
+                <th style="width: 60px;">Pts</th>
+                <th style="width: 60px;">Used</th>
+                <th style="width: 80px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in ilo.library_items.all %}
+            <tr class="library-item"
+                data-theme-id="{{ ilo.theme_id|default:1 }}"
+                data-description="{{ item.description|lower }}">
+                <td class="item-description">
+                    {{ item.description }}
+                </td>
+                <td><span class="badge" style="background: {{ item.theme_color|default:'#6f42c1' }}; color: white;">{{ item.theme_name|default:"Unknown" }}</span></td>
+                <td>{{ item.suggested_points|default:1 }}</td>
+                <td>
+                    <span class="badge bg-secondary">{{ item.usage_count|default:0 }}x</span>
+                </td>
+                <td>
+                    <a href="{% url 'creator:library_item_edit' item.id %}"
+                       class="btn btn-sm btn-outline-secondary" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% empty %}
+<div class="stat-card text-center py-5" id="emptyState">
+    <i class="bi bi-collection fs-1 d-block mb-3 text-muted"></i>
+    <h5>No Library Items Yet</h5>
+    <p class="text-muted">
+        Create reusable checklist items that can be used across multiple stations.
+    </p>
+    <a href="{% url 'creator:library_item_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Add First Item
+    </a>
+</div>
+{% endfor %}
+
+<!-- No Results Message (hidden by default) -->
+<div class="stat-card text-center py-5 d-none" id="noResults">
+    <i class="bi bi-search fs-1 d-block mb-3 text-muted"></i>
+    <h5>No Items Match Your Filters</h5>
+    <p class="text-muted">Try adjusting your search or filter criteria.</p>
+    <button class="btn btn-outline-primary" onclick="clearFilters()">
+        <i class="bi bi-x-lg me-1"></i>Clear Filters
+    </button>
+</div>
+
+<!-- Legend -->
+<div class="stat-card mt-4">
+    <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Legend</h6>
+    <div class="row">
+        <div class="col-md-6">
+            <p class="mb-2"><strong>Theme:</strong> Competency domain (Knowledge, Diagnosis, Management, etc.)</p>
+            <p class="mb-0"><strong>Used:</strong> Number of stations using this item</p>
+        </div>
+        <div class="col-md-6">
+            <p class="mb-2"><strong>Pts:</strong> Default points for this checklist item</p>
+            <p class="mb-0">Theme is inherited from the selected ILO</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Filter functionality
+const searchInput = document.getElementById('searchInput');
+const courseFilter = document.getElementById('courseFilter');
+const themeFilter = document.getElementById('themeFilter');
+const visibleCountEl = document.getElementById('visibleCount');
+const noResultsEl = document.getElementById('noResults');
+
+function applyFilters() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const courseId = courseFilter.value;
+    const themeId = themeFilter.value;
+
+    let visibleItems = 0;
+    let visibleSections = 0;
+
+    document.querySelectorAll('.ilo-section').forEach(section => {
+        const sectionCourseId = section.dataset.courseId;
+        let sectionVisible = false;
+        let sectionItemCount = 0;
+
+        // Check course filter first
+        if (courseId && sectionCourseId !== courseId) {
+            section.classList.add('d-none');
+            return;
+        }
+
+        section.querySelectorAll('.library-item').forEach(row => {
+            const itemDescription = row.dataset.description;
+            const itemThemeId = row.dataset.themeId;
+
+            let visible = true;
+
+            // Apply search filter
+            if (searchTerm && !itemDescription.includes(searchTerm)) {
+                visible = false;
+            }
+
+            // Apply theme filter
+            if (themeId && itemThemeId !== themeId) {
+                visible = false;
+            }
+
+            if (visible) {
+                row.classList.remove('d-none');
+                visibleItems++;
+                sectionItemCount++;
+                sectionVisible = true;
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+
+        // Update section item count and visibility
+        if (sectionVisible) {
+            section.classList.remove('d-none');
+            section.querySelector('.item-count').textContent = sectionItemCount + ' items';
+            visibleSections++;
+        } else {
+            section.classList.add('d-none');
+        }
+    });
+
+    visibleCountEl.textContent = visibleItems;
+
+    // Show/hide no results message
+    if (visibleItems === 0 && (searchTerm || courseId || themeId)) {
+        noResultsEl.classList.remove('d-none');
+    } else {
+        noResultsEl.classList.add('d-none');
+    }
+}
+
+function clearFilters() {
+    searchInput.value = '';
+    courseFilter.value = '';
+    themeFilter.value = '';
+    applyFilters();
+}
+
+// Add event listeners
+searchInput.addEventListener('input', applyFilters);
+courseFilter.addEventListener('change', applyFilters);
+themeFilter.addEventListener('change', applyFilters);
+
+// Keyboard shortcut: Escape to clear filters
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        clearFilters();
+    }
+});
+</script>
+{% endblock %}

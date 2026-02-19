@@ -1,0 +1,66 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if library %}Edit Library{% else %}New Library{% endif %} - {{ exam.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:station_library' exam.id %}">Station Library</a></li>
+            <li class="breadcrumb-item active">{% if library %}Edit Library{% else %}New Library{% endif %}</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-folder-plus me-2"></i>{% if library %}Edit Library{% else %}Create New Library{% endif %}</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light"><h5 class="mb-0">Library Details</h5></div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Library Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{% if library %}{{ library.name }}{% endif %}"
+                               placeholder="e.g., Morning Session Templates, Pediatrics Library" required>
+                        <div class="form-text">Give this library a descriptive name</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="color" class="form-label">Library Color</label>
+                        <div class="input-group" style="max-width: 200px;">
+                            <input type="color" class="form-control form-control-color" id="color" name="color" 
+                                   value="{% if library %}{{ library.color }}{% else %}#0d6efd{% endif %}" title="Choose library color">
+                            <input type="text" class="form-control" id="colorHex" 
+                                   value="{% if library %}{{ library.color }}{% else %}#0d6efd{% endif %}" readonly>
+                        </div>
+                        <div class="form-text">Color helps identify this library in the UI</div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'creator:station_library' exam.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>{% if library %}Update Library{% else %}Create Library{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const colorPicker = document.getElementById('color');
+    const colorHex = document.getElementById('colorHex');
+    colorPicker.addEventListener('input', function() { colorHex.value = this.value; });
+});
+</script>
+{% endblock %}

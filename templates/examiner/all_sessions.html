@@ -1,0 +1,71 @@
+{% extends 'examiner/base_examiner.html' %}
+
+{% block title %}All Sessions - OSCE Examiner{% endblock %}
+
+{% block body_class %}examiner-body{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-calendar-range me-2"></i>All Sessions
+            </h1>
+            <p class="text-muted mb-0">Your complete assignment history</p>
+        </div>
+        <a href="{% url 'examiner:home' %}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Home
+        </a>
+    </div>
+
+    {% if assignments %}
+    <div class="list-group">
+        {% for a in assignments %}
+        <a href="{% url 'examiner:station_dashboard' a.id %}"
+           class="list-group-item list-group-item-action py-3">
+            <div class="d-flex w-100 justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-1">
+                        <i class="bi bi-geo-alt me-1"></i>
+                        Station {{ a.station.station_number }} - {{ a.station.name }}
+                    </h5>
+                    <p class="mb-1 text-muted">
+                        {% if a.session and a.session.exam %}{{ a.session.exam.name }}{% endif %}
+                        {% if a.session and a.session.session_date %}
+                        &middot; {{ a.session.session_date|date:"M d, Y" }}
+                        {% endif %}
+                    </p>
+                    <small class="text-muted">
+                        {% if a.is_primary %}
+                        <span class="badge bg-primary">Primary</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Co-Examiner</span>
+                        {% endif %}
+                        {% if a.session %}
+                        <span class="badge bg-{% if a.session.status == 'completed' %}success{% elif a.session.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                            {{ a.session.status|capfirst }}
+                        </span>
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="text-end">
+                    {% if a.station %}
+                    <div class="text-muted small">
+                        <i class="bi bi-clock me-1"></i>{{ a.station.duration_minutes }} min
+                    </div>
+                    {% endif %}
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-calendar-x" style="font-size: 3rem; color: #ccc;"></i>
+        <h3 class="mt-3 text-muted">No Sessions Found</h3>
+        <p class="text-muted">You have not been assigned to any sessions yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

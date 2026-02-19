@@ -1,0 +1,138 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if session %}Edit Session{% else %}Schedule Session{% endif %} - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+            <li class="breadcrumb-item active">{% if session %}Edit Session{% else %}New Session{% endif %}</li>
+        </ol>
+    </nav>
+    <h1><i class="bi {% if session %}bi-pencil{% else %}bi-calendar-plus{% endif %} me-2"></i>{% if session %}Edit Exam Session{% else %}Schedule Exam Session{% endif %}</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="name" class="form-label">Session Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="name" name="name" required
+                           value="{% if session %}{{ session.name }}{% endif %}"
+                           placeholder="Session name will be suggested based on type">
+                    <div class="form-text">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        Suggested: <strong id="session-name-preview">[Session Type] - [Course Code] - [Date]</strong>
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-2" onclick="useSuggestedName()">Use Suggested</button>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Date</label>
+                    <div class="p-3 bg-light border rounded">
+                        {% if exam.exam_date %}
+                            <i class="bi bi-calendar me-2"></i><strong>{{ exam.exam_date|date:"D, F d, Y" }}</strong>
+                        {% else %}
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            <strong class="text-warning">No exam date set</strong>
+                        {% endif %}
+                        <div class="small text-muted mt-2">
+                            <i class="bi bi-info-circle me-1"></i>Session date is inherited from exam date. Edit the exam to change the date.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="session_type" class="form-label">Session Type <span class="text-danger">*</span></label>
+                    <select class="form-select" id="session_type" name="session_type" required onchange="updateSessionNamePreview(); updateSessionTime()">
+                        <option value="all_day" {% if session and session.session_type == 'all_day' %}selected{% elif not session %}selected{% endif %}>All Day</option>
+                        <option value="morning" {% if session and session.session_type == 'morning' %}selected{% endif %}>Morning (08:00-12:00)</option>
+                        <option value="afternoon" {% if session and session.session_type == 'afternoon' %}selected{% endif %}>Afternoon (12:30-16:30)</option>
+                    </select>
+                    <div class="form-text">When will students take this session?</div>
+                </div>
+                
+                <div class="alert alert-info mb-3" role="alert">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Automatic Path Generation</strong><br>
+                    <small>
+                        This session will automatically generate rotation paths based on the exam's timing settings:
+                        <br><strong>Duration:</strong> {{ exam.station_duration_minutes }} minutes per station
+                        <br><strong>Stations:</strong> {{ station_count }} ({{ total_station_minutes|default:"?" }} min total)
+                    </small>
+                </div>
+
+                <input type="hidden" id="start_time" name="start_time" value="08:00">
+                
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>{% if session %}Update Session{% else %}Create Session{% endif %}
+                    </button>
+                    <a href="{% url 'creator:exam_detail' exam.id %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="stat-card">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Session Setup</h6>
+            <p class="text-muted small">After creating the session, you can add students and assign examiners to stations.</p>
+            <hr>
+            <h6 class="mb-2">Workflow</h6>
+            <ol class="small text-muted mb-0">
+                <li>Create session with date/time</li>
+                <li>Add student list</li>
+                <li>Assign examiners to stations</li>
+                <li>Activate session for exam day</li>
+            </ol>
+        </div>
+        <div class="stat-card mt-3">
+            <h6 class="mb-3"><i class="bi bi-grid-3x3 me-2"></i>Exam Info</h6>
+            <p class="mb-1"><strong>{{ exam.name }}</strong></p>
+            <p class="text-muted small mb-0">
+                {{ station_count }} stations
+                {% if exam.course %}&bull; {{ exam.course.code }}{% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateSessionNamePreview() {
+    const sessionType = document.getElementById('session_type').value;
+    const typeNames = {'morning': 'Morning Session', 'afternoon': 'Afternoon Session', 'all_day': 'All Day Session'};
+    const courseCode = '{{ course_code|default:"EXAM" }}';
+    {% if exam.exam_date %}
+    const examDate = new Date('{{ exam.exam_date|date:"Y-m-d" }}T00:00:00Z');
+    const formattedDate = new Intl.DateTimeFormat('en-US', {year:'numeric',month:'short',day:'2-digit'}).format(examDate);
+    const previewName = `${typeNames[sessionType] || 'Session'} - ${courseCode} - ${formattedDate}`;
+    {% else %}
+    const previewName = `${typeNames[sessionType] || 'Session'} - ${courseCode} - [Date Not Set]`;
+    {% endif %}
+    document.getElementById('session-name-preview').textContent = previewName;
+}
+
+function useSuggestedName() {
+    document.getElementById('name').value = document.getElementById('session-name-preview').textContent;
+}
+
+function updateSessionTime() {
+    const sessionType = document.getElementById('session_type').value;
+    const startTimeInput = document.getElementById('start_time');
+    if (sessionType === 'morning') startTimeInput.value = '08:00';
+    else if (sessionType === 'afternoon') startTimeInput.value = '12:30';
+    else startTimeInput.value = '08:00';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateSessionNamePreview();
+    updateSessionTime();
+});
+</script>
+{% endblock %}

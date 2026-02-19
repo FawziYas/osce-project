@@ -1,0 +1,1638 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if template %}Edit Station Template{% else %}New Station Template{% endif %} - OSCE Creator{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Station Builder - Original Design */
+    .station-builder {
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    
+    .builder-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    
+    .builder-card-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+    }
+    
+    .builder-card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Checklist Item Card */
+    .checklist-item-card {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1rem 1rem 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .checklist-item-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    }
+    
+    .checklist-item-card.dragging {
+        opacity: 0.5;
+        border-style: dashed;
+    }
+    
+    .item-number-badge {
+        position: absolute;
+        top: -10px;
+        left: 12px;
+        background: #0d6efd;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .item-drag-handle {
+        cursor: grab;
+        color: #adb5bd;
+        padding: 0.5rem;
+        margin-right: 0.5rem;
+    }
+    
+    .item-drag-handle:active {
+        cursor: grabbing;
+    }
+    
+    .item-description-input {
+        border: none;
+        background: transparent;
+        font-size: 1rem;
+        width: 100%;
+        padding: 0.5rem 0;
+    }
+    
+    .item-description-input:focus {
+        outline: none;
+        border-bottom: 2px solid #0d6efd;
+    }
+    
+    /* Item Options Grid */
+    .item-options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    @media (max-width: 768px) {
+        .item-options-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .option-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .option-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        white-space: nowrap;
+        min-width: 50px;
+    }
+    
+    /* Points Quick Select */
+    .points-quick-select {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    
+    .points-chip {
+        padding: 4px 10px;
+        border: 1px solid #dee2e6;
+        background: white;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.15s;
+    }
+    
+    .points-chip:hover {
+        background: #e9ecef;
+    }
+    
+    .points-chip.active {
+        background: #198754;
+        color: white;
+        border-color: #198754;
+    }
+    
+    .points-custom-input {
+        width: 55px;
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+    
+    /* Scale Selector */
+    .scale-select-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .scale-select {
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: white;
+        min-width: 180px;
+    }
+    
+    .scale-info-btn {
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 2px;
+        font-size: 1rem;
+    }
+    
+    .scale-info-btn:hover {
+        color: #0d6efd;
+    }
+    
+    /* Scale Info Tooltip */
+    .scale-info-tooltip {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        z-index: 1000;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        padding: 12px;
+        width: 320px;
+        display: none;
+        margin-top: 4px;
+    }
+    
+    .scale-info-tooltip.visible {
+        display: block;
+    }
+    
+    .scale-info-tooltip h6 {
+        margin: 0 0 8px 0;
+        color: #0d6efd;
+        font-size: 0.9rem;
+    }
+    
+    .scale-info-tooltip .scale-labels-list {
+        font-size: 0.8rem;
+        margin: 0 0 8px 0;
+        padding-left: 16px;
+    }
+    
+    .scale-info-tooltip .scale-tip {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin: 0;
+        padding: 6px 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    .scale-info-tooltip .scale-warning {
+        font-size: 0.75rem;
+        color: #856404;
+        background: #fff3cd;
+        padding: 6px 8px;
+        border-radius: 4px;
+        margin-top: 6px;
+    }
+    
+    /* ILO Selector */
+    .ilo-select {
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: white;
+        flex: 1;
+        max-width: 200px;
+        transition: border-color 0.2s;
+    }
+    
+    .ilo-select.is-invalid {
+        border-color: #dc3545;
+        border-width: 2px;
+        background: #fff5f5;
+    }
+    
+    /* Scale Preview */
+    .scale-preview {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 4px;
+        padding: 4px 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        display: none;
+    }
+    
+    .scale-preview.visible {
+        display: block;
+    }
+    
+    /* Custom Scale Editor */
+    .custom-scale-editor {
+        display: none;
+        margin-top: 8px;
+        padding: 10px;
+        background: #f0f7ff;
+        border: 1px solid #b6d4fe;
+        border-radius: 6px;
+    }
+    
+    .custom-scale-editor.visible {
+        display: block;
+    }
+    
+    .custom-scale-editor .level-count-select {
+        width: 80px;
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+    }
+    
+    .custom-labels-container {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .custom-label-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .custom-label-row .level-num {
+        width: 20px;
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-weight: 600;
+    }
+    
+    .custom-label-row input {
+        flex: 1;
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    
+    /* Item Action Buttons */
+    .item-actions {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        gap: 4px;
+    }
+    
+    .item-action-btn {
+        background: none;
+        border: none;
+        padding: 0.25rem 0.4rem;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    
+    .item-action-btn:hover {
+        opacity: 1;
+        background: rgba(0,0,0,0.08);
+    }
+    
+    .item-action-btn.duplicate-btn {
+        color: #0d6efd;
+    }
+    
+    .item-action-btn.duplicate-btn:hover {
+        background: rgba(13, 110, 253, 0.1);
+    }
+    
+    .item-action-btn.delete-btn {
+        color: #dc3545;
+    }
+    
+    .item-action-btn.delete-btn:hover {
+        background: rgba(220, 53, 69, 0.1);
+    }
+    
+    /* Section Header */
+    .section-header-card {
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        margin-top: 1rem;
+        position: relative;
+        cursor: grab;
+    }
+    
+    .section-header-card:first-child {
+        margin-top: 0;
+    }
+    
+    .section-header-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .section-header-card.dragging {
+        opacity: 0.5;
+    }
+    
+    .section-header-card .section-title-input {
+        background: transparent;
+        border: none;
+        border-bottom: 1px dashed rgba(255,255,255,0.4);
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        width: 100%;
+        padding: 0.25rem 0;
+    }
+    
+    .section-header-card .section-title-input::placeholder {
+        color: rgba(255,255,255,0.6);
+    }
+    
+    .section-header-card .section-title-input:focus {
+        outline: none;
+        border-bottom: 2px solid white;
+    }
+    
+    .section-header-card .item-actions {
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    
+    .section-header-card .item-action-btn {
+        color: rgba(255,255,255,0.7);
+    }
+    
+    .section-header-card .item-action-btn:hover {
+        color: white;
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .section-header-card .item-drag-handle {
+        color: rgba(255,255,255,0.5);
+    }
+    
+    /* Add Section Button */
+    .add-section-btn {
+        background: #495057;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+    
+    .add-section-btn:hover {
+        background: #343a40;
+    }
+    
+    /* Add Item Button */
+    .add-item-btn {
+        width: 100%;
+        padding: 1rem;
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        background: transparent;
+        color: #6c757d;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    
+    .add-item-btn:hover {
+        border-color: #0d6efd;
+        color: #0d6efd;
+        background: rgba(13, 110, 253, 0.05);
+    }
+    
+    /* Quick Add Section */
+    .quick-add-section {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Summary Footer */
+    .builder-summary {
+        background: #e7f1ff;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #b6d4fe;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .summary-stat {
+        text-align: center;
+    }
+    
+    .summary-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+    
+    .summary-stat-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            {% if exam %}
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:station_library' exam.id %}">Station Library</a></li>
+            {% endif %}
+            <li class="breadcrumb-item active">{% if template %}Edit{% else %}Create{% endif %} Template</li>
+        </ol>
+    </nav>
+</div>
+
+<form method="POST" id="templateForm" action="{% if template %}{% url 'creator:station_template_edit' template.id %}{% else %}{% url 'creator:station_template_create' exam.id %}{% endif %}">
+    {% csrf_token %}
+<div class="station-builder">
+    
+    <!-- Hidden Fields -->
+    <input type="hidden" name="exam_id" value="{% if exam %}{{ exam.id }}{% endif %}">
+    <input type="hidden" name="display_order" id="displayOrder" value="{% if template %}{{ template.display_order }}{% else %}0{% endif %}">
+    
+    <!-- Template Info Card -->
+    <div class="builder-card">
+        <div class="builder-card-header">
+            <h5 class="mb-0">
+                <i class="bi bi-file-earmark-text me-2"></i>Template Details
+            </h5>
+        </div>
+        <div class="builder-card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label fw-bold">Template Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-lg" name="name" 
+                           value="{% if template %}{{ template.name }}{% endif %}"
+                           placeholder="e.g., Cardiovascular Examination Template" required>
+                    <small class="form-text text-muted">This will be used as the default name when creating stations from this template</small>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Template Library <small class="text-muted fw-normal">(optional)</small></label>
+                    <select class="form-select" name="library_id">
+                        <option value="">Unassigned (no library)</option>
+                        {% for lib in libraries %}
+                        <option value="{{ lib.id }}" 
+                                {% if selected_library_id and selected_library_id == lib.id %}selected{% endif %}>
+                            {{ lib.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">Organize templates into libraries for easy selection</small>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Scenario <small class="text-muted fw-normal">(shown to student/SP)</small></label>
+                    <textarea class="form-control" name="scenario" rows="2"
+                              placeholder="Describe the clinical scenario...">{% if template %}{{ template.scenario }}{% endif %}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Examiner Instructions <small class="text-muted fw-normal">(private)</small></label>
+                    <textarea class="form-control" name="instructions" rows="2"
+                              placeholder="Notes for the examiner...">{% if template %}{{ template.instructions }}{% endif %}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Checklist Items Card -->
+    <div class="builder-card">
+        <div class="builder-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-list-check me-2"></i>Checklist Items
+            </h5>
+            <span class="badge bg-white text-primary" id="itemCountBadge">0 items</span>
+        </div>
+        <div class="builder-card-body">
+            
+            <!-- Quick Add Textarea -->
+            <div class="quick-add-section">
+                <label class="form-label fw-bold mb-2">
+                    <i class="bi bi-lightning-charge me-1"></i>Quick Add (paste multiple items)
+                </label>
+                <textarea class="form-control mb-2" id="quickAddText" rows="3"
+                          placeholder="Paste checklist items here, one per line..."></textarea>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <button type="button" class="btn btn-warning btn-sm" onclick="quickAddItems()">
+                        <i class="bi bi-plus-lg me-1"></i>Add All Lines
+                    </button>
+                    <small class="text-muted">Default: 1 point, Binary scale</small>
+                </div>
+            </div>
+            
+            <!-- Checklist Items Container -->
+            <div id="checklistContainer">
+                <!-- Items will be added here dynamically -->
+            </div>
+            
+            <!-- Add Item Button -->
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="add-item-btn flex-grow-1" onclick="addNewItem()">
+                    <i class="bi bi-plus-circle fs-5"></i>
+                    <span>Add Checklist Item</span>
+                </button>
+                <button type="button" class="add-section-btn" onclick="addSection()">
+                    <i class="bi bi-folder-plus me-1"></i>Add Section
+                </button>
+            </div>
+            
+        </div>
+        
+        <!-- Summary Footer -->
+        <div class="builder-summary">
+            <div class="summary-stat">
+                <div class="summary-stat-value" id="totalItems">0</div>
+                <div class="summary-stat-label">Items</div>
+            </div>
+            <div class="summary-stat">
+                <div class="summary-stat-value" id="totalPoints">0</div>
+                <div class="summary-stat-label">Max Points</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="d-flex justify-content-between align-items-center">
+        <a href="{{ cancel_url }}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-arrow-left me-1"></i>Cancel
+        </a>
+        <div>
+            <button type="button" class="btn btn-outline-primary btn-lg me-2" onclick="previewChecklist()">
+                <i class="bi bi-eye me-1"></i>Preview
+            </button>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-lg me-1"></i>
+                {% if template %}Update Template{% else %}Create Template{% endif %}
+            </button>
+        </div>
+    </div>
+    
+</div>
+
+<!-- Hidden input to store checklist data -->
+<input type="hidden" name="checklist_json" id="checklistDataInput">
+</form>
+
+<!-- Item Template -->
+<template id="itemTemplate">
+    <div class="checklist-item-card" draggable="true" data-type="item">
+        <span class="item-number-badge">1</span>
+        <div class="item-actions">
+            <button type="button" class="item-action-btn duplicate-btn" onclick="duplicateItem(this)" title="Duplicate item">
+                <i class="bi bi-files"></i>
+            </button>
+            <button type="button" class="item-action-btn delete-btn" onclick="deleteItem(this)" title="Remove item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        
+        <div class="d-flex align-items-start">
+            <span class="item-drag-handle" title="Drag to reorder">
+                <i class="bi bi-grip-vertical fs-5"></i>
+            </span>
+            
+            <div class="flex-grow-1">
+                <input type="text" class="item-description-input" 
+                       placeholder="Enter checklist item description..."
+                       onchange="updateSummary()">
+                
+                <div class="item-options-grid">
+                    <!-- Scale (LEFT) -->
+                    <div class="option-group">
+                        <span class="option-label">Scale:</span>
+                        <div class="scale-select-wrapper">
+                            <select class="scale-select" onchange="updateScalePreview(this)">
+                                <option value="binary" data-tip="binary">✓ Binary (Yes/No)</option>
+                                <option value="partial" data-tip="partial">◐ Partial (0-1-2)</option>
+                                <option value="bars3" data-tip="bars3">📊 BARS 3-Point</option>
+                                <option value="bars4" data-tip="bars4">📊 BARS 4-Point ⚠️</option>
+                                <option value="likert5" data-tip="likert5">⭐ Likert 5-Point ⚠️</option>
+                                <option value="custom" data-tip="custom">✏️ Custom...</option>
+                            </select>
+                            <button type="button" class="scale-info-btn" onclick="toggleScaleInfo(this)" title="Scale info">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                            <div class="scale-info-tooltip"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Points (RIGHT) -->
+                    <div class="option-group">
+                        <span class="option-label">Points:</span>
+                        <div class="points-quick-select">
+                            <span class="points-chip" data-pts="0.5" onclick="setPoints(this, 0.5)">0.5</span>
+                            <span class="points-chip active" data-pts="1" onclick="setPoints(this, 1)">1</span>
+                            <span class="points-chip" data-pts="2" onclick="setPoints(this, 2)">2</span>
+                            <span class="points-chip" data-pts="3" onclick="setPoints(this, 3)">3</span>
+                            <input type="number" class="points-custom-input" placeholder="..." 
+                                   min="0" max="20" step="0.5" onchange="setCustomPoints(this)">
+                        </div>
+                    </div>
+                    
+                    <!-- ILO -->
+                    <div class="option-group">
+                        <span class="option-label">ILO:</span>
+                        <select class="ilo-select">
+                            <option value="">— None —</option>
+                            {% for ilo in ilos %}
+                            <option value="{{ ilo.id }}">{{ ilo.number }}. {{ ilo.description|truncatechars:43 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="scale-preview">
+                    Scale: <span class="scale-labels"></span>
+                </div>
+                
+                <!-- Custom Scale Editor -->
+                <div class="custom-scale-editor">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="option-label">Levels:</span>
+                        <select class="level-count-select" onchange="updateCustomLabels(this)">
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                        <small class="text-muted">Define your own labels</small>
+                    </div>
+                    <div class="custom-labels-container">
+                        <div class="custom-label-row"><span class="level-num">0:</span><input type="text" class="custom-label" data-level="0" placeholder="e.g., Not Done"></div>
+                        <div class="custom-label-row"><span class="level-num">1:</span><input type="text" class="custom-label" data-level="1" placeholder="e.g., Done"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Section Template -->
+<template id="sectionTemplate">
+    <div class="section-header-card" draggable="true" data-type="section">
+        <div class="item-actions">
+            <button type="button" class="item-action-btn delete-btn" onclick="deleteSection(this)" title="Remove section">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="item-drag-handle me-2" title="Drag to reorder">
+                <i class="bi bi-grip-vertical fs-5"></i>
+            </span>
+            <i class="bi bi-folder me-2"></i>
+            <input type="text" class="section-title-input" placeholder="Section name (e.g., History Taking)">
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Scoring scale definitions with detailed info
+const SCALES = {
+    'binary': {
+        levels: 2,
+        labels: ['Not Done (0)', 'Done (1)'],
+        title: '✓ Binary Scale (Yes/No)',
+        bestFor: 'Objective, observable actions • Early-year students',
+        pros: 'High reliability • Simple • Easy standard setting',
+        cons: 'No partial credit • Misses quality',
+        tip: '👉 Gold standard for many checklist items',
+        warning: null
+    },
+    'custom': {
+        levels: 2,
+        labels: ['Level 0', 'Level 1'],
+        title: '✏️ Custom Scale',
+        bestFor: 'When preset scales don\'t fit your needs',
+        pros: 'Full flexibility • Your terminology',
+        cons: 'Requires clear definitions for examiners',
+        tip: 'Define clear, observable criteria for each level',
+        warning: null
+    },
+    'partial': {
+        levels: 3,
+        labels: ['Not Done (0)', 'Partial (1)', 'Complete (2)'],
+        title: '◐ Partial Credit (0-1-2)',
+        bestFor: 'Communication • Examination technique • Procedures',
+        pros: 'Captures quality • Still structured',
+        cons: 'More examiner judgment • Needs clear descriptors',
+        tip: 'Good balance of simplicity and nuance',
+        warning: null
+    },
+    'bars3': {
+        levels: 3,
+        labels: ['Unsatisfactory (0)', 'Competent (1)', 'Excellent (2)'],
+        title: '📊 BARS 3-Point',
+        bestFor: 'Communication • Organization • Clinical judgment',
+        pros: 'Behavior-based • Clear pass boundary • Reduces variability',
+        cons: 'Requires behavioral anchors',
+        tip: '👉 Best practice for quality items',
+        warning: null
+    },
+    'bars4': {
+        levels: 4,
+        labels: ['Unsatisfactory (0)', 'Borderline (1)', 'Competent (2)', 'Excellent (3)'],
+        title: '📊 BARS 4-Point',
+        bestFor: 'High-stakes OSCEs • Communication • Ethics stations',
+        pros: 'High validity • Clear pass/fail between 1-2',
+        cons: 'Time-consuming to design anchors',
+        tip: 'Best if resources allow',
+        warning: '⚠️ 4-point may be difficult when resources and time are limited'
+    },
+    'likert5': {
+        levels: 5,
+        labels: ['Poor (1)', 'Below Expected (2)', 'Meets Expectations (3)', 'Above Expected (4)', 'Excellent (5)'],
+        title: '⭐ Likert 5-Point ⚠️',
+        bestFor: 'Global behaviors • Professionalism • Communication',
+        pros: 'Captures nuance • Reflects clinical judgment',
+        cons: 'Lower reliability alone • Training required',
+        tip: '⚠️ Should NOT replace checklists alone',
+        warning: 'Requires examiner training & calibration. Best for global rating only.'
+    }
+};
+
+let itemCounter = 0;
+let sectionCounter = 0;
+
+function addSection(title = '') {
+    const container = document.getElementById('checklistContainer');
+    const template = document.getElementById('sectionTemplate');
+    const clone = template.content.cloneNode(true);
+    
+    sectionCounter++;
+    const sectionCard = clone.querySelector('.section-header-card');
+    sectionCard.dataset.sectionId = sectionCounter;
+    
+    const titleInput = clone.querySelector('.section-title-input');
+    titleInput.value = title;
+    
+    container.appendChild(clone);
+    
+    const addedSection = container.lastElementChild;
+    setupDragDrop(addedSection);
+    
+    if (!title) {
+        addedSection.querySelector('.section-title-input').focus();
+    }
+}
+
+function deleteSection(btn) {
+    const card = btn.closest('.section-header-card');
+    card.style.transform = 'translateX(100%)';
+    card.style.opacity = '0';
+    setTimeout(() => { card.remove(); }, 200);
+}
+
+function addNewItem(description = '', points = 1, scale = 'binary', iloId = '', customLabels = null) {
+    const container = document.getElementById('checklistContainer');
+    const template = document.getElementById('itemTemplate');
+    const clone = template.content.cloneNode(true);
+    
+    itemCounter++;
+    const itemCard = clone.querySelector('.checklist-item-card');
+    itemCard.dataset.itemId = itemCounter;
+    
+    const descInput = clone.querySelector('.item-description-input');
+    descInput.value = description;
+    
+    const pointsChips = clone.querySelectorAll('.points-chip');
+    let pointsSet = false;
+    pointsChips.forEach(chip => {
+        chip.classList.remove('active');
+        if (parseFloat(chip.dataset.pts) === points) {
+            chip.classList.add('active');
+            pointsSet = true;
+        }
+    });
+    if (!pointsSet && points) {
+        clone.querySelector('.points-custom-input').value = points;
+    }
+    
+    clone.querySelector('.scale-select').value = scale;
+    clone.querySelector('.ilo-select').value = iloId || '';
+    
+    container.appendChild(clone);
+    
+    const addedCard = container.lastElementChild;
+    
+    if (scale === 'custom' && customLabels) {
+        const customEditor = addedCard.querySelector('.custom-scale-editor');
+        const levelSelect = addedCard.querySelector('.level-count-select');
+        customEditor.classList.add('visible');
+        levelSelect.value = customLabels.length;
+        
+        const labelsContainer = addedCard.querySelector('.custom-labels-container');
+        let html = '';
+        customLabels.forEach((label, i) => {
+            html += `<div class="custom-label-row">
+                <span class="level-num">${i}:</span>
+                <input type="text" class="custom-label" data-level="${i}" value="${label}">
+            </div>`;
+        });
+        labelsContainer.innerHTML = html;
+    }
+    
+    setupDragDrop(addedCard);
+    
+    if (!description) {
+        addedCard.querySelector('.item-description-input').focus();
+    }
+    
+    renumberItems();
+    updateSummary();
+}
+
+function deleteItem(btn) {
+    const card = btn.closest('.checklist-item-card');
+    card.style.transform = 'translateX(100%)';
+    card.style.opacity = '0';
+    setTimeout(() => {
+        card.remove();
+        renumberItems();
+        updateSummary();
+    }, 200);
+}
+
+function duplicateItem(btn) {
+    const card = btn.closest('.checklist-item-card');
+    
+    const description = card.querySelector('.item-description-input').value;
+    const points = getItemPoints(card);
+    const scale = card.querySelector('.scale-select').value;
+    const iloId = card.querySelector('.ilo-select').value;
+    const customLabels = scale === 'custom' ? getCustomLabels(card) : null;
+    
+    const container = document.getElementById('checklistContainer');
+    const cards = Array.from(container.querySelectorAll('.checklist-item-card'));
+    const currentIndex = cards.indexOf(card);
+    
+    addNewItem(description, points, scale, iloId, customLabels);
+    
+    const newCard = container.lastElementChild;
+    const nextCard = cards[currentIndex + 1];
+    if (nextCard) {
+        container.insertBefore(newCard, nextCard);
+    }
+    
+    newCard.style.backgroundColor = '#d1e7dd';
+    setTimeout(() => { newCard.style.backgroundColor = ''; }, 500);
+    
+    newCard.querySelector('.item-description-input').focus();
+    newCard.querySelector('.item-description-input').select();
+    
+    renumberItems();
+}
+
+function quickAddItems() {
+    const textarea = document.getElementById('quickAddText');
+    const lines = textarea.value.split('\n').filter(line => line.trim());
+    
+    lines.forEach(line => {
+        addNewItem(line.trim(), 1, 'binary', '');
+    });
+    
+    textarea.value = '';
+}
+
+function setPoints(chip, value) {
+    const card = chip.closest('.checklist-item-card');
+    card.querySelectorAll('.points-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    card.querySelector('.points-custom-input').value = '';
+    updateSummary();
+}
+
+function setCustomPoints(input) {
+    const card = input.closest('.checklist-item-card');
+    card.querySelectorAll('.points-chip').forEach(c => c.classList.remove('active'));
+    updateSummary();
+}
+
+function getItemPoints(card) {
+    const activeChip = card.querySelector('.points-chip.active');
+    if (activeChip) {
+        return parseFloat(activeChip.dataset.pts);
+    }
+    const customInput = card.querySelector('.points-custom-input');
+    return parseFloat(customInput.value) || 1;
+}
+
+function updateScalePreview(select) {
+    const card = select.closest('.checklist-item-card');
+    const preview = card.querySelector('.scale-preview');
+    const labelsSpan = preview.querySelector('.scale-labels');
+    const customEditor = card.querySelector('.custom-scale-editor');
+    const scaleValue = select.value;
+    
+    if (scaleValue === 'custom') {
+        customEditor.classList.add('visible');
+        preview.classList.remove('visible');
+        const customLabels = getCustomLabels(card);
+        labelsSpan.textContent = customLabels.join(' → ');
+    } else {
+        customEditor.classList.remove('visible');
+        const scale = SCALES[scaleValue];
+        if (scale) {
+            labelsSpan.textContent = scale.labels.join(' → ');
+            preview.classList.add('visible');
+            setTimeout(() => preview.classList.remove('visible'), 3000);
+        }
+    }
+    
+    const tooltip = card.querySelector('.scale-info-tooltip');
+    const scale = SCALES[scaleValue];
+    if (tooltip && scale) {
+        updateScaleTooltipContent(tooltip, scale);
+    }
+}
+
+function updateCustomLabels(levelSelect) {
+    const card = levelSelect.closest('.checklist-item-card');
+    const container = card.querySelector('.custom-labels-container');
+    const numLevels = parseInt(levelSelect.value);
+    
+    const existingLabels = [];
+    container.querySelectorAll('.custom-label').forEach(input => {
+        existingLabels.push(input.value);
+    });
+    
+    let html = '';
+    for (let i = 0; i < numLevels; i++) {
+        const existingValue = existingLabels[i] || '';
+        const placeholder = i === 0 ? 'e.g., Not Done' : 
+                           i === numLevels - 1 ? 'e.g., Excellent' : 
+                           `Level ${i}`;
+        html += `<div class="custom-label-row">
+            <span class="level-num">${i}:</span>
+            <input type="text" class="custom-label" data-level="${i}" 
+                   placeholder="${placeholder}" value="${existingValue}">
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
+function getCustomLabels(card) {
+    const labels = [];
+    card.querySelectorAll('.custom-label').forEach(input => {
+        labels.push(input.value || `Level ${input.dataset.level}`);
+    });
+    return labels;
+}
+
+function toggleScaleInfo(btn) {
+    const wrapper = btn.closest('.scale-select-wrapper');
+    const tooltip = wrapper.querySelector('.scale-info-tooltip');
+    const select = wrapper.querySelector('.scale-select');
+    const scale = SCALES[select.value];
+    
+    document.querySelectorAll('.scale-info-tooltip.visible').forEach(t => {
+        if (t !== tooltip) t.classList.remove('visible');
+    });
+    
+    if (scale) {
+        updateScaleTooltipContent(tooltip, scale);
+        tooltip.classList.toggle('visible');
+    }
+}
+
+function updateScaleTooltipContent(tooltip, scale) {
+    let html = `
+        <h6>${scale.title}</h6>
+        <ul class="scale-labels-list">
+            ${scale.labels.map(l => `<li>${l}</li>`).join('')}
+        </ul>
+        <p class="scale-tip"><strong>Best for:</strong> ${scale.bestFor}</p>
+    `;
+    
+    if (scale.warning) {
+        html += `<p class="scale-warning">${scale.warning}</p>`;
+    }
+    
+    tooltip.innerHTML = html;
+}
+
+// Close tooltips when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.scale-select-wrapper')) {
+        document.querySelectorAll('.scale-info-tooltip.visible').forEach(t => {
+            t.classList.remove('visible');
+        });
+    }
+});
+
+function renumberItems() {
+    let itemNum = 0;
+    document.querySelectorAll('#checklistContainer > div').forEach((card) => {
+        if (card.dataset.type === 'item') {
+            itemNum++;
+            card.querySelector('.item-number-badge').textContent = itemNum;
+        }
+    });
+}
+
+function updateSummary() {
+    const items = document.querySelectorAll('.checklist-item-card');
+    let totalPoints = 0;
+    
+    items.forEach(item => {
+        totalPoints += getItemPoints(item);
+    });
+    
+    document.getElementById('totalItems').textContent = items.length;
+    document.getElementById('totalPoints').textContent = totalPoints % 1 === 0 ? totalPoints : totalPoints.toFixed(1);
+    document.getElementById('itemCountBadge').textContent = `${items.length} items`;
+}
+
+// Drag and Drop
+function setupDragDrop(element) {
+    element.addEventListener('dragstart', handleDragStart);
+    element.addEventListener('dragend', handleDragEnd);
+    element.addEventListener('dragover', handleDragOver);
+    element.addEventListener('drop', handleDrop);
+}
+
+let draggedItem = null;
+
+function handleDragStart(e) {
+    draggedItem = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    draggedItem = null;
+    renumberItems();
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    const container = document.getElementById('checklistContainer');
+    const afterElement = getDragAfterElement(container, e.clientY);
+    
+    if (afterElement == null) {
+        container.appendChild(draggedItem);
+    } else {
+        container.insertBefore(draggedItem, afterElement);
+    }
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.checklist-item-card:not(.dragging), .section-header-card:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// Form Submission
+document.getElementById('templateForm').addEventListener('submit', function(e) {
+    const items = [];
+    let currentSection = null;
+    let itemNumber = 0;
+    let missingILOItems = [];
+    let missingILOCards = [];
+    
+    document.querySelectorAll('#checklistContainer > div').forEach((card) => {
+        if (card.dataset.type === 'section') {
+            currentSection = card.querySelector('.section-title-input').value.trim() || null;
+        } else if (card.dataset.type === 'item') {
+            const description = card.querySelector('.item-description-input').value.trim();
+            if (description) {
+                itemNumber++;
+                const iloSelect = card.querySelector('.ilo-select');
+                const iloId = iloSelect.value;
+                const scoringType = card.querySelector('.scale-select').value;
+                
+                if (!iloId) {
+                    missingILOItems.push(itemNumber);
+                    missingILOCards.push(iloSelect);
+                }
+                
+                const itemData = {
+                    item_number: itemNumber,
+                    description: description,
+                    points: getItemPoints(card),
+                    scoring_type: scoringType,
+                    ilo_id: iloId || null,
+                    section: currentSection
+                };
+                
+                if (scoringType === 'custom') {
+                    itemData.custom_labels = getCustomLabels(card);
+                }
+                
+                items.push(itemData);
+            }
+        }
+    });
+    
+    // Validate that all items have ILO selected
+    if (missingILOItems.length > 0) {
+        e.preventDefault();
+        
+        missingILOCards.forEach(select => {
+            select.classList.add('is-invalid');
+            setTimeout(() => select.classList.remove('is-invalid'), 4000);
+        });
+        
+        alert(`❌ Please select an ILO for the following items: ${missingILOItems.join(', ')}\n\nEach checklist item must be mapped to a learning outcome.`);
+        return false;
+    }
+    
+    document.getElementById('checklistDataInput').value = JSON.stringify(items);
+});
+
+// Preview Function - Shows realistic examiner marking interface
+function previewChecklist() {
+    const cards = document.querySelectorAll('#checklistContainer > div');
+    const hasItems = Array.from(cards).some(c => c.dataset.type === 'item');
+    if (!hasItems) {
+        alert('Add at least one checklist item to preview.');
+        return;
+    }
+    
+    const templateName = document.querySelector('input[name="name"]').value || 'Untitled Template';
+    const duration = '8';
+    
+    let previewHtml = `
+    <html><head><title>Examiner Preview - ${templateName}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #f5f5f5;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        .marking-header {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: white;
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .station-name { font-weight: 700; font-size: 1rem; }
+        .timer { 
+            font-family: 'SF Mono', Monaco, monospace; 
+            font-size: 1.25rem; 
+            font-weight: 700;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 8px;
+        }
+        .student-row { display: flex; align-items: center; gap: 12px; }
+        .avatar {
+            width: 40px; height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #0d6efd;
+        }
+        .student-info { flex: 1; }
+        .student-name { font-weight: 600; }
+        .student-id { font-size: 0.8rem; opacity: 0.8; }
+        .score-box {
+            background: rgba(255,255,255,0.15);
+            padding: 6px 14px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .score-label { font-size: 0.7rem; opacity: 0.8; }
+        .score-value { font-size: 1.3rem; font-weight: 700; }
+        .progress-section { padding: 12px 16px; background: white; border-bottom: 1px solid #e0e0e0; }
+        .progress-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: #666; margin-bottom: 6px; }
+        .progress-bar { height: 6px; background: #e9ecef; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #198754; width: 30%; transition: width 0.3s; }
+        .section-header {
+            background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+            color: white;
+            padding: 10px 16px;
+            margin: 16px 12px 8px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-header:first-child { margin-top: 12px; }
+        .checklist-card {
+            background: white;
+            border-radius: 12px;
+            margin: 8px 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            border: 3px solid #e9ecef;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        .checklist-card.marked { border-color: #0d6efd; }
+        .item-header { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 12px 16px 0 16px;
+            font-size: 0.85rem;
+        }
+        .item-num { 
+            color: #495057; 
+            font-weight: 700;
+            background: #f8f9fa;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .item-pts { 
+            background: #0d6efd; 
+            padding: 3px 12px; 
+            border-radius: 12px; 
+            font-weight: 700;
+            color: white;
+            font-size: 0.85rem;
+        }
+        .item-content { padding: 8px 16px 14px 16px; }
+        .item-desc { 
+            font-weight: 500; 
+            color: #212529; 
+            line-height: 1.5;
+            font-size: 1rem;
+        }
+        .item-scale { 
+            font-size: 0.75rem; 
+            color: #6c757d; 
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .scale-badge { 
+            display: inline-block;
+            background: #e9ecef; 
+            padding: 3px 8px; 
+            border-radius: 6px; 
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #495057;
+        }
+        .score-buttons { 
+            display: flex; 
+            gap: 6px; 
+            padding: 12px; 
+            background: #f8f9fa;
+        }
+        .score-btn {
+            flex: 1;
+            padding: 14px 6px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border: 3px solid #dee2e6;
+            border-radius: 10px;
+            background: white;
+            color: #212529;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+            line-height: 1.2;
+        }
+        .score-btn:active { transform: scale(0.95); }
+        .score-btn.active { 
+            border-color: #0d6efd; 
+            background: #0d6efd; 
+            color: white;
+        }
+        .rubric-buttons { 
+            display: flex; 
+            gap: 6px; 
+            padding: 12px; 
+            background: #f8f9fa;
+        }
+        .rubric-btn {
+            flex: 1;
+            padding: 14px 6px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: 3px solid #dee2e6;
+            border-radius: 10px;
+            background: white;
+            color: #212529;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+            line-height: 1.2;
+        }
+        .rubric-btn:active { transform: scale(0.95); }
+        .rubric-btn.active { 
+            border-color: #0d6efd; 
+            background: #0d6efd; 
+            color: white;
+        }
+        .submit-section {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 12px 16px;
+            border-top: 1px solid #dee2e6;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: #198754;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .summary-card {
+            background: #e7f1ff;
+            margin: 16px 12px;
+            padding: 16px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        .summary-value { font-size: 1.5rem; font-weight: 700; color: #0d6efd; }
+        .summary-label { font-size: 0.75rem; color: #6c757d; text-transform: uppercase; }
+        .demo-note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 8px 12px;
+            margin: 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #856404;
+            text-align: center;
+        }
+    </style>
+    </head><body>
+    
+    <div class="marking-header">
+        <div class="header-top">
+            <div>
+                <div class="station-name">${templateName}</div>
+                <div style="font-size: 0.75rem; opacity: 0.8;">Template Preview</div>
+            </div>
+            <div class="timer">${duration}:00</div>
+        </div>
+        <div class="student-row">
+            <div class="avatar"><i class="bi bi-person-fill"></i></div>
+            <div class="student-info">
+                <div class="student-name">John Smith</div>
+                <div class="student-id">ID: 12345678</div>
+            </div>
+            <div class="score-box">
+                <div class="score-label">Score</div>
+                <div class="score-value"><span id="currentScore">0</span>/<span id="maxScore">0</span></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="progress-section">
+        <div class="progress-header">
+            <span>Progress</span>
+            <span><span id="markedCount">0</span>/<span id="totalItems">0</span> items</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    
+    <div class="demo-note">
+        <i class="bi bi-hand-index me-1"></i>
+        Click buttons to simulate marking (preview only)
+    </div>
+    
+    <div id="checklistArea">`;
+    
+    let totalPts = 0;
+    let itemNum = 0;
+    let currentSection = null;
+    
+    cards.forEach((card) => {
+        if (card.dataset.type === 'section') {
+            currentSection = card.querySelector('.section-title-input').value || 'Untitled Section';
+            previewHtml += `<div class="section-header"><i class="bi bi-folder"></i> ${currentSection}</div>`;
+        } else if (card.dataset.type === 'item') {
+            const desc = card.querySelector('.item-description-input').value || '(No description)';
+            const pts = getItemPoints(card);
+            const scale = card.querySelector('.scale-select').value;
+            const scaleInfo = SCALES[scale];
+            
+            totalPts += pts;
+            itemNum++;
+            
+            const isCustom = scale === 'custom';
+            const scaleLabels = isCustom ? getCustomLabels(card) : (scaleInfo ? scaleInfo.labels : []);
+            const scaleName = isCustom ? 'Custom' : (scaleInfo ? scaleInfo.title.replace(/[✓◐📊⭐✏️⚠️]/g, '').trim() : scale);
+            
+            let buttonsHtml = '';
+            if (scaleLabels.length === 2) {
+                const label0 = scaleLabels[0].replace(/\([^)]+\)/g, '').trim();
+                const label1 = scaleLabels[1].replace(/\([^)]+\)/g, '').trim();
+                buttonsHtml = `
+                    <div class="score-buttons">
+                        <button class="score-btn" onclick="markItem(${itemNum}, 0, ${pts})">
+                            ${label0}
+                        </button>
+                        <button class="score-btn" onclick="markItem(${itemNum}, ${pts}, ${pts})">
+                            ${label1}
+                        </button>
+                    </div>`;
+            } else {
+                buttonsHtml = '<div class="rubric-buttons">';
+                scaleLabels.forEach((label, i) => {
+                    const score = (i / (scaleLabels.length - 1) * pts).toFixed(1);
+                    const shortLabel = label.replace(/\([^)]+\)/g, '').trim();
+                    buttonsHtml += '<button class="rubric-btn" onclick="markItem(' + itemNum + ', ' + score + ', ' + pts + ')">' + shortLabel + '</button>';
+                });
+                buttonsHtml += '</div>';
+            }
+            
+            previewHtml += `
+            <div class="checklist-card" id="item-${itemNum}" data-pts="${pts}">
+                <div class="item-header">
+                    <span class="item-num">#${itemNum}</span>
+                    <span class="item-pts">${pts} pt${pts !== 1 ? 's' : ''}</span>
+                </div>
+                <div class="item-content">
+                    <div class="item-desc">${desc}</div>
+                    <div class="item-scale">
+                        <span class="scale-badge">${scaleName}</span>
+                        ${scaleLabels.length > 0 ? '<span style="margin-left: 6px;">' + scaleLabels.join(' → ') + '</span>' : ''}
+                    </div>
+                </div>
+                ${buttonsHtml}
+            </div>`;
+        }
+    });
+    
+    previewHtml += `
+    </div>
+    
+    <div class="summary-card">
+        <div>
+            <div class="summary-value">${itemNum}</div>
+            <div class="summary-label">Items</div>
+        </div>
+        <div>
+            <div class="summary-value">${totalPts}</div>
+            <div class="summary-label">Max Points</div>
+        </div>
+        <div>
+            <div class="summary-value">${duration}</div>
+            <div class="summary-label">Minutes</div>
+        </div>
+    </div>
+    
+    <div class="submit-section">
+        <button class="submit-btn">
+            <i class="bi bi-check-lg"></i> Submit Score
+        </button>
+    </div>
+    
+    <` + `script>
+    let scores = {};
+    let totalItems = ${itemNum};
+    let maxScore = ${totalPts};
+    
+    document.getElementById('maxScore').textContent = maxScore;
+    document.getElementById('totalItems').textContent = totalItems;
+    
+    function markItem(itemId, score, maxPts) {
+        const card = document.getElementById('item-' + itemId);
+        scores[itemId] = parseFloat(score);
+        
+        card.classList.add('marked');
+        
+        card.querySelectorAll('.score-btn, .rubric-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.closest('button').classList.add('active');
+        
+        updateTotals();
+    }
+    
+    function updateTotals() {
+        let current = 0;
+        let marked = 0;
+        for (let id in scores) {
+            current += scores[id];
+            marked++;
+        }
+        document.getElementById('currentScore').textContent = current % 1 === 0 ? current : current.toFixed(1);
+        document.getElementById('markedCount').textContent = marked;
+        document.getElementById('progressFill').style.width = (marked / totalItems * 100) + '%';
+    }
+    <` + `/script>
+    </body></html>`;
+    
+    const previewWindow = window.open('', 'Preview', 'width=500,height=700');
+    previewWindow.document.write(previewHtml);
+    previewWindow.document.close();
+}
+
+// Initialize existing items if editing
+const existingItems = {{ existing_items_json|safe }};
+if (existingItems && existingItems.length > 0) {
+    document.addEventListener('DOMContentLoaded', function() {
+        let lastSection = null;
+        existingItems.forEach(item => {
+            if (item.category && item.category !== lastSection) {
+                addSection(item.category);
+                lastSection = item.category;
+            }
+            addNewItem(
+                item.description,
+                item.points,
+                item.scoring_type || 'binary',
+                item.ilo_id ? String(item.ilo_id) : '',
+                item.custom_labels || null
+            );
+        });
+    });
+}
+</script>
+{% endblock %}

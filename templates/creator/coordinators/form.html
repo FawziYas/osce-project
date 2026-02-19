@@ -1,0 +1,74 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Add Coordinator - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:coordinator_list' %}">Coordinators</a></li>
+            <li class="breadcrumb-item active">Add Coordinator</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-person-plus me-2"></i>Add Coordinator</h1>
+    <p class="text-muted mb-0">Coordinators have full access to the creator dashboard.</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-7">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-3">
+
+                    <div class="col-12">
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="full_name" required
+                               placeholder="Dr. Jane Smith">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="username" required
+                               placeholder="jsmith">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" name="email" required
+                               placeholder="jsmith@hospital.edu">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" name="password" required
+                               placeholder="Minimum 8 characters">
+                    </div>
+
+                    <div class="col-12">
+                        <div class="alert alert-info d-flex align-items-start gap-2 mb-0">
+                            <i class="bi bi-info-circle-fill mt-1"></i>
+                            <div>
+                                <strong>Coordinator Access:</strong> This user will be able to log in and access the
+                                full creator dashboard (exams, sessions, reports). They will <strong>not</strong>
+                                have Django admin access unless explicitly granted.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Create Coordinator
+                        </button>
+                        <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

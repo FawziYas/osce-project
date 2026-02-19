@@ -1,0 +1,615 @@
+{% extends 'examiner/base_examiner.html' %}
+{% load static %}
+
+{% block title %}{{ student.full_name }} - Station {{ assignment.station.station_number }}{% endblock %}
+
+{% block body_class %}examiner-body evaluation-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'css/examiner-evaluation.css' %}">
+<script src="{% static 'js/exam-timer.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Sticky Header -->
+<header class="evaluation-header">
+    <div class="header-title">
+        <a href="{% url 'examiner:station_dashboard' assignment.id %}" class="header-back-btn">
+            <i class="bi bi-chevron-left"></i>
+            Back to Dashboard
+        </a>
+    </div>
+    <div class="header-top">
+        <div class="header-left">
+            <div class="info-labels">
+                <div class="info-label">
+                    <span class="label-text">Student:</span>
+                    <span class="label-value">{{ student.full_name }}</span>
+                </div>
+                <div class="info-label">
+                    <span class="label-text">Reg No:</span>
+                    <span class="label-value">{{ student.student_number }}</span>
+                </div>
+                <div class="info-label">
+                    <span class="label-text">Evaluator:</span>
+                    <span class="label-value">{{ request.user.display_name }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-center">
+            <div class="station-name-large">{{ assignment.station.name }}</div>
+        </div>
+        <div class="header-right">
+            <div class="timer-widget" id="timer-widget">
+                <i class="bi bi-clock"></i>
+                <span id="timer">{{ duration }}:00</span>
+            </div>
+        </div>
+    </div>
+    <div class="header-stats">
+        <div class="stat-box">
+            <div class="stat-label">Progress</div>
+            <div class="stat-value"><span id="progress-count">0</span>/<span id="progress-total">0</span></div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Total Marks</div>
+            <div class="stat-value">{{ max_score }}</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Student Mark</div>
+            <div class="stat-value">
+                <span id="student-mark">0.0</span><span class="stat-max">/{{ max_score }}</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container-fluid py-3 px-2">
+    <div class="content-wrapper">
+    <!-- Case Scenario Card (populated from API) -->
+    <div class="case-card" id="case-card" style="display: none;">
+        <h3 class="case-title">
+            <i class="bi bi-file-text"></i>
+            <span id="case-title">Case Scenario</span>
+        </h3>
+        <div class="case-instructions" id="case-instructions"></div>
+    </div>
+
+    <!-- Questions Container -->
+    <div id="checklist-container" class="questions-container">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <p style="color: #6B7280; margin-top: 12px;">Loading evaluation checklist...</p>
+        </div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div class="feedback-section">
+        <div class="feedback-title">
+            <i class="bi bi-chat-square-text"></i>
+            Comments (Optional)
+        </div>
+        <textarea id="comments" class="feedback-textarea"
+                  placeholder="Add feedback for this student's performance..."></textarea>
+    </div>
+
+    </div> <!-- /content-wrapper -->
+
+    <!-- Bottom Actions -->
+    <div class="bottom-actions">
+        <div class="action-buttons">
+            <a href="{% url 'examiner:station_dashboard' assignment.id %}"
+               class="btn-back">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+
+            <div></div>
+
+            <div class="footer-total">
+                <div class="total-mark" id="footer-total-mark"><span class="student-mark">0.0</span><span class="mark-max">/{{ max_score }}</span></div>
+                <button type="button" class="btn-submit" onclick="submitScore()" id="submit-btn">
+                    <i class="bi bi-check-circle me-2"></i>Submit Evaluation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal (hidden by default) -->
+<div id="confirm-modal" class="confirm-modal" style="display: none;">
+    <div class="confirm-content">
+        <h3 class="confirm-title">Submit Evaluation?</h3>
+        <p class="confirm-message" id="confirm-message">
+            Are you sure you want to submit this evaluation? This action cannot be undone.
+        </p>
+        <div class="confirm-buttons">
+            <button class="confirm-btn cancel" onclick="closeConfirmModal()">
+                <i class="bi bi-x-circle me-2"></i>Cancel
+            </button>
+            <button class="confirm-btn confirm" onclick="confirmSubmit()">
+                <i class="bi bi-check-circle me-2"></i>Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const MARKING_DATA = {
+        stationScoreId: "{{ score.id }}",
+        stationId: "{{ assignment.station_id }}",
+        studentId: "{{ student.id }}",
+        maxScore: {{ max_score }},
+        duration: {{ duration }},
+        savedItemScores: {{ saved_item_scores_json|safe }},
+        csrfToken: "{{ csrf_token }}"
+    };
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
+
+let examTimer = null;
+let checklistItems = [];
+let evaluations = {}; // { itemId: "done" | "partial" | "not-done" | null }
+let stationData = null;
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('=== Examiner Evaluation Interface Loaded ===');
+    console.log('MARKING_DATA:', MARKING_DATA);
+
+    // Initialize timer
+    initializeTimer();
+
+    // Load checklist data
+    loadChecklist();
+});
+
+function initializeTimer() {
+    if (!MARKING_DATA.duration) {
+        console.warn('No duration provided');
+        return;
+    }
+
+    examTimer = new ExamTimer(MARKING_DATA.duration, 'timer');
+
+    // Start timer automatically
+    examTimer.start();
+
+    // Set up warning callbacks
+    examTimer.on('warning', (message) => {
+        console.log('Timer warning:', message);
+    });
+
+    examTimer.on('expiry', () => {
+        console.log('Timer expired');
+    });
+}
+
+// ============================================================================
+// DATA LOADING
+// ============================================================================
+
+async function loadChecklist() {
+    console.log('=== loadChecklist() called ===');
+
+    if (!MARKING_DATA || !MARKING_DATA.stationId) {
+        showError('Station ID is missing');
+        return;
+    }
+
+    const url = `/api/station/${MARKING_DATA.stationId}/checklist/`;
+    console.log('Fetching from:', url);
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('Checklist data received:', data);
+
+        stationData = data.station;
+        checklistItems = data.items || [];
+
+        // Render case scenario
+        renderCaseScenario(data.station);
+
+        // Render questions
+        renderChecklist(data);
+
+        // Load saved scores
+        if (MARKING_DATA.savedItemScores && Object.keys(MARKING_DATA.savedItemScores).length > 0) {
+            loadSavedScores();
+        }
+
+        // Update progress
+        updateProgress();
+
+        console.log('✓ Checklist loaded successfully');
+    } catch (error) {
+        console.error('❌ Error loading checklist:', error);
+        showError(`Failed to load checklist: ${error.message}`);
+    }
+}
+
+function renderCaseScenario(station) {
+    if (!station.scenario && !station.instructions) {
+        return;
+    }
+
+    const caseCard = document.getElementById('case-card');
+    const caseTitle = document.getElementById('case-title');
+    const caseInstructions = document.getElementById('case-instructions');
+
+    if (station.name) {
+        caseTitle.textContent = station.name;
+    }
+
+    if (station.scenario) {
+        caseInstructions.innerHTML = `<p><strong>Scenario:</strong> ${station.scenario}</p>`;
+    }
+
+    if (station.instructions) {
+        caseInstructions.innerHTML += `<p>${station.instructions}</p>`;
+    }
+
+    caseCard.style.display = 'block';
+}
+
+function renderChecklist(data) {
+    const container = document.getElementById('checklist-container');
+
+    if (!data.items || data.items.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: #6B7280;">
+                <i class="bi bi-exclamation-circle" style="font-size: 3rem; opacity: 0.5;"></i>
+                <p style="margin-top: 16px;">No checklist items configured for this station.</p>
+            </div>`;
+        return;
+    }
+
+    // Group by category
+    const categories = {};
+    data.items.forEach(item => {
+        const cat = item.category || 'General';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(item);
+    });
+
+    let html = '';
+    let itemNum = 0;
+
+    for (const [category, items] of Object.entries(categories)) {
+        if (Object.keys(categories).length > 1) {
+            html += `
+                <div class="section-divider">
+                    <div class="section-label">${category}</div>
+                    <div class="section-line"></div>
+                </div>`;
+        }
+
+        items.forEach(item => {
+            itemNum++;
+            html += renderQuestionCard(item, itemNum);
+        });
+    }
+
+    container.innerHTML = html;
+
+    document.getElementById('progress-total').textContent = data.items.length;
+}
+
+function renderQuestionCard(item, itemNum) {
+    const levels = item.rubric_levels || [
+        {score: 0, label: 'Not Done'},
+        {score: item.points / 2, label: 'Partial'},
+        {score: item.points, label: 'Done'}
+    ];
+
+    const buttonsHtml = levels.map(level => {
+        const isFullPoints = level.score === item.points;
+        const btnClass = isFullPoints ? 'eval-btn full-points' : 'eval-btn';
+
+        return `
+            <button class="${btnClass}"
+                    onclick="setEvaluation(${item.id}, ${level.score}, ${item.points})"
+                    data-item-id="${item.id}"
+                    data-score="${level.score}">
+                <span class="eval-btn-icon">
+                    ${level.score === 0 ? '<i class="bi bi-x-circle"></i>' :
+                      level.score === item.points ? '<i class="bi bi-check-circle"></i>' :
+                      '<i class="bi bi-dash-circle"></i>'}
+                </span>
+                <span class="eval-btn-label">${level.label}</span>
+            </button>
+        `;
+    }).join('');
+
+    return `
+        <div class="question-card" data-item-id="${item.id}" data-max-points="${item.points}">
+            <div class="question-header">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="question-number-badge">Q${itemNum}</span>
+                     <div class="question-text-inline">${item.description}</div>
+                    ${item.ilo_name ? `
+                        <div class="ilo-badge">
+                            <i class="bi bi-tag-fill"></i>
+                            <span>ILO: ${item.ilo_name}</span>
+                        </div>` : ''}
+
+                    <div class="marks-badge">
+                        <i class="bi bi-award-fill"></i>
+                        <span>${item.points} pt${item.points !== 1 ? 's' : ''}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="evaluation-buttons">
+                ${buttonsHtml}
+            </div>
+        </div>`;
+}
+
+// ============================================================================
+// EVALUATION MANAGEMENT
+// ============================================================================
+
+function setEvaluation(itemId, score, maxPoints) {
+    console.log(`Setting evaluation: item ${itemId}, score ${score}/${maxPoints}`);
+
+    evaluations[itemId] = { score, maxPoints };
+
+    const card = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (card) {
+        card.classList.add('answered');
+        card.classList.remove('unanswered');
+
+        const badge = card.querySelector('.unanswered-badge');
+        if (badge) badge.remove();
+
+        const buttons = card.querySelectorAll('.eval-btn');
+        buttons.forEach(btn => {
+            const btnScore = parseFloat(btn.dataset.score);
+            btn.classList.toggle('active', btnScore === score);
+        });
+    }
+
+    updateStudentMark();
+    updateProgress();
+
+    saveItemScore(itemId, score, maxPoints);
+}
+
+async function saveItemScore(itemId, score, maxPoints) {
+    try {
+        await fetch(`/api/score/${MARKING_DATA.stationScoreId}/item/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': MARKING_DATA.csrfToken,
+            },
+            body: JSON.stringify({
+                checklist_item_id: itemId,
+                score: score,
+                max_points: maxPoints
+            })
+        });
+        console.log(`✓ Saved: item ${itemId} = ${score}/${maxPoints}`);
+    } catch (error) {
+        console.error('❌ Save failed:', error);
+    }
+}
+
+function loadSavedScores() {
+    console.log('Loading saved scores:', MARKING_DATA.savedItemScores);
+
+    for (const itemId in MARKING_DATA.savedItemScores) {
+        const itemIdNum = parseInt(itemId);
+        const savedScore = MARKING_DATA.savedItemScores[itemId];
+        const score = savedScore.score;
+        const maxPoints = savedScore.max_points;
+
+        evaluations[itemIdNum] = { score, maxPoints };
+
+        const card = document.querySelector(`[data-item-id="${itemIdNum}"]`);
+        if (card) {
+            card.classList.add('answered');
+
+            const buttons = card.querySelectorAll('.eval-btn');
+            buttons.forEach(btn => {
+                const btnScore = parseFloat(btn.dataset.score);
+                btn.classList.toggle('active', btnScore === score);
+            });
+        }
+    }
+
+    updateStudentMark();
+    updateProgress();
+    console.log('✓ Saved scores loaded');
+}
+
+// ============================================================================
+// CALCULATIONS & UI UPDATES
+// ============================================================================
+
+function updateStudentMark() {
+    let total = 0;
+
+    for (const itemId in evaluations) {
+        total += evaluations[itemId].score;
+    }
+
+    document.getElementById('student-mark').textContent = total.toFixed(1);
+    const footerTotal = document.getElementById('footer-total-mark');
+    if (footerTotal) {
+        const max = MARKING_DATA.maxScore || 0;
+        const studentSpan = footerTotal.querySelector('.student-mark');
+        const maxSpan = footerTotal.querySelector('.mark-max');
+        if (studentSpan) studentSpan.textContent = total.toFixed(1);
+        if (maxSpan) maxSpan.textContent = `/${max}`;
+    }
+}
+
+function updateProgress() {
+    const totalQuestions = checklistItems.length;
+    const answeredQuestions = Object.keys(evaluations).length;
+
+    document.getElementById('progress-count').textContent = answeredQuestions;
+    document.getElementById('progress-total').textContent = totalQuestions;
+}
+
+// ============================================================================
+// SUBMISSION
+// ============================================================================
+
+async function submitScore() {
+    console.log('=== Submit clicked ===');
+
+    const unansweredItems = findUnansweredItems();
+
+    if (unansweredItems.length > 0) {
+        highlightUnanswered(unansweredItems);
+        scrollToFirstUnanswered(unansweredItems[0]);
+
+        showWarning(`${unansweredItems.length} question${unansweredItems.length !== 1 ? 's' : ''} not answered. Please complete all questions before submitting.`);
+        return;
+    }
+
+    showConfirmModal();
+}
+
+function findUnansweredItems() {
+    const unanswered = [];
+
+    checklistItems.forEach(item => {
+        if (!evaluations.hasOwnProperty(item.id)) {
+            unanswered.push(item.id);
+        }
+    });
+
+    return unanswered;
+}
+
+function highlightUnanswered(unansweredIds) {
+    document.querySelectorAll('.question-card.unanswered').forEach(card => {
+        card.classList.remove('unanswered');
+        const badge = card.querySelector('.unanswered-badge');
+        if (badge) badge.remove();
+    });
+
+    unansweredIds.forEach(itemId => {
+        const card = document.querySelector(`[data-item-id="${itemId}"]`);
+        if (card) {
+            card.classList.add('unanswered');
+
+            const header = card.querySelector('.question-header');
+            if (header && !header.querySelector('.unanswered-badge')) {
+                const badge = document.createElement('span');
+                badge.className = 'unanswered-badge';
+                badge.textContent = 'Not Answered';
+                header.style.position = 'relative';
+                header.appendChild(badge);
+            }
+        }
+    });
+}
+
+function scrollToFirstUnanswered(itemId) {
+    const card = document.querySelector(`[data-item-id="${itemId}"]`);
+    if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+function showWarning(message) {
+    alert(message);
+}
+
+// ============================================================================
+// CONFIRMATION MODAL
+// ============================================================================
+
+function showConfirmModal() {
+    const modal = document.getElementById('confirm-modal');
+    const answeredCount = Object.keys(evaluations).length;
+    const totalCount = checklistItems.length;
+
+    const message = document.getElementById('confirm-message');
+    message.textContent = `You have evaluated ${answeredCount}/${totalCount} questions. Submit this evaluation?`;
+
+    modal.style.display = 'flex';
+}
+
+function closeConfirmModal() {
+    document.getElementById('confirm-modal').style.display = 'none';
+}
+
+async function confirmSubmit() {
+    closeConfirmModal();
+
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Submitting...';
+
+    try {
+        const response = await fetch(`/api/score/${MARKING_DATA.stationScoreId}/submit/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': MARKING_DATA.csrfToken,
+            },
+            body: JSON.stringify({
+                comments: document.getElementById('comments').value
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            if (examTimer) examTimer.stop();
+
+            window.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
+        } else {
+            throw new Error(result.error || 'Submit failed');
+        }
+    } catch (error) {
+        console.error('Submit error:', error);
+        alert('Error submitting evaluation: ' + error.message);
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Submit Evaluation';
+    }
+}
+
+// ============================================================================
+// ERROR DISPLAY
+// ============================================================================
+
+function showError(message) {
+    const container = document.getElementById('checklist-container');
+    container.innerHTML = `
+        <div style="background: #FEE2E2; border: 2px solid #EF4444; border-radius: 12px; padding: 20px; text-align: center;">
+            <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #DC2626;"></i>
+            <h3 style="color: #991B1B; margin: 16px 0 8px 0;">Error Loading Checklist</h3>
+            <p style="color: #7F1D1D; margin-bottom: 16px;">${message}</p>
+            <button onclick="location.reload()" style="background: #DC2626; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                <i class="bi bi-arrow-clockwise me-2"></i>Reload Page
+            </button>
+        </div>`;
+}
+</script>
+{% endblock %}

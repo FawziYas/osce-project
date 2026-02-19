@@ -1,0 +1,120 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Bulk Add Stations - {{ session.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .station-card { border: 2px solid #e9ecef; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; background: #f8f9fa; }
+    .station-card.active { border-color: #0d6efd; background: #f0f7ff; }
+    .path-badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .checklist-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dee2e6; }
+    .checklist-item { padding: 0.5rem 0; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .checklist-item small { flex: 1; }
+    .remove-item-btn { padding: 2px 6px; font-size: 0.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
+            <li class="breadcrumb-item active">Bulk Add Stations</li>
+        </ol>
+    </nav>
+    <h1>
+        <i class="bi bi-grid-1x2 me-2"></i>Add Stations to All Paths
+        <small class="text-muted">{{ session.name }}</small>
+    </h1>
+    <p class="text-muted mb-0">Create the same stations for all {{ paths|length }} path(s) at once.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="stat-card">
+            <form method="POST" id="bulkStationForm">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="numStations" class="form-label">Number of Stations to Add</label>
+                    <input type="number" class="form-control" id="numStations" name="num_stations" value="1" min="1" max="20" onchange="updateStationForms()">
+                    <div class="form-text">You can add up to 20 stations at once</div>
+                </div>
+                <div id="stationsContainer"></div>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>Add to All Paths</button>
+                    <a href="{% url 'creator:session_detail' session.id %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="stat-card">
+            <h6 class="mb-3"><i class="bi bi-signpost-split me-2"></i>Target Paths</h6>
+            <div class="path-badges">{% for path in paths %}<span class="badge bg-primary">Path {{ path.name }}</span>{% endfor %}</div>
+            <hr>
+            <p class="text-muted small mb-0">
+                <strong>Duration:</strong> {{ exam.station_duration_minutes }} min/station<br>
+                <strong>Course:</strong> {{ exam.course.code|default:"N/A" }}<br>
+                <strong>Total ILOs:</strong> {{ ilos|length }}
+            </p>
+        </div>
+        <div class="stat-card mt-3">
+            <h6 class="mb-3"><i class="bi bi-lightbulb me-2"></i>Tips</h6>
+            <ul class="small text-muted list-unstyled">
+                <li>&#10003; Same stations are copied to all paths</li>
+                <li>&#10003; You can edit each path separately after</li>
+                <li>&#10003; Checklists are copied to all paths</li>
+                <li>&#10003; Duration applies to all stations</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateStationForms() {
+    const num = parseInt(document.getElementById('numStations').value) || 1;
+    const container = document.getElementById('stationsContainer');
+    container.innerHTML = '';
+    for (let i = 1; i <= num; i++) {
+        container.insertAdjacentHTML('beforeend', `
+            <div class="station-card" id="station-${i}">
+                <div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0"><span class="badge bg-primary">Station ${i}</span></h5></div>
+                <div class="row mb-3">
+                    <div class="col-md-6"><label class="form-label">Station Name <span class="text-danger">*</span></label><input type="text" class="form-control" name="station_${i}_name" placeholder="e.g., History Taking" required></div>
+                    <div class="col-md-6"><label class="form-label">Duration (min)</label><input type="number" class="form-control" name="station_${i}_duration" value="{{ exam.station_duration_minutes|default:8 }}" min="1" max="30"></div>
+                </div>
+                <div class="mb-3"><label class="form-label">Scenario</label><textarea class="form-control" name="station_${i}_scenario" rows="2" placeholder="Patient case scenario"></textarea></div>
+                <div class="mb-3"><label class="form-label">Examiner Instructions</label><textarea class="form-control" name="station_${i}_instructions" rows="2" placeholder="Special instructions"></textarea></div>
+                <div class="checklist-section">
+                    <h6>Quick Checklist <small class="text-muted">(Optional)</small></h6>
+                    <p class="text-muted small">Add basic checklist items.</p>
+                    <div id="station_${i}_checklist" class="mb-2"></div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addQuickChecklistItem(${i})"><i class="bi bi-plus-lg me-1"></i>Add Item</button>
+                    <input type="hidden" name="station_${i}_checklist_data" id="station_${i}_checklist_data" value="[]">
+                </div>
+            </div>
+        `);
+    }
+}
+function addQuickChecklistItem(n) {
+    const c = document.getElementById(`station_${n}_checklist`); const id = Date.now();
+    c.insertAdjacentHTML('beforeend', `<div class="checklist-item" data-item-id="${id}"><input type="text" class="form-control form-control-sm" placeholder="Description" onchange="updateChecklistData(${n})"><input type="number" class="form-control form-control-sm" style="width:80px;" placeholder="Points" value="1" min="0.5" step="0.5" onchange="updateChecklistData(${n})"><button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" onclick="this.closest('.checklist-item').remove();updateChecklistData(${n})"><i class="bi bi-trash"></i></button></div>`);
+}
+function updateChecklistData(n) {
+    const items = []; document.querySelectorAll(`#station_${n}_checklist .checklist-item`).forEach((el, idx) => {
+        const desc = el.querySelector('input[placeholder="Description"]').value;
+        const pts = parseFloat(el.querySelector('input[placeholder="Points"]').value) || 1;
+        if (desc) items.push({item_number: idx+1, description: desc, points: pts, scoring_type: 'binary', ilo_id: null, section: null});
+    });
+    document.getElementById(`station_${n}_checklist_data`).value = JSON.stringify(items);
+}
+document.addEventListener('DOMContentLoaded', updateStationForms);
+document.getElementById('bulkStationForm').addEventListener('submit', function(e) {
+    const num = parseInt(document.getElementById('numStations').value);
+    for (let i = 1; i <= num; i++) { const inp = document.querySelector(`input[name="station_${i}_name"]`); if (!inp.value.trim()) { e.preventDefault(); alert(`Enter name for Station ${i}`); inp.focus(); return false; }}
+});
+</script>
+{% endblock %}

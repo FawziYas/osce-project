@@ -1,0 +1,388 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Reports & Outputs - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">Reports</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-file-earmark-bar-graph me-2"></i>Reports &amp; Outputs</h1>
+    <p class="text-muted">Generate reports, export data, and analyze exam results</p>
+</div>
+
+<div class="row g-4">
+    <!-- Session Selector -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-calendar-event me-2"></i>Select Session</h5>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label">Exam Session</label>
+                        <select class="form-select form-select-lg" id="sessionSelect" onchange="loadSessionData()">
+                            <option value="">-- Select a session --</option>
+                            {% for session in sessions %}
+                            <option value="{{ session.id }}" {% if selected_session and selected_session.id == session.id %}selected{% endif %}>
+                                {{ session.name }} ({{ session.session_date|date:"Y-m-d" }})
+                                - {{ session.status|title }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-primary" onclick="refreshData()" disabled id="btnRefresh">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Stats -->
+    <div class="col-12" id="sessionStatsSection" style="display: none;">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="stat-card h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="statStudents">0</div>
+                            <div class="stat-label">Students</div>
+                        </div>
+                        <i class="bi bi-people fs-1 text-primary opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="statCompleted">0</div>
+                            <div class="stat-label">Completed</div>
+                        </div>
+                        <i class="bi bi-check-circle fs-1 text-success opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="statAvgScore">0%</div>
+                            <div class="stat-label">Average Score</div>
+                        </div>
+                        <i class="bi bi-graph-up fs-1 text-info opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-value" id="statPassRate">0%</div>
+                            <div class="stat-label">Pass Rate</div>
+                        </div>
+                        <i class="bi bi-award fs-1 text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Types -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-table fs-1 text-primary mb-3"></i>
+                <h5 class="card-title">Student Results</h5>
+                <p class="card-text text-muted small">
+                    Individual student scores, station breakdown, pass/fail status
+                </p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-primary" onclick="generateStudentResults('xlsx')" disabled id="btnStudentResults">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Export XLSX
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-file-earmark-pdf fs-1 text-danger mb-3"></i>
+                <h5 class="card-title">Score Sheets</h5>
+                <p class="card-text text-muted small">
+                    Print-ready score sheets with all student details
+                </p>
+                <button type="button" class="btn btn-danger" onclick="generateScoreSheets()" disabled id="btnScoreSheets">
+                    <i class="bi bi-printer me-1"></i>Print View
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-list-check fs-1 text-warning mb-3"></i>
+                <h5 class="card-title">Item Analysis</h5>
+                <p class="card-text text-muted small">
+                    Checklist item statistics, facility index, discrimination
+                </p>
+                <span class="d-inline-block" data-bs-toggle="tooltip" title="Future feature">
+                    <button type="button" class="btn btn-warning" disabled id="btnItemAnalysis" aria-disabled="true" style="pointer-events: none;">
+                        <i class="bi bi-download me-1"></i>Coming Soon
+                    </button>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-building fs-1 text-success mb-3"></i>
+                <h5 class="card-title">Station Analysis</h5>
+                <p class="card-text text-muted small">
+                    Per-station statistics, item difficulty, discrimination index
+                </p>
+                <span class="d-inline-block" data-bs-toggle="tooltip" title="Future feature">
+                    <button type="button" class="btn btn-success" disabled id="btnStationAnalysis" aria-disabled="true" style="pointer-events: none;">
+                        <i class="bi bi-download me-1"></i>Coming Soon
+                    </button>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-person-badge fs-1 text-info mb-3"></i>
+                <h5 class="card-title">Examiner Summary</h5>
+                <p class="card-text text-muted small">
+                    Examiner statistics, marking patterns, inter-rater reliability
+                </p>
+                <span class="d-inline-block" data-bs-toggle="tooltip" title="Future feature">
+                    <button type="button" class="btn btn-info" disabled id="btnExaminerSummary" aria-disabled="true" style="pointer-events: none;">
+                        <i class="bi bi-download me-1"></i>Coming Soon
+                    </button>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body text-center py-4">
+                <i class="bi bi-clipboard-data fs-1 text-secondary mb-3"></i>
+                <h5 class="card-title">Raw Data Export</h5>
+                <p class="card-text text-muted small">
+                    Complete raw data for external analysis (SPSS, R, etc.)
+                </p>
+                <span class="d-inline-block" data-bs-toggle="tooltip" title="Future feature">
+                    <button type="button" class="btn btn-secondary" disabled id="btnRawData" aria-disabled="true" style="pointer-events: none;">
+                        <i class="bi bi-download me-1"></i>Coming Soon
+                    </button>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Table Section -->
+<div class="card shadow-sm mt-4" id="resultsSection" style="display: none;">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-table me-2"></i>Student Results</h5>
+        <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary" onclick="toggleView('table')">
+                <i class="bi bi-table"></i>
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="toggleView('cards')">
+                <i class="bi bi-grid"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="resultsTable">
+                <thead class="table-light">
+                    <tr id="resultsTableHeaderRow">
+                        <th>Student #</th>
+                        <th>Name</th>
+                        <th>Path</th>
+                        <!-- Station columns inserted here -->
+                        <th>Total</th>
+                        <th>Percentage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody">
+                    <!-- Populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedSessionId = null;
+let sessionData = null;
+
+function loadSessionData() {
+    const select = document.getElementById('sessionSelect');
+    selectedSessionId = select.value;
+
+    const btns = ['btnRefresh', 'btnStudentResults', 'btnStationAnalysis',
+                  'btnExaminerSummary', 'btnItemAnalysis', 'btnScoreSheets', 'btnRawData'];
+
+    if (!selectedSessionId) {
+        btns.forEach(id => document.getElementById(id).disabled = true);
+        document.getElementById('sessionStatsSection').style.display = 'none';
+        document.getElementById('resultsSection').style.display = 'none';
+        return;
+    }
+
+    btns.forEach(id => document.getElementById(id).disabled = false);
+
+    // Fetch session data
+    fetch(`/api/creator/reports/session/${selectedSessionId}/summary`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                sessionData = data.data;
+                updateStats(sessionData);
+                updateResultsTable(sessionData.students || [], sessionData.station_headers || []);
+                document.getElementById('sessionStatsSection').style.display = 'block';
+                document.getElementById('resultsSection').style.display = 'block';
+            }
+        })
+        .catch(err => {
+            console.error('Error loading session data:', err);
+            alert('Error loading session data');
+        });
+}
+
+function updateStats(data) {
+    document.getElementById('statStudents').textContent = data.total_students || 0;
+    document.getElementById('statCompleted').textContent = data.completed_students || 0;
+    document.getElementById('statAvgScore').textContent = (data.average_percentage || 0).toFixed(1) + '%';
+    document.getElementById('statPassRate').textContent = (data.pass_rate || 0).toFixed(1) + '%';
+}
+
+function updateResultsTable(students, headers = []) {
+    const theadRow = document.getElementById('resultsTableHeaderRow');
+    const tbody = document.getElementById('resultsTableBody');
+
+    let headerHtml = `
+        <th>Student #</th>
+        <th>Name</th>
+        <th>Path</th>
+    `;
+    headers.forEach(h => {
+        headerHtml += `<th title="${h.name}">St.${h.number}</th>`;
+    });
+    headerHtml += `
+        <th>Total / Max</th>
+        <th>%</th>
+        <th>Actions</th>
+    `;
+    theadRow.innerHTML = headerHtml;
+
+    if (!students || students.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${6 + headers.length}" class="text-center text-muted py-4">No students found</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = students.map(s => {
+        let rowHtml = `
+            <tr>
+                <td><code>${s.student_number}</code></td>
+                <td>${s.full_name}</td>
+                <td><span class="badge bg-secondary">${s.path_name || 'N/A'}</span></td>
+        `;
+
+        headers.forEach(h => {
+            const score = s.station_scores[h.number];
+            rowHtml += `<td>${score !== null && score !== undefined ? score : '-'}</td>`;
+        });
+
+        rowHtml += `
+                <td><strong>${s.total_score || 0}</strong> <span class="text-muted">/ ${s.max_score || 0}</span></td>
+                <td>
+                    <div class="progress" style="height: 20px; width: 80px;">
+                        <div class="progress-bar ${s.passed ? 'bg-success' : 'bg-danger'}"
+                             style="width: ${s.percentage || 0}%">
+                            ${(s.percentage || 0).toFixed(0)}%
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="printStudentSheet('${s.id}')" title="Print Score Sheet">
+                        <i class="bi bi-printer"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        return rowHtml;
+    }).join('');
+}
+
+function refreshData() {
+    loadSessionData();
+}
+
+function printStudentSheet(studentId) {
+    window.open(`/creator/reports/student/${studentId}/scoresheet`, '_blank');
+}
+
+function generateStudentResults(format) {
+    if (!selectedSessionId) return;
+    const endpoint = format === 'xlsx' ? 'students/xlsx' : 'students/csv';
+    window.location.href = `/api/creator/reports/session/${selectedSessionId}/${endpoint}`;
+}
+
+function generateScoreSheets() {
+    if (!selectedSessionId) return;
+    window.open(`/creator/reports/session/${selectedSessionId}/scoresheets`, '_blank');
+}
+
+function generateStationAnalysis() {
+    if (!selectedSessionId) return;
+    window.location.href = `/api/creator/reports/session/${selectedSessionId}/stations/csv`;
+}
+
+function generateExaminerSummary() {
+    if (!selectedSessionId) return;
+    window.location.href = `/api/creator/reports/session/${selectedSessionId}/examiners/csv`;
+}
+
+function generateItemAnalysis() {
+    if (!selectedSessionId) return;
+    window.location.href = `/api/creator/reports/session/${selectedSessionId}/items/csv`;
+}
+
+function generateRawData() {
+    if (!selectedSessionId) return;
+    window.location.href = `/api/creator/reports/session/${selectedSessionId}/raw/csv`;
+}
+
+// Load initial data if session is pre-selected
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('sessionSelect').value) {
+        loadSessionData();
+    }
+    try {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.forEach(function (el) { new bootstrap.Tooltip(el); });
+    } catch (e) {}
+});
+</script>
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if path %}Edit{% else %}Create{% endif %} Path - {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' session.exam_id %}">{{ session.exam.name|default:"Exam" }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_paths' session.id %}">Paths</a></li>
+            <li class="breadcrumb-item active">{% if path %}Edit{% else %}Create{% endif %} Path</li>
+        </ol>
+    </nav>
+    <h1>
+        <i class="bi bi-signpost-split me-2"></i>
+        {% if path %}Edit Path {{ path.name }}{% else %}Create New Path{% endif %}
+    </h1>
+    <p class="text-muted mb-0">Define the station sequence for this student rotation track</p>
+</div>
+
+<form method="POST" id="pathForm">
+    {% csrf_token %}
+    <div class="row g-4">
+        <!-- Path Details -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Path Details</h5></div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="path_name" class="form-label">Path Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-lg" id="path_name" name="path_name" 
+                               value="{% if path %}{{ path.name }}{% endif %}" placeholder="A, B, C, etc." required maxlength="10">
+                        <div class="form-text">Short identifier (e.g., A, B, C)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="path_description" class="form-label">Description</label>
+                        <textarea class="form-control" id="path_description" name="path_description" rows="2" placeholder="Optional description">{% if path %}{{ path.description }}{% endif %}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="max_students" class="form-label">Maximum Students</label>
+                        <input type="number" class="form-control" id="max_students" name="max_students" value="{% if path %}{{ path.max_students }}{% else %}10{% endif %}" min="1" max="100">
+                    </div>
+                </div>
+            </div>
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-light"><h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Quick Actions</h6></div>
+                <div class="card-body">
+                    <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="addAllStations()"><i class="bi bi-grid me-1"></i>Add All Stations (In Order)</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm w-100 mb-2" onclick="addAllStationsReverse()"><i class="bi bi-arrow-repeat me-1"></i>Add All Stations (Reverse)</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="clearAllStations()"><i class="bi bi-x-circle me-1"></i>Clear All</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Station Selection -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-ol me-2"></i>Station Sequence</h5>
+                    <span class="badge bg-primary" id="stationCount">0 stations</span>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Drag and drop stations to set the order.</p>
+                    <div class="mb-4">
+                        <h6 class="mb-2">Selected Station Order:</h6>
+                        <ul class="list-group" id="selectedStations">
+                            {% if path and current_stations %}
+                                {% for station in current_station_objects %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center" data-station-id="{{ station.id }}" draggable="true">
+                                    <div>
+                                        <input type="hidden" name="station_ids" value="{{ station.id }}">
+                                        <span class="badge bg-secondary me-2 seq-number">{{ forloop.counter }}</span>
+                                        <strong>S{{ station.station_number }}:</strong> {{ station.name }}
+                                        <span class="text-muted small ms-2">({{ station.duration_minutes }} min)</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeStation(this)"><i class="bi bi-x"></i></button>
+                                </li>
+                                {% endfor %}
+                            {% endif %}
+                        </ul>
+                        <div id="emptyMessage" class="text-center text-muted py-4 {% if path and current_stations %}d-none{% endif %}">
+                            <i class="bi bi-inbox d-block fs-2 mb-2"></i>No stations selected. Add stations from below.
+                        </div>
+                    </div>
+                    
+                    <h6 class="mb-2">Available Stations:</h6>
+                    <div class="row g-2" id="availableStations">
+                        {% for station in stations %}
+                        <div class="col-md-6" data-station-id="{{ station.id }}">
+                            <div class="card station-card {% if path and current_stations and station.id in current_stations %}opacity-50{% endif %}" 
+                                 data-station-id="{{ station.id }}" data-station-number="{{ station.station_number }}" data-station-name="{{ station.name }}" data-duration="{{ station.duration_minutes }}">
+                                <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong class="text-primary">S{{ station.station_number }}:</strong> {{ station.name|truncatechars:35 }}
+                                        <br><small class="text-muted">{{ station.duration_minutes }} min | {{ station.max_score }} marks</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-primary add-station-btn" 
+                                            onclick="addStation('{{ station.id }}', '{{ station.station_number }}', '{{ station.name|escapejs }}', {{ station.duration_minutes }})"
+                                            {% if path and current_stations and station.id in current_stations %}disabled{% endif %}>
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-body d-flex justify-content-between">
+            <a href="{% url 'creator:session_paths' session.id %}" class="btn btn-outline-secondary"><i class="bi bi-x me-1"></i>Cancel</a>
+            <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-check-lg me-1"></i>{% if path %}Update{% else %}Create{% endif %} Path</button>
+        </div>
+    </div>
+</form>
+
+<style>
+.station-card { cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+.station-card:hover { border-color: var(--bs-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.station-card.opacity-50 { pointer-events: none; }
+#selectedStations .list-group-item { cursor: grab; }
+#selectedStations .list-group-item:active { cursor: grabbing; }
+#selectedStations .list-group-item.dragging { opacity: 0.5; background: #f8f9fa; }
+</style>
+
+<script>
+function updateStationCount() {
+    const count = document.querySelectorAll('#selectedStations .list-group-item').length;
+    document.getElementById('stationCount').textContent = count + ' station' + (count !== 1 ? 's' : '');
+    document.getElementById('emptyMessage').classList.toggle('d-none', count > 0);
+    document.querySelectorAll('#selectedStations .seq-number').forEach((b,i) => b.textContent = i + 1);
+}
+function addStation(stationId, stationNumber, stationName, duration) {
+    const list = document.getElementById('selectedStations');
+    const count = list.querySelectorAll('.list-group-item').length;
+    const li = document.createElement('li');
+    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+    li.draggable = true; li.dataset.stationId = stationId;
+    li.innerHTML = `<div><input type="hidden" name="station_ids" value="${stationId}"><span class="badge bg-secondary me-2 seq-number">${count+1}</span><strong>S${stationNumber}:</strong> ${stationName}<span class="text-muted small ms-2">(${duration} min)</span></div><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeStation(this)"><i class="bi bi-x"></i></button>`;
+    list.appendChild(li); setupDragAndDrop(li);
+    const card = document.querySelector(`.station-card[data-station-id="${stationId}"]`);
+    if (card) { card.classList.add('opacity-50'); card.querySelector('.add-station-btn').disabled = true; }
+    updateStationCount();
+}
+function removeStation(btn) {
+    const li = btn.closest('.list-group-item'); const stationId = li.dataset.stationId;
+    const card = document.querySelector(`.station-card[data-station-id="${stationId}"]`);
+    if (card) { card.classList.remove('opacity-50'); card.querySelector('.add-station-btn').disabled = false; }
+    li.remove(); updateStationCount();
+}
+function addAllStations() {
+    clearAllStations();
+    document.querySelectorAll('.station-card').forEach(c => { if (!c.classList.contains('opacity-50')) { const b = c.querySelector('.add-station-btn'); if(!b.disabled) addStation(c.dataset.stationId, c.dataset.stationNumber, c.dataset.stationName, c.dataset.duration); }});
+}
+function addAllStationsReverse() {
+    clearAllStations();
+    Array.from(document.querySelectorAll('.station-card')).reverse().forEach(c => { if (!c.classList.contains('opacity-50')) { const b = c.querySelector('.add-station-btn'); if(!b.disabled) addStation(c.dataset.stationId, c.dataset.stationNumber, c.dataset.stationName, c.dataset.duration); }});
+}
+function clearAllStations() {
+    document.querySelectorAll('#selectedStations .list-group-item').forEach(li => {
+        const card = document.querySelector(`.station-card[data-station-id="${li.dataset.stationId}"]`);
+        if (card) { card.classList.remove('opacity-50'); card.querySelector('.add-station-btn').disabled = false; }
+        li.remove();
+    }); updateStationCount();
+}
+function setupDragAndDrop(li) {
+    li.addEventListener('dragstart', function() { this.classList.add('dragging'); });
+    li.addEventListener('dragend', function() { this.classList.remove('dragging'); updateStationCount(); });
+    li.addEventListener('dragover', function(e) { e.preventDefault(); const d = document.querySelector('.dragging'); if (d && d !== this) { const r = this.getBoundingClientRect(); if (e.clientY < r.top + r.height/2) this.parentNode.insertBefore(d, this); else this.parentNode.insertBefore(d, this.nextSibling); }});
+}
+document.querySelectorAll('#selectedStations .list-group-item').forEach(setupDragAndDrop);
+updateStationCount();
+</script>
+{% endblock %}

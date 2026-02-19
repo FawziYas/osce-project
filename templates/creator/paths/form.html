@@ -1,0 +1,95 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if path %}Edit Path {{ path.name }}{% else %}New Path{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' session.exam_id %}">{{ session.exam.name|default:"Exam" }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
+            <li class="breadcrumb-item active">{% if path %}Edit Path{% else %}New Path{% endif %}</li>
+        </ol>
+    </nav>
+    <h1>{% if path %}Edit Path {{ path.name }}{% else %}New Path{% endif %}</h1>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    <!-- Path Name -->
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Path Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name"
+                               value="{{ path.name|default:'' }}" required
+                               placeholder="e.g., A, B, C or Morning Track 1">
+                        <div class="form-text">Short identifier for this rotation path</div>
+                    </div>
+
+                    <!-- Rotation Minutes -->
+                    <div class="mb-3">
+                        <label for="rotation_minutes" class="form-label">Minutes Per Station</label>
+                        <input type="number" class="form-control" id="rotation_minutes" name="rotation_minutes"
+                               value="{% if path %}{{ path.rotation_minutes }}{% else %}{{ default_rotation_minutes }}{% endif %}" min="1" max="60">
+                        <div class="form-text">Duration each student spends at each station</div>
+                    </div>
+
+                    {% if not path and other_paths %}
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>Copy Stations from Existing Path</strong><br>
+                        <small>You can copy all stations and checklists from another path and edit them later.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="copy_from_path" class="form-label">Copy Stations From (Optional)</label>
+                        <select class="form-select" id="copy_from_path" name="copy_from_path">
+                            <option value="">-- Don't copy --</option>
+                            {% for other_path in other_paths %}
+                            <option value="{{ other_path.id }}">
+                                Path {{ other_path.name }} ({{ other_path.station_count }} station{{ other_path.station_count|pluralize }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Leave blank to create an empty path</div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Submit -->
+                    <div class="d-flex gap-2 justify-content-end mt-4">
+                        <a href="{% url 'creator:session_detail' session.id %}" class="btn btn-outline-secondary">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>
+                            {% if path %}Update Path{% else %}Create Path{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if path %}
+        <div class="card shadow-sm mt-4 border-warning">
+            <div class="card-header bg-warning-subtle">
+                <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Danger Zone</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">Deleting this path will also remove all its stations.</p>
+                <form action="{% url 'creator:delete_path' path.id %}" method="post"
+                      onsubmit="return confirm('Delete this path and ALL its stations? This cannot be undone.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash me-1"></i>Delete Path
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

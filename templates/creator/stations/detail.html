@@ -1,0 +1,157 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Station {{ station.station_number }} - {{ station.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                {% if parent_exam %}
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' parent_exam.id %}">{{ parent_exam.name }}</a></li>
+                {% endif %}
+                {% if parent_path %}
+                <li class="breadcrumb-item"><a href="{% url 'creator:path_detail' parent_path.id %}">Path {{ parent_path.name }}</a></li>
+                {% endif %}
+                <li class="breadcrumb-item active">Station {{ station.station_number }}</li>
+            </ol>
+        </nav>
+        <h1>
+            <span class="badge bg-primary fs-4 me-2">{{ station.station_number }}</span>
+            {{ station.name }}
+        </h1>
+        <p class="text-muted mb-0">
+            <i class="bi bi-clock me-1"></i>{{ station.duration_minutes }} minutes
+            <span class="mx-2">&bull;</span>
+            <span class="badge bg-info">{{ station.get_max_score }} total points</span>
+            <span class="mx-2">&bull;</span>
+            {{ items|length }} checklist items
+            {% if parent_path %}
+            <span class="mx-2">&bull;</span>
+            <span class="badge bg-success">Path {{ parent_path.name }}</span>
+            {% endif %}
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'creator:station_edit' station.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        {% if parent_path %}
+        <a href="{% url 'creator:path_detail' parent_path.id %}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Path
+        </a>
+        {% elif parent_exam %}
+        <a href="{% url 'creator:exam_detail' parent_exam.id %}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Exam
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scenario & Instructions -->
+<div class="row g-3 mb-4">
+    {% if station.scenario %}
+    <div class="col-md-6">
+        <div class="stat-card h-100">
+            <h6 class="mb-2"><i class="bi bi-person-video2 me-2"></i>Scenario</h6>
+            <p class="mb-0">{{ station.scenario }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if station.instructions %}
+    <div class="col-md-6">
+        <div class="stat-card h-100">
+            <h6 class="mb-2"><i class="bi bi-clipboard-check me-2"></i>Examiner Instructions</h6>
+            <p class="mb-0">{{ station.instructions }}</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Checklist Items -->
+<div class="table-card">
+    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+        <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Checklist Items</h5>
+    </div>
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th style="width: 50px;">#</th>
+                <th>Description</th>
+                <th style="width: 120px;">ILO</th>
+                <th style="width: 80px;">Points</th>
+                <th style="width: 100px;">Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>
+                    <span class="badge bg-secondary">{{ item.item_number }}</span>
+                </td>
+                <td>
+                    {{ item.description }}
+                </td>
+                <td>
+                    {% if item.ilo %}
+                        {% with theme_colors=",.#6f42c1,#0d6efd,#198754,#fd7e14,#20c997,#dc3545" %}
+                        <span class="badge" style="background: {{ item.theme_color|default:'#6c757d' }}; color: white;">
+                            ILO {{ item.ilo.number }}
+                        </span>
+                        {% endwith %}
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge bg-info">{{ item.points }}</span>
+                </td>
+                <td>
+                    {% if item.interaction_type == 'active' %}
+                        <span class="badge bg-warning text-dark">Active</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark">Passive</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center text-muted py-4">
+                    No checklist items defined.
+                    <a href="{% url 'creator:station_edit' station.id %}">Add items</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="table-light">
+                <td colspan="3" class="text-end"><strong>Total Points:</strong></td>
+                <td><strong class="badge bg-primary fs-6">{{ station.get_max_score }}</strong></td>
+                <td colspan="2"></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<!-- Theme Breakdown -->
+{% if items and theme_points %}
+<div class="stat-card mt-4">
+    <h6 class="mb-3"><i class="bi bi-pie-chart me-2"></i>Points by Theme</h6>
+    <div class="row">
+        {% for theme in theme_points %}
+        <div class="col-md-2 mb-2">
+            <div class="d-flex align-items-center">
+                <span class="theme-dot me-2" style="width: 16px; height: 16px; border-radius: 50%; background: {{ theme.color }};"></span>
+                <div>
+                    <div class="fw-bold">{{ theme.points }} pts</div>
+                    <small class="text-muted">{{ theme.name }}</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

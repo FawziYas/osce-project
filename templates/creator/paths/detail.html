@@ -1,0 +1,139 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Path {{ path.name }} - {{ path.session.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' path.session.exam_id %}">{{ path.session.exam.name|default:"Exam" }}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' path.session_id %}">{{ path.session.name }}</a></li>
+                <li class="breadcrumb-item active">Path {{ path.name }}</li>
+            </ol>
+        </nav>
+        <h1 class="mb-1">Path {{ path.name }}</h1>
+        <p class="text-muted mb-0">
+            {% if path.description %}{{ path.description }}{% endif %}
+            <span class="badge bg-secondary">{{ path.student_count }} students</span>
+        </p>
+    </div>
+    <div class="btn-group flex-wrap">
+        <a href="{% url 'creator:station_create' path.id %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Station
+        </a>
+        <a href="{% url 'creator:edit_path' path.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-pencil me-1"></i>Edit Path
+        </a>
+        <form action="{% url 'creator:delete_path' path.id %}" method="post" class="d-inline"
+              onsubmit="return confirm('Delete this path and all its stations?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-1"></i>Delete
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Path Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-light">
+            <div class="card-body text-center py-3">
+                <div class="fs-3 fw-bold text-primary">{{ stations|length }}</div>
+                <div class="small text-muted">Stations</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-light">
+            <div class="card-body text-center py-3">
+                <div class="fs-3 fw-bold text-success">{{ path.total_marks }}</div>
+                <div class="small text-muted">Total Marks</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-light">
+            <div class="card-body text-center py-3">
+                <div class="fs-3 fw-bold text-info">{{ path.total_duration }}</div>
+                <div class="small text-muted">Duration (min)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 bg-light">
+            <div class="card-body text-center py-3">
+                <div class="fs-3 fw-bold text-warning">{{ path.rotation_minutes }}</div>
+                <div class="small text-muted">Min/Station</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stations List -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-collection me-2"></i>Stations</h5>
+        <a href="{% url 'creator:station_create' path.id %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Station
+        </a>
+    </div>
+    <div class="card-body p-0">
+        {% if stations %}
+        <div class="list-group list-group-flush">
+            {% for station in stations %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="badge bg-primary me-2">{{ station.station_number }}</span>
+                            <h6 class="mb-0">{{ station.name }}</h6>
+                        </div>
+                        {% if station.scenario %}
+                        <p class="mb-1 small text-muted">{{ station.scenario|truncatechars:150 }}</p>
+                        {% endif %}
+                        <div class="small">
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="bi bi-clock me-1"></i>{{ station.duration_minutes }} min
+                            </span>
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="bi bi-list-check me-1"></i>{{ station.checklist_items.count }} items
+                            </span>
+                            <span class="badge bg-success me-1">
+                                {{ station.get_max_score }} marks
+                            </span>
+                        </div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'creator:station_detail' station.id %}" class="btn btn-outline-primary" title="View">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'creator:station_edit' station.id %}" class="btn btn-outline-secondary" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form action="{% url 'creator:station_delete' station.id %}" method="post" class="d-inline"
+                              onsubmit="return confirm('Delete station {{ station.name|escapejs }}?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            <p>No stations in this path yet.</p>
+            <a href="{% url 'creator:station_create' path.id %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Create First Station
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{{ item|yesno:"Edit Library Item,New Library Item" }} - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:library_list' %}">Library</a></li>
+            <li class="breadcrumb-item active">{% if item %}Edit{% else %}New Item{% endif %}</li>
+        </ol>
+    </nav>
+    <h1>
+        <i class="bi bi-{% if item %}pencil{% else %}plus-lg{% endif %} me-2"></i>
+        {% if item %}Edit Library Item{% else %}New Library Item{% endif %}
+    </h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="ilo_id" class="form-label">ILO <span class="text-danger">*</span></label>
+                    <select class="form-select" id="ilo_id" name="ilo_id" required>
+                        <option value="">Select an ILO...</option>
+                        {% for course in courses %}
+                        <optgroup label="{{ course.code }} - {{ course.name }}">
+                            {% for ilo in course.ilos.all %}
+                            <option value="{{ ilo.id }}"
+                                    {% if item and item.ilo_id == ilo.id %}selected{% endif %}>
+                                ILO {{ ilo.number }}: {{ ilo.description|truncatechars:50 }}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="description" name="description" rows="3" required
+                              placeholder="e.g., Washes hands before examination">{% if item %}{{ item.description }}{% endif %}</textarea>
+                    <div class="form-text">What the student should do or demonstrate</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="suggested_points" class="form-label">Default Points</label>
+                    <input type="number" class="form-control" id="suggested_points" name="suggested_points"
+                           value="{% if item %}{{ item.suggested_points }}{% else %}1{% endif %}" min="0" max="10" step="0.5">
+                    <div class="form-text">Points to award when this item is marked as done</div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>
+                        {% if item %}Update Item{% else %}Create Item{% endif %}
+                    </button>
+                    <a href="{% url 'creator:library_list' %}" class="btn btn-outline-secondary">
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="stat-card">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>About Library Items</h6>
+            <p class="text-muted small">
+                Library items are reusable checklist components. When you add them to a station,
+                you can customize the points and other settings.
+            </p>
+            <hr>
+            <h6 class="mb-2">Interaction Types</h6>
+            <ul class="small text-muted mb-3">
+                <li><strong>Passive:</strong> Examiner observes without prompting</li>
+                <li><strong>Active:</strong> Examiner needs to ask a question or give a prompt</li>
+            </ul>
+            <h6 class="mb-2">Tips</h6>
+            <ul class="small text-muted mb-0">
+                <li>Keep descriptions clear and specific</li>
+                <li>Use critical marking sparingly</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

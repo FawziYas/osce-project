@@ -1,0 +1,217 @@
+{% extends 'examiner/base_examiner.html' %}
+{% load static %}
+
+{% block title %}Station {{ assignment.station.station_number }} - {{ assignment.station.name }}{% endblock %}
+
+{% block body_class %}examiner-body dashboard-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'css/examiner-dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<!-- Global Header (branding + sign out) -->
+<header class="global-header">
+    <div class="header-content">
+        <div class="header-left">
+            <div class="osce-brand">
+                <i class="bi bi-clipboard-check-fill"></i>
+                <span>OSCE Examiner</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="doctor-info">
+                {{ request.user.display_name }}
+            </div>
+            <a href="{% url 'examiner:logout' %}" class="btn-signout">
+                <i class="bi bi-box-arrow-right"></i>
+                Sign Out
+            </a>
+        </div>
+    </div>
+</header>
+
+<!-- Dashboard Header -->
+<header class="dashboard-header">
+    <div class="header-container">
+        <a href="{% url 'examiner:home' %}" class="back-link">
+            <i class="bi bi-arrow-left"></i>
+            <span>Back to My Stations</span>
+        </a>
+
+        <div class="station-info">
+            <div class="station-details">
+                <h1>
+                    <i class="bi bi-geo-alt"></i>
+                    Station {{ assignment.station.station_number }}
+                </h1>
+                <p>{{ assignment.session.exam.name }} | {% if assignment.session.session_date %}{{ assignment.session.session_date|date:"M d, Y" }}{% else %}Today{% endif %}</p>
+            </div>
+            <div class="station-meta">
+                <div class="meta-badge">
+                    <i class="bi bi-clock"></i>
+                    <span>{{ assignment.station.duration_minutes }} min</span>
+                </div>
+                <div class="meta-badge">
+                    <i class="bi bi-trophy"></i>
+                    <span>{{ assignment.station.get_max_score }} pts</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="progress-section">
+            <div class="progress-label">Completion Progress</div>
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" style="width: {{ progress_pct }}%"></div>
+            </div>
+            <div class="progress-count">
+                {{ scored_count }}/{{ total_count }}
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="dashboard-content">
+    <!-- Scenario Card -->
+    {% if assignment.station.scenario or assignment.station.instructions %}
+    <div class="scenario-card">
+        <div class="scenario-header">
+            <div class="scenario-icon">
+                <i class="bi bi-file-text"></i>
+            </div>
+            <h2 class="scenario-title">Clinical Scenario</h2>
+        </div>
+        <div class="scenario-content">
+            {% if assignment.station.scenario %}{{ assignment.station.scenario }}{% else %}No scenario provided.{% endif %}
+        </div>
+        {% if assignment.station.instructions %}
+        <div class="scenario-instructions">
+            <strong><i class="bi bi-info-circle me-2"></i>Instructions:</strong>
+            {{ assignment.station.instructions }}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card done">
+            <div class="stat-number">{{ scored_count }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card remaining">
+            <div class="stat-number">{{ remaining_count }}</div>
+            <div class="stat-label">Remaining</div>
+        </div>
+        <div class="stat-card total">
+            <div class="stat-number">{{ total_count }}</div>
+            <div class="stat-label">Total Students</div>
+        </div>
+    </div>
+
+    <!-- Dual Examiner Info Banner -->
+    <div class="info-banner">
+        <div class="info-icon">
+            <i class="bi bi-info"></i>
+        </div>
+        <div class="info-content">
+            <p>
+                <strong>Dual Examiner Mode:</strong> Both examiners mark independently.
+                The final score is calculated as the average of both evaluations.
+            </p>
+        </div>
+    </div>
+
+    <!-- Students Section -->
+    <div class="students-section">
+        <div class="students-header">
+            <h2 class="students-title">
+                <i class="bi bi-people"></i>
+                Students
+            </h2>
+            <span class="students-count">{{ total_count }}</span>
+        </div>
+
+        {% if student_list %}
+        <div class="students-table-wrapper">
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th>Student</th>
+                        <th>Path</th>
+                        <th>Status</th>
+                        <th>Score</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in student_list %}
+                    <tr class="{% if entry.is_scored %}completed{% endif %}">
+                        <td>
+                            <div class="student-cell">
+                                {% if entry.student.photo_url %}
+                                <img src="{{ entry.student.photo_url }}" class="student-avatar-sm" alt="{{ entry.student.full_name }}">
+                                {% else %}
+                                <div class="student-avatar-sm-placeholder"><i class="bi bi-person"></i></div>
+                                {% endif %}
+                                <div class="student-info-cell">
+                                    <div class="student-name-sm">{{ entry.student.full_name }}</div>
+                                    <div class="student-id-sm">{{ entry.student.student_number }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            {% if entry.student.path %}
+                            <span class="path-badge-sm">{{ entry.student.path.name }}</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            <div class="status-badges-sm">
+                                {% if entry.is_scored %}
+                                <span class="badge-sm bg-success" title="You Marked"><i class="bi bi-check"></i></span>
+                                {% else %}
+                                <span class="badge-sm bg-warning text-dark" title="Pending"><i class="bi bi-clock"></i></span>
+                                {% endif %}
+                                {% if entry.other_examiner_score is not None %}
+                                <span class="badge-sm bg-info" title="Co-Examiner Marked"><i class="bi bi-person-check"></i></span>
+                                {% endif %}
+                                {% if entry.both_submitted %}
+                                <span class="badge-sm bg-primary" title="Finalized"><i class="bi bi-check-all"></i></span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="score-cell-sm">
+                                <span class="score-val">{% if entry.my_score is not None %}{{ entry.my_score }}{% else %}-{% endif %}</span>
+                                {% if entry.both_submitted %}
+                                <span class="score-final" title="Final Average">({% if entry.final_score is not None %}{{ entry.final_score }}{% else %}-{% endif %})</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if entry.is_scored %}
+                            <a href="{% url 'examiner:marking_interface' assignment.id entry.student.id %}"
+                               class="btn-action-sm secondary">Review</a>
+                            {% else %}
+                            <a href="{% url 'examiner:marking_interface' assignment.id entry.student.id %}"
+                               class="btn-action-sm primary">Mark Now</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="bi bi-inbox"></i>
+            </div>
+            <p class="empty-message">No students assigned to this station path.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

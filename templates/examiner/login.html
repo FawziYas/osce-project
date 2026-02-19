@@ -1,0 +1,189 @@
+{% extends 'examiner/base_examiner.html' %}
+
+{% block title %}Login - OSCE Examiner{% endblock %}
+
+{% block head %}
+<style>
+    /* Professional Login Theme */
+    body.examiner-body {
+        background: radial-gradient(circle at top right, #1a1a2e, #16213e);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    /* Hide standard nav on login page */
+    nav.navbar {
+        display: none !important;
+    }
+
+    .login-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+
+    .login-card {
+        border: none;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        background: rgba(255, 255, 255, 0.98);
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .card-header-custom {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+        padding: 3rem 1rem;
+        text-align: center;
+        position: relative;
+    }
+
+    .card-header-custom i {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        display: inline-block;
+        color: #0dcaf0;
+        filter: drop-shadow(0 0 10px rgba(13, 202, 240, 0.5));
+    }
+
+    .card-header-custom h4 {
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        margin-bottom: 0.25rem;
+        text-transform: uppercase;
+    }
+
+    .card-header-custom p {
+        font-size: 0.9rem;
+        opacity: 0.7;
+        margin-bottom: 0;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control {
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        border: 1px solid #e0e0e0;
+        background-color: #fdfdfd;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        background-color: #fff;
+        box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.15);
+        border-color: #0dcaf0;
+    }
+
+    .input-group-text {
+        border-radius: 10px 0 0 10px;
+        background-color: #f8f9fa;
+        border-color: #e0e0e0;
+        color: #16213e;
+        width: 45px;
+        justify-content: center;
+    }
+
+    .form-control.form-control-lg {
+        border-radius: 0 10px 10px 0;
+    }
+
+    .btn-login {
+        border-radius: 10px;
+        padding: 1rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-size: 0.95rem;
+        background: linear-gradient(135deg, #0dcaf0 0%, #0aa9c0 100%);
+        border: none;
+        color: #1a1a2e;
+        box-shadow: 0 4px 15px rgba(13, 202, 240, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(13, 202, 240, 0.4);
+        background: linear-gradient(135deg, #0ed2f7 0%, #0bb8d2 100%);
+    }
+
+    .login-footer {
+        padding: 1.8rem;
+        text-align: center;
+        background: #fcfcfc;
+        border-top: 1px solid #f1f3f5;
+    }
+
+    /* Animation */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-in {
+        animation: fadeIn 0.6s ease-out forwards;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card animate-in">
+        <div class="card-header-custom">
+            <i class="bi bi-shield-lock"></i>
+            <h4>OSCE PORTAL</h4>
+            <p>Clinical Examination Management</p>
+        </div>
+
+        <div class="card-body p-4 p-md-5">
+            <form method="POST" action="{% url 'examiner:login' %}">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="username" class="form-label small fw-bold text-muted text-uppercase">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text"
+                               class="form-control form-control-lg"
+                               id="username"
+                               name="username"
+                               placeholder="Enter your id"
+                               autocomplete="username"
+                               required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="password" class="form-label small fw-bold text-muted text-uppercase">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-key"></i></span>
+                        <input type="password"
+                               class="form-control form-control-lg"
+                               id="password"
+                               name="password"
+                               placeholder="********"
+                               autocomplete="current-password"
+                               required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-login w-100 mb-2">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>
+                    Sign In
+                </button>
+            </form>
+        </div>
+
+        <div class="login-footer">
+            <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem; letter-spacing: 1px;">
+                Secure Access &bull; Faculty of Medicine
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}

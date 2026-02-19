@@ -1,0 +1,141 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if examiner %}Edit{% else %}Add{% endif %} Examiner - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:examiner_list' %}">Examiners</a></li>
+            <li class="breadcrumb-item active">{% if examiner %}Edit{% else %}Add{% endif %} Examiner</li>
+        </ol>
+    </nav>
+    <h1><i class="bi bi-person-badge me-2"></i>{% if examiner %}Edit{% else %}Add{% endif %} Examiner</h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <!-- Basic Info -->
+                    <div class="col-md-6">
+                        <label class="form-label">Title</label>
+                        <select class="form-select" name="title">
+                            <option value="">-- Select --</option>
+                            <option value="Dr." {% if examiner and examiner.title == 'Dr.' %}selected{% endif %}>Dr.</option>
+                            <option value="Prof." {% if examiner and examiner.title == 'Prof.' %}selected{% endif %}>Prof.</option>
+                            <option value="Mr." {% if examiner and examiner.title == 'Mr.' %}selected{% endif %}>Mr.</option>
+                            <option value="Ms." {% if examiner and examiner.title == 'Ms.' %}selected{% endif %}>Ms.</option>
+                            <option value="Mrs." {% if examiner and examiner.title == 'Mrs.' %}selected{% endif %}>Mrs.</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="full_name" required
+                               value="{{ examiner.full_name|default:'' }}"
+                               placeholder="John Smith">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="username" required
+                               value="{{ examiner.username|default:'' }}"
+                               placeholder="jsmith" {% if examiner %}readonly{% endif %}>
+                        {% if examiner %}
+                        <div class="form-text">Username cannot be changed</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" name="email" required
+                               value="{{ examiner.email|default:'' }}"
+                               placeholder="jsmith@hospital.edu">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Department <span class="text-danger">*</span></label>
+                        <select class="form-select" name="department" required>
+                            <option value="">-- Select Department --</option>
+                            <option value="Internal Medicine" {% if examiner and examiner.department == 'Internal Medicine' %}selected{% endif %}>Internal Medicine</option>
+                            <option value="Pediatrics" {% if examiner and examiner.department == 'Pediatrics' %}selected{% endif %}>Pediatrics</option>
+                            <option value="General Surgery" {% if examiner and examiner.department == 'General Surgery' %}selected{% endif %}>General Surgery</option>
+                            <option value="Obstetrics and Gynecology" {% if examiner and examiner.department == 'Obstetrics and Gynecology' %}selected{% endif %}>Obstetrics and Gynecology</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            Password {% if not examiner %}<span class="text-danger">*</span>{% endif %}
+                        </label>
+                        <input type="password" class="form-control" name="password"
+                               {% if not examiner %}required{% endif %}
+                               placeholder="{% if examiner %}Leave blank to keep current{% else %}Enter password{% endif %}">
+                        {% if examiner %}
+                        <div class="form-text">Leave blank to keep current password</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_active" id="is_active"
+                                   {% if not examiner or examiner.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                Active (can login and mark students)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'creator:examiner_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>{% if examiner %}Update{% else %}Create{% endif %} Examiner
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="stat-card">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Tips</h6>
+            <ul class="mb-0 ps-3">
+                <li class="mb-2">Username is used for login</li>
+                <li class="mb-2">Email is for password reset (future)</li>
+                <li class="mb-2">Inactive examiners cannot login</li>
+                <li>Assign examiners to stations from the Session page</li>
+            </ul>
+        </div>
+
+        {% if examiner %}
+        <div class="stat-card mt-3">
+            <h6 class="mb-3"><i class="bi bi-clipboard-check me-2"></i>Current Assignments</h6>
+            {% if examiner.assignment_count > 0 %}
+            <ul class="list-group list-group-flush">
+                {% for assignment in recent_assignments %}
+                <li class="list-group-item px-0">
+                    <div class="fw-bold">{{ assignment.station_name }}</div>
+                    <small class="text-muted">{{ assignment.session.name|default:"Unknown Session" }}</small>
+                </li>
+                {% endfor %}
+            </ul>
+            {% if examiner.assignment_count > 5 %}
+            <small class="text-muted">+ {{ extra_assignment_count }} more</small>
+            {% endif %}
+            {% else %}
+            <p class="text-muted mb-0">No assignments yet</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Sessions - {{ exam.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+                <li class="breadcrumb-item active">Sessions</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-calendar-week me-2"></i>Exam Sessions</h1>
+        <p class="text-muted mb-0">{{ exam.name }}</p>
+    </div>
+    <a href="{% url 'creator:session_create' exam.id %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Schedule Session
+    </a>
+</div>
+
+<div class="table-card">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr><th>Session</th><th>Date &amp; Time</th><th>Students</th><th>Rotation Time</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for session in sessions %}
+            <tr>
+                <td>
+                    <a href="{% url 'creator:session_detail' session.id %}" class="text-decoration-none fw-bold">
+                        {{ session.name|default:"Session" }}
+                    </a>
+                </td>
+                <td>
+                    {% if session.session_date %}{{ session.session_date|date:"Y-m-d" }}
+                    {% else %}<span class="text-muted">Not set</span>{% endif %}
+                </td>
+                <td><span class="badge bg-secondary">{{ session.student_count|default:0 }} students</span></td>
+                <td>{{ session.rotation_minutes }} min</td>
+                <td><span class="badge badge-{{ session.status }}">{{ session.status|title }}</span></td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'creator:session_detail' session.id %}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center text-muted py-5">
+                    <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>No sessions scheduled yet.<br>
+                    <a href="{% url 'creator:session_create' exam.id %}" class="btn btn-primary mt-3">
+                        <i class="bi bi-plus-lg me-1"></i>Schedule First Session
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

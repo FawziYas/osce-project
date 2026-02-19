@@ -1,0 +1,464 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Session - {{ session.name|default:"Session" }}{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' session.exam_id %}">{{ session.exam.name|default:"Exam" }}</a></li>
+                <li class="breadcrumb-item active">Session</li>
+            </ol>
+        </nav>
+        <h1>{{ session.name|default:"Exam Session" }}</h1>
+        <p class="text-muted mb-0">
+            <i class="bi bi-calendar me-1"></i>
+            {% if session.session_date %}{{ session.session_date|date:"Y-m-d" }}{% else %}Date not set{% endif %}
+            <span class="mx-2">&bull;</span>
+            <span class="badge badge-{{ session.status }}">{{ session.status|title }}</span>
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'creator:session_paths' session.id %}" class="btn btn-outline-primary">
+            <i class="bi bi-signpost-split me-1"></i>Manage Paths
+        </a>
+        {% if session.status == 'scheduled' %}
+        <button type="button" class="btn btn-success" onclick="activateSession()"><i class="bi bi-play-fill me-1"></i>Activate</button>
+        {% elif session.status == 'in_progress' %}
+        <button type="button" class="btn btn-warning" onclick="deactivateSession()"><i class="bi bi-pause-fill me-1"></i>Pause</button>
+        <button type="button" class="btn btn-secondary" onclick="completeSession()"><i class="bi bi-stop-fill me-1"></i>Complete</button>
+        {% elif session.status == 'completed' %}
+        <button type="button" class="btn btn-outline-danger" onclick="archiveSession()"><i class="bi bi-archive me-1"></i>Archive</button>
+        {% elif session.status == 'archived' %}
+        <button type="button" class="btn btn-outline-success" onclick="restoreSession()"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Paths Panel -->
+    <div class="col-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-signpost-split me-2"></i>Rotation Paths ({{ paths|length }})</h5>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'creator:apply_station_templates' session.id %}" class="btn btn-sm btn-success" title="Apply station templates to all paths">
+                        <i class="bi bi-layers me-1"></i>Apply Templates
+                    </a>
+                    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#createMultiplePathsModal" title="Create multiple paths at once">
+                        <i class="bi bi-scissors me-1"></i>Create Multiple
+                    </button>
+                    <a href="{% url 'creator:create_path' session.id %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Add Path
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if paths %}
+                <div class="row g-3">
+                    {% for path in paths %}
+                    <div class="col-md-4 col-lg-3">
+                        <div class="card h-100 border">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">
+                                        <a href="{% url 'creator:path_detail' path.id %}" class="text-decoration-none">
+                                            <i class="bi bi-signpost text-primary me-1"></i>Path {{ path.name }}
+                                        </a>
+                                    </h6>
+                                    <a href="{% url 'creator:edit_path' path.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                                </div>
+                                <div class="small mb-2">
+                                    <span class="badge bg-info me-1">{{ path.station_count }} stations</span>
+                                    <span class="badge bg-success me-1">{{ path.total_marks }} marks</span>
+                                </div>
+                                <div class="small text-muted">
+                                    <i class="bi bi-people me-1"></i>{{ path.student_count }} student{{ path.student_count|pluralize }} assigned
+                                </div>
+                                <div class="mt-2">
+                                    <a href="{% url 'creator:station_create' path.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-plus-lg me-1"></i>Add Station
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-signpost-split fs-1 d-block mb-2"></i>
+                    No paths defined. Create paths to define student rotation sequences.<br>
+                    <a href="{% url 'creator:create_path' session.id %}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus-lg me-1"></i>Create First Path
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Students Panel -->
+    <div class="col-md-8">
+        <div class="table-card">
+            <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                <h5 class="mb-0"><i class="bi bi-people me-2"></i>Students ({{ students|length }})</h5>
+                {% if students %}
+                <div class="btn-group btn-group-sm">
+                    <a href="{% url 'creator:download_student_paths_pdf' session.id %}" class="btn btn-outline-primary" title="Download PDF with student path assignments">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" {% if session.actual_start %}disabled{% endif %}>
+                        <i class="bi bi-gear me-1"></i>Bulk Actions
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% if not session.actual_start %}
+                        <li><a class="dropdown-item" href="#" onclick="redistributeStudents()"><i class="bi bi-shuffle me-1"></i>Redistribute to Paths</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        <li><a class="dropdown-item text-danger" href="#" onclick="confirmDeleteAllStudents()"><i class="bi bi-trash me-1"></i>Delete All Students</a></li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Add Students Form -->
+            <div class="p-3 border-bottom">
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#textInput"><i class="bi bi-textarea-t me-1"></i>Text Input</button></li>
+                    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#excelUpload"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel Upload</button></li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="textInput">
+                        <form id="addStudentsForm" method="POST" action="{% url 'creator:add_students' session.id %}">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label">Add Students (one per line: student_number,full_name)</label>
+                                <textarea class="form-control" name="student_list" rows="4" placeholder="12345,John Doe
+12346,Jane Smith
+12347,Bob Johnson"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Assign to Path (optional)</label>
+                                <select name="path_id" class="form-select">
+                                    <option value="">-- Auto-distribute --</option>
+                                    {% for path in paths %}
+                                    <option value="{{ path.id }}">Path {{ path.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Auto-distribute will spread students evenly across paths</div>
+                            </div>
+                            <button type="submit" id="submitAddStudents" class="btn btn-primary">
+                                <span id="textAddStudents"><i class="bi bi-plus-lg me-1"></i>Add Students</span>
+                                <span id="spinnerAddStudents" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            </button>
+                        </form>
+                    </div>
+                    <div class="tab-pane fade" id="excelUpload">
+                        <form id="uploadExcelForm" method="POST" action="{% url 'creator:upload_students_xlsx' session.id %}" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label">Upload Excel File (.xlsx)</label>
+                                <input type="file" class="form-control" name="file" accept=".xlsx" required>
+                                <div class="form-text">Excel columns: 1. Student Number, 2. Full Name</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Assign to Path (optional)</label>
+                                <select name="path_id" class="form-select">
+                                    <option value="">-- Auto-distribute --</option>
+                                    {% for path in paths %}
+                                    <option value="{{ path.id }}">Path {{ path.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <button type="submit" id="submitUploadExcel" class="btn btn-primary">
+                                <span id="textUploadExcel"><i class="bi bi-upload me-1"></i>Upload Excel</span>
+                                <span id="spinnerUploadExcel" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                            </button>
+                        </form>
+                        <div class="mt-3 p-2 bg-light rounded">
+                            <small class="text-muted"><strong>Required Format:</strong><br>Column A: ID/Number<br>Column B: Full Name</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if students %}
+            <table class="table table-hover mb-0">
+                <thead><tr><th>Student #</th><th>Name</th><th>Path</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td><code>{{ student.student_number }}</code></td>
+                        <td>{{ student.full_name }}</td>
+                        <td>
+                            <select class="form-select form-select-sm" style="width: auto;" 
+                                    onchange="updateStudentPath('{{ student.id }}', this.value)"
+                                    {% if student.status != 'registered' %}disabled{% endif %}>
+                                <option value="">Unassigned</option>
+                                {% for path in paths %}
+                                <option value="{{ path.id }}" {% if student.path_id == path.id %}selected{% endif %}>Path {{ path.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            {% if student.status == 'registered' %}<span class="badge bg-primary">Registered</span>
+                            {% elif student.status == 'checked_in' %}<span class="badge bg-info">Checked In</span>
+                            {% elif student.status == 'in_progress' %}<span class="badge bg-warning">In Progress</span>
+                            {% elif student.status == 'completed' %}<span class="badge bg-success">Completed</span>
+                            {% elif student.status == 'absent' %}<span class="badge bg-danger">Absent</span>
+                            {% else %}<span class="badge bg-secondary">{{ student.status|title }}</span>{% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    onclick="deleteStudent('{{ student.id }}', '{{ student.full_name }}')"
+                                    {% if session.actual_start %}disabled{% endif %}>
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="p-4 text-center text-muted">
+                <i class="bi bi-people fs-1 d-block mb-2"></i>No students added yet.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Session Info -->
+    <div class="col-md-4">
+        <div class="stat-card mb-3">
+            <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Session Info</h6>
+            <ul class="list-unstyled mb-0">
+                <li class="mb-2"><span class="text-muted">Exam:</span><br><strong>{{ session.exam.name|default:"N/A" }}</strong></li>
+                <li class="mb-2"><span class="text-muted">Rotation Time:</span><br><strong>{{ session_metrics.rotation_display }}</strong>
+                    {% if session_metrics.rotation_detail %}<div class="text-muted small">{{ session_metrics.rotation_detail }}</div>{% endif %}
+                </li>
+                <li class="mb-2"><span class="text-muted">Students assigned:</span><br><strong>{{ students|length }} Students</strong></li>
+                <li class="mb-2"><span class="text-muted">Stations:</span><br><strong>{{ session_metrics.station_display }}</strong>
+                    {% if session_metrics.station_detail %}<div class="text-muted small">{{ session_metrics.station_detail }}</div>{% endif %}
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Examiner Assignments -->
+        <div class="stat-card mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0"><i class="bi bi-person-badge me-2"></i>Examiner Assignments</h6>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#assignExaminerModal"><i class="bi bi-plus-lg"></i></button>
+            </div>
+            {% if examiner_assignments %}
+            <ul class="list-group list-group-flush">
+                {% for a in examiner_assignments %}
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold">{{ a.examiner.display_name|default:"Unknown" }}</div>
+                        <small class="text-muted">{{ a.station_name }}</small>
+                        {% if a.is_primary %}<span class="badge bg-primary ms-1">Primary</span>{% endif %}
+                    </div>
+                    <form method="POST" action="{% url 'creator:examiner_unassign' a.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove?')" {% if session.actual_start %}disabled{% endif %}>
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted small mb-0">No examiners assigned yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Assign Examiner Modal -->
+<div class="modal fade" id="assignExaminerModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Assign Examiner to Station</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <form method="POST" action="{% url 'creator:assign_examiner' session.id %}">
+            {% csrf_token %}
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Examiner</label>
+                    <select name="examiner_id" class="form-select" required>
+                        <option value="">-- Select Examiner --</option>
+                        {% for e in all_examiners %}
+                        <option value="{{ e.id }}">{{ e.display_name }} ({{ e.username }}){% if e.department %} - {{ e.department }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Station</label>
+                    <select name="station_id" class="form-select" required>
+                        <option value="">-- Select Station --</option>
+                        {% for path in paths %}
+                        <optgroup label="Path {{ path.name }}">
+                            {% for station in path.ordered_stations %}
+                            <option value="{{ station.id }}">{{ station.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="is_primary" id="is_primary" checked>
+                    <label class="form-check-label" for="is_primary">Primary examiner (unchecked = backup)</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Assign</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<!-- Create Multiple Paths Modal -->
+<div class="modal fade" id="createMultiplePathsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header bg-info bg-opacity-10">
+            <h5 class="modal-title"><i class="bi bi-scissors me-2"></i>Create Multiple Paths</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+            <form id="batchPathForm" method="POST" action="{% url 'creator:batch_create_paths' session.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="pathCount" class="form-label">Number of Paths to Create <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control form-control-lg" id="pathCount" name="path_count" value="3" min="1" max="50" required>
+                    <small class="form-text text-muted">Create between 1 and 50 paths at once</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Path Naming Pattern <span class="text-danger">*</span></label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="naming_pattern" id="pattern_letters" value="letters" checked>
+                        <label class="btn btn-outline-primary" for="pattern_letters">A, B, C...</label>
+                        <input type="radio" class="btn-check" name="naming_pattern" id="pattern_numbers" value="numbers">
+                        <label class="btn btn-outline-primary" for="pattern_numbers">Path 1, Path 2...</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="rotationMinutes" class="form-label">Minutes Per Station <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="rotationMinutes" name="rotation_minutes" 
+                           value="{{ session.exam.station_duration_minutes|default:8 }}" min="1" max="60" required>
+                    <small class="form-text text-muted">Duration each student spends at each station</small>
+                </div>
+                {% if paths %}
+                <div class="mb-3">
+                    <label for="copyFromPath" class="form-label">Copy Stations &amp; Checklist (Optional)</label>
+                    <select class="form-select" id="copyFromPath" name="copy_from_path_id">
+                        <option value="">-- Don't copy --</option>
+                        {% for path in paths %}
+                        <option value="{{ path.id }}">Path {{ path.name }} ({{ path.station_count }} station{{ path.station_count|pluralize }})</option>
+                        {% endfor %}
+                    </select>
+                    <small class="form-text text-muted">All new paths will copy stations &amp; checklists from selected path</small>
+                </div>
+                {% endif %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i><strong>What you'll get:</strong> All paths with same settings, ready to add stations or copy from existing paths
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-info" onclick="submitBatchPathForm()"><i class="bi bi-scissors me-1"></i>Create Paths</button>
+        </div>
+    </div></div>
+</div>
+
+<script>
+function activateSession() {
+    if (confirm('Activate this session? Examiners will be able to log in.')) {
+        fetch('/api/creator/sessions/{{ session.id }}/activate', {method:'POST'})
+        .then(r => r.json()).then(data => {
+            if (data.error) alert('Error: ' + data.error);
+            else { let msg = data.message; if (data.warnings && data.warnings.length > 0) msg += '\n\nWarnings:\n- ' + data.warnings.join('\n- '); alert(msg); location.reload(); }
+        });
+    }
+}
+function deactivateSession() {
+    if (confirm('Pause this session?')) {
+        fetch('/api/creator/sessions/{{ session.id }}/deactivate', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session paused');location.reload();});
+    }
+}
+function completeSession() {
+    if (confirm('Complete this session?')) {
+        fetch('/api/creator/sessions/{{ session.id }}/complete', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session completed');location.reload();});
+    }
+}
+function archiveSession() {
+    if (confirm('Archive this session?')) {
+        fetch('/api/creator/sessions/{{ session.id }}', {method:'DELETE'}).then(r=>r.json()).then(data=>{
+            if (data.error) alert('Error: '+data.error); else {alert(data.message||'Session archived');location.reload();}
+        });
+    }
+}
+function restoreSession() {
+    if (confirm('Restore this session?')) {
+        fetch('/api/creator/sessions/{{ session.id }}/restore', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session restored');location.reload();});
+    }
+}
+function updateStudentPath(studentId, pathId) {
+    fetch(`/api/creator/students/${studentId}/path`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path_id:pathId||null})})
+    .then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();})
+    .then(data=>{if(data.error)alert('Error: '+data.error);else location.reload();})
+    .catch(err=>alert('Failed to update: '+err.message));
+}
+function deleteStudent(studentId, studentName) {
+    {% if session.actual_start %}alert('Cannot delete students after session activation.');return;{% endif %}
+    if (confirm(`Delete student "${studentName}"?`)) {
+        fetch(`/api/creator/students/${studentId}`, {method:'DELETE'}).then(r=>r.json()).then(data=>{if(data.error)alert('Error: '+data.error);else location.reload();});
+    }
+}
+function redistributeStudents() {
+    {% if session.actual_start %}alert('Cannot redistribute after activation.');return;{% endif %}
+    if (confirm('Redistribute all students evenly across paths?')) {
+        fetch(`/api/creator/sessions/{{ session.id }}/redistribute-students`, {method:'POST'}).then(r=>r.json()).then(data=>{if(data.error)alert('Error: '+data.error);else{alert(data.message||'Redistributed');location.reload();}});
+    }
+}
+function confirmDeleteAllStudents() {
+    {% if session.actual_start %}alert('Cannot delete after activation.');return;{% endif %}
+    if (confirm('DELETE ALL STUDENTS? This cannot be undone!')) {
+        if (confirm('Are you really sure?')) {
+            fetch(`/api/creator/sessions/{{ session.id }}/students`, {method:'DELETE'}).then(r=>r.json()).then(data=>{if(data.error)alert('Error: '+data.error);else{alert(data.message||'All deleted');location.reload();}});
+        }
+    }
+}
+
+document.getElementById('addStudentsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn=document.getElementById('submitAddStudents'), text=document.getElementById('textAddStudents'), spinner=document.getElementById('spinnerAddStudents');
+    btn.disabled=true; text.innerHTML='<i class="bi bi-hourglass-split me-1"></i>Adding...'; spinner.classList.remove('d-none');
+    fetch(this.action, {method:'POST', body:new FormData(this)})
+    .then(r=>r.json()).then(data=>{
+        if(data.success){let msg=data.message;if(data.warning)msg+='\n\n'+data.warning;alert(msg);location.reload();}
+        else{alert(data.message);btn.disabled=false;text.innerHTML='<i class="bi bi-plus-lg me-1"></i>Add Students';spinner.classList.add('d-none');}
+    }).catch(err=>{alert('Error: '+err.message);btn.disabled=false;text.innerHTML='<i class="bi bi-plus-lg me-1"></i>Add Students';spinner.classList.add('d-none');});
+});
+
+document.getElementById('uploadExcelForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn=document.getElementById('submitUploadExcel'), text=document.getElementById('textUploadExcel'), spinner=document.getElementById('spinnerUploadExcel');
+    btn.disabled=true; text.innerHTML='<i class="bi bi-hourglass-split me-1"></i>Uploading...'; spinner.classList.remove('d-none');
+    fetch(this.action, {method:'POST', body:new FormData(this)})
+    .then(r=>r.json()).then(data=>{
+        if(data.success){let msg=data.message;if(data.warning)msg+='\n\n'+data.warning;alert(msg);location.reload();}
+        else{alert(data.message);btn.disabled=false;text.innerHTML='<i class="bi bi-upload me-1"></i>Upload Excel';spinner.classList.add('d-none');}
+    }).catch(err=>{alert('Error: '+err.message);btn.disabled=false;text.innerHTML='<i class="bi bi-upload me-1"></i>Upload Excel';spinner.classList.add('d-none');});
+});
+
+function submitBatchPathForm() {
+    const count = parseInt(document.getElementById('pathCount').value);
+    if (count < 1 || count > 26) { alert('Enter 1-26'); return; }
+    if (confirm(`Create ${count} path(s)?`)) document.getElementById('batchPathForm').submit();
+}
+</script>
+{% endblock %}

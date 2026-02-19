@@ -1,0 +1,219 @@
+{% extends 'examiner/base_examiner.html' %}
+{% load static %}
+
+{% block title %}My Stations - OSCE Examiner{% endblock %}
+
+{% block body_class %}examiner-body home-page{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{% static 'css/examiner-home.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<header class="home-header">
+    <div class="header-branding">
+        <div class="osce-brand">
+            <i class="bi bi-clipboard-check-fill"></i>
+            <span>OSCE Examiner</span>
+        </div>
+        <div class="header-actions">
+            <div class="doctor-badge">
+                {{ request.user.display_name }}
+            </div>
+            <a href="{% url 'examiner:logout' %}" class="btn-signout-link">
+                <i class="bi bi-box-arrow-right"></i>
+                Sign Out
+            </a>
+        </div>
+    </div>
+
+    <div class="home-header-content">
+        <div class="welcome-section">
+            <h1>
+                <i class="bi bi-calendar-check"></i>
+                <span>My Exam Schedule</span>
+            </h1>
+            <p>Welcome to your exam portal</p>
+        </div>
+        <div class="date-badge">
+            <i class="bi bi-calendar3 me-2"></i>{{ today|date:"M d, Y" }}
+        </div>
+    </div>
+</header>
+
+<div class="home-content">
+    <div class="home-grid">
+        <div class="home-main">
+            <!-- Today's Stations -->
+            <section class="section-card">
+                <div class="section-header today">
+                    <h2 class="section-title">
+                        <i class="bi bi-calendar-day"></i>
+                        <span>Today's Stations</span>
+                    </h2>
+                    <span class="section-count">{{ assignments|length }}</span>
+                </div>
+
+                {% if assignments %}
+                    {% for item in assignments %}
+                    <div class="station-card">
+                        <div class="station-card-header">
+                            <div class="station-title-section">
+                                <h3>
+                                    <i class="bi bi-geo-alt"></i>
+                                    <span>Station {{ item.station_number }}</span>
+                                </h3>
+                                <p class="station-subtitle">{{ item.station_name }}</p>
+                                <div class="station-details">
+                                    <div class="station-detail-item">
+                                        <i class="bi bi-book"></i>
+                                        <span>{% if item.session and item.session.exam %}{{ item.session.exam.name }}{% else %}Exam{% endif %}</span>
+                                    </div>
+                                    <div class="station-detail-item">
+                                        <i class="bi bi-clock"></i>
+                                        <span>
+                                            {% if item.session and item.session.start_time %}{{ item.session.start_time|time:"H:i" }}{% else %}TBD{% endif %}
+                                            {% if item.session and item.session.session_type %}
+                                            - {{ item.session.session_type|capfirst }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="station-detail-item">
+                                        <i class="bi bi-people"></i>
+                                        <span><strong>{{ item.total_students }}</strong> students across <strong>{{ item.paths_count }}</strong> path{{ item.paths_count|pluralize }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="station-meta-badges">
+                                <div class="meta-badge-inline">
+                                    <div class="badge-duration">
+                                        <i class="bi bi-stopwatch"></i>
+                                        <span>{{ item.station_duration|default:8 }} min</span>
+                                    </div>
+                                    <div class="badge-points">
+                                        <i class="bi bi-trophy"></i>
+                                        <span>{{ item.station_max_score|default:0 }} pts</span>
+                                    </div>
+                                </div>
+                                {% if item.is_primary %}
+                                <span class="badge-role primary">
+                                    <i class="bi bi-star-fill me-1"></i>Primary Examiner
+                                </span>
+                                {% else %}
+                                <span class="badge-role co-examiner">
+                                    <i class="bi bi-person-check me-1"></i>Co-Examiner
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <a href="{% url 'examiner:station_dashboard' item.assignment.id %}"
+                           class="station-start-button">
+                            <i class="bi bi-play-circle-fill"></i>
+                            <span>Start Marking ({{ item.total_students }} students)</span>
+                        </a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state-box">
+                        <div class="empty-icon">
+                            <i class="bi bi-calendar-x"></i>
+                        </div>
+                        <h3 class="empty-title">No Stations Assigned for Today</h3>
+                        <p class="empty-text">Check your upcoming assignments below or contact the exam coordinator.</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <!-- Recent Assignments -->
+            {% if recent_assignments %}
+            <section class="section-card">
+                <div class="section-header recent">
+                    <h2 class="section-title">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Recent Exams</span>
+                    </h2>
+                    <span class="section-count">{{ recent_assignments|length }}</span>
+                </div>
+
+                {% for item in recent_assignments %}
+                <a href="{% url 'examiner:station_dashboard' item.assignment.id %}"
+                   class="recent-station-link">
+                    <div class="recent-row">
+                        <div class="recent-info">
+                            <h5>Station {{ item.station_number }} - {{ item.station_name }}</h5>
+                            <p class="recent-subtext">
+                                {% if item.session and item.session.session_date %}{{ item.session.session_date|date:"M d" }}{% endif %}
+                                - {% if item.session and item.session.exam %}{{ item.session.exam.name }}{% else %}Exam{% endif %}
+                            </p>
+                            <span class="students-badge">
+                                <i class="bi bi-people me-1"></i>{{ item.total_students }} students
+                            </span>
+                        </div>
+                        <span class="badge-completed">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Completed</span>
+                        </span>
+                    </div>
+                </a>
+                {% endfor %}
+            </section>
+            {% endif %}
+        </div>
+
+        <div class="home-sidebar">
+            <!-- Upcoming Assignments Side Card -->
+            <section class="section-card">
+                <div class="section-header upcoming">
+                    <h2 class="section-title">
+                        <i class="bi bi-calendar-week"></i>
+                        <span>Upcoming</span>
+                    </h2>
+                    <span class="section-count">{{ upcoming_assignments|length }}</span>
+                </div>
+
+                {% if upcoming_assignments %}
+                    {% for item in upcoming_assignments %}
+                    <div class="upcoming-station-card">
+                        <div class="upcoming-row">
+                            <div class="date-box">
+                                <div class="date-day">
+                                    {% if item.session and item.session.session_date %}{{ item.session.session_date|date:"d" }}{% else %}?{% endif %}
+                                </div>
+                                <div class="date-month">
+                                    {% if item.session and item.session.session_date %}{{ item.session.session_date|date:"M" }}{% endif %}
+                                </div>
+                            </div>
+
+                            <div class="upcoming-details">
+                                <h4>St {{ item.station_number }} - {{ item.station_name }}</h4>
+                                <p class="upcoming-info">
+                                    {% if item.session and item.session.exam %}{{ item.session.exam.name }}{% else %}Exam{% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <p class="mb-0">No upcoming exams</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <!-- Info Card -->
+            <div class="info-card">
+                <h6>
+                    <i class="bi bi-info-circle"></i>
+                    <span>Marking System</span>
+                </h6>
+                <p>
+                    Each station requires separate marks from both examiners. The final score is the <strong>average</strong>.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

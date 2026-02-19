@@ -1,0 +1,417 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if station %}Edit Station{% else %}New Station{% endif %} - OSCE Creator{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ilo-panel, .library-panel, .checklist-panel {
+        height: calc(100vh - 250px);
+        overflow-y: auto;
+        background: white;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(0,0,0,0.1);
+    }
+    .panel-header {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        z-index: 10;
+    }
+    .ilo-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .ilo-item:hover { background: #f8f9fa; }
+    .ilo-item.selected {
+        background: #e7f1ff;
+        border-left: 3px solid #0d6efd;
+    }
+    .library-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .library-item:hover { background: #f8f9fa; }
+    .library-item.added { background: #d1e7dd; opacity: 0.6; }
+    .checklist-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    .checklist-item .item-number {
+        width: 28px; height: 28px;
+        background: #0d6efd; color: white;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; font-size: 0.875rem; flex-shrink: 0;
+    }
+    .checklist-item .item-content { flex-grow: 1; }
+    .checklist-item .item-actions { display: flex; gap: 0.25rem; }
+    .checklist-item .item-meta { display: flex; gap: 0.5rem; margin-top: 0.25rem; }
+    .theme-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .active-badge {
+        background: #ffc107; color: #000;
+        font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 0.25rem;
+    }
+    .empty-state { padding: 2rem; text-align: center; color: #6c757d; }
+    #checklistTotal { font-size: 1.25rem; font-weight: 600; color: #0d6efd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            {% if path %}
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' path.session.exam_id %}">{{ exam.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' path.session_id %}">{{ path.session.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:path_detail' path.id %}">Path {{ path.name }}</a></li>
+            {% else %}
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+            {% endif %}
+            <li class="breadcrumb-item active">{% if station %}Edit Station {{ station.station_number }}{% else %}New Station{% endif %}</li>
+        </ol>
+    </nav>
+    <h1>
+        <span class="badge bg-primary me-2">Station {{ next_station_number }}</span>
+        {% if station %}Edit Station{% else %}Design New Station{% endif %}
+        {% if path %}
+        <small class="text-muted fs-6">in Path {{ path.name }}</small>
+        {% endif %}
+    </h1>
+</div>
+
+<form method="POST" id="stationForm">
+    {% csrf_token %}
+    <!-- Station Info -->
+    <div class="stat-card mb-3">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Station Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="name" name="name"
+                           value="{{ station.name|default:'' }}"
+                           placeholder="e.g., Cardiovascular Examination" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="scenario" class="form-label">Scenario</label>
+                    <textarea class="form-control" id="scenario" name="scenario" rows="2"
+                              placeholder="Patient scenario for the simulated patient">{% if station %}{{ station.scenario }}{% endif %}</textarea>
+                </div>
+            </div>
+        </div>
+        <div class="mb-0">
+            <label for="instructions" class="form-label">Examiner Instructions</label>
+            <textarea class="form-control" id="instructions" name="instructions" rows="2"
+                      placeholder="Special instructions for the examiner">{% if station %}{{ station.instructions }}{% endif %}</textarea>
+        </div>
+    </div>
+
+    <!-- 3-Panel Design Interface -->
+    <div class="row g-3">
+        <!-- Left Panel: ILOs -->
+        <div class="col-md-3">
+            <div class="ilo-panel">
+                <div class="panel-header">
+                    <strong><i class="bi bi-bullseye me-1"></i>ILOs</strong>
+                    <span class="badge bg-secondary ms-2">{{ ilos|length }}</span>
+                </div>
+                {% for ilo in ilos %}
+                <div class="ilo-item" data-ilo-id="{{ ilo.id }}" onclick="selectILO(this, {{ ilo.id }})">
+                    <div class="d-flex align-items-center">
+                        <span class="theme-dot me-2" style="background: {{ ilo.theme_color }};"></span>
+                        <span class="badge bg-secondary me-2">{{ ilo.number }}</span>
+                        <small>{{ ilo.description|truncatechars:50 }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state">
+                    <i class="bi bi-bullseye fs-1 d-block mb-2"></i>
+                    No ILOs available
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Middle Panel: Library -->
+        <div class="col-md-4">
+            <div class="library-panel">
+                <div class="panel-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong><i class="bi bi-collection me-1"></i>Library</strong>
+                        <span class="badge bg-secondary ms-2" id="libraryCount">0</span>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addCustomItem()">
+                        <i class="bi bi-plus-lg"></i> Custom
+                    </button>
+                </div>
+                <div id="libraryItems">
+                    <div class="empty-state">
+                        <i class="bi bi-arrow-left fs-1 d-block mb-2"></i>
+                        Select an ILO to see library items
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Station Checklist -->
+        <div class="col-md-5">
+            <div class="checklist-panel">
+                <div class="panel-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong><i class="bi bi-list-check me-1"></i>Station Checklist</strong>
+                        <span class="badge bg-primary ms-2" id="itemCount">0</span>
+                    </div>
+                    <div>
+                        Total: <span id="checklistTotal">0</span> pts
+                    </div>
+                </div>
+                <div id="checklistItems">
+                    <div class="empty-state" id="emptyChecklist">
+                        <i class="bi bi-arrow-left fs-1 d-block mb-2"></i>
+                        Click library items to add them here
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Buttons -->
+    <div class="d-flex justify-content-between mt-3">
+        <a href="{% url 'creator:exam_detail' exam.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Cancel
+        </a>
+        <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-check-lg me-1"></i>
+            {% if station %}Update Station{% else %}Create Station{% endif %}
+        </button>
+    </div>
+</form>
+
+<!-- Library Item Template (hidden) -->
+<template id="libraryItemTemplate">
+    <div class="library-item" onclick="addToChecklist(this)">
+        <div class="d-flex align-items-start">
+            <div class="flex-grow-1">
+                <div class="item-description"></div>
+                <div class="item-meta mt-1">
+                    <span class="badge bg-light text-dark item-points"></span>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-success ms-2">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- Checklist Item Template (hidden) -->
+<template id="checklistItemTemplate">
+    <div class="checklist-item" draggable="true">
+        <div class="item-number"></div>
+        <div class="item-content">
+            <div class="item-description"></div>
+            <div class="item-meta">
+                <span class="theme-dot"></span>
+                <input type="number" class="form-control form-control-sm item-points-input"
+                       style="width: 60px;" min="0" step="0.5" value="1">
+                <span class="text-muted">pts</span>
+                <select class="form-select form-select-sm item-interaction" style="width: 100px;">
+                    <option value="passive">Passive</option>
+                    <option value="active">Active</option>
+                </select>
+            </div>
+        </div>
+        <div class="item-actions">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <input type="hidden" class="item-input">
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Library items by ILO (passed from server)
+const libraryByILO = {{ library_by_ilo_json|safe }};
+
+let selectedILO = null;
+let checklistItems = [];
+let itemCounter = 0;
+
+function selectILO(element, iloId) {
+    document.querySelectorAll('.ilo-item').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+    selectedILO = iloId;
+
+    const libraryItems = libraryByILO[iloId] || [];
+    const container = document.getElementById('libraryItems');
+
+    if (libraryItems.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="bi bi-collection fs-1 d-block mb-2"></i>
+                No library items for this ILO.<br>
+                <button type="button" class="btn btn-sm btn-primary mt-2" onclick="addCustomItem()">
+                    <i class="bi bi-plus-lg me-1"></i>Add Custom Item
+                </button>
+            </div>
+        `;
+    } else {
+        container.innerHTML = '';
+        libraryItems.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'library-item';
+            div.dataset.itemId = item.id;
+            div.dataset.iloId = item.ilo_id;
+            div.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <div class="flex-grow-1">
+                        <div>${item.description}</div>
+                        <div class="item-meta mt-1">
+                            <span class="badge bg-light text-dark">${item.points} pt${item.points > 1 ? 's' : ''}</span>
+                            ${item.interaction_type === 'active' ? '<span class="active-badge">ACTIVE</span>' : ''}
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-success ms-2" onclick="addToChecklist(this.parentElement.parentElement, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    document.getElementById('libraryCount').textContent = libraryItems.length;
+}
+
+function addToChecklist(element, item) {
+    element.classList.add('added');
+    document.getElementById('emptyChecklist')?.remove();
+
+    itemCounter++;
+    const container = document.getElementById('checklistItems');
+
+    const div = document.createElement('div');
+    div.className = 'checklist-item';
+    div.dataset.itemId = item.id || 'new_' + itemCounter;
+    div.dataset.iloId = item.ilo_id;
+    div.innerHTML = `
+        <div class="item-number">${checklistItems.length + 1}</div>
+        <div class="item-content">
+            <div class="item-description">${item.description}</div>
+            <div class="item-meta">
+                <span class="theme-dot" style="background: ${item.theme_color};"></span>
+                <input type="number" class="form-control form-control-sm"
+                       name="points_item_${item.ilo_id}_${item.id || 'new_' + itemCounter}"
+                       style="width: 60px;" min="0" step="0.5" value="${item.points}"
+                       onchange="updateTotal()">
+                <span class="text-muted">pts</span>
+                <select class="form-select form-select-sm" style="width: 100px;"
+                        name="interaction_item_${item.ilo_id}_${item.id || 'new_' + itemCounter}">
+                    <option value="passive" ${item.interaction_type !== 'active' ? 'selected' : ''}>Passive</option>
+                    <option value="active" ${item.interaction_type === 'active' ? 'selected' : ''}>Active</option>
+                </select>
+            </div>
+        </div>
+        <div class="item-actions">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <input type="hidden" name="item_${item.ilo_id}_${item.id || 'new_' + itemCounter}" value="${item.description}">
+    `;
+    container.appendChild(div);
+
+    checklistItems.push(item);
+    updateCounts();
+}
+
+function addCustomItem() {
+    if (!selectedILO) {
+        alert('Please select an ILO first');
+        return;
+    }
+    const description = prompt('Enter checklist item description:');
+    if (!description) return;
+
+    const iloItem = document.querySelector(`.ilo-item[data-ilo-id="${selectedILO}"]`);
+    const themeColor = iloItem?.querySelector('.theme-dot')?.style.background || '#6c757d';
+
+    const item = {
+        id: null,
+        description: description,
+        ilo_id: selectedILO,
+        points: 1,
+        interaction_type: 'passive',
+        theme_color: themeColor
+    };
+
+    const fakeElement = document.createElement('div');
+    addToChecklist(fakeElement, item);
+}
+
+function removeItem(button) {
+    const item = button.closest('.checklist-item');
+    const itemId = item.dataset.itemId;
+
+    const libraryItem = document.querySelector(`.library-item[data-item-id="${itemId}"]`);
+    if (libraryItem) { libraryItem.classList.remove('added'); }
+
+    item.remove();
+    checklistItems = checklistItems.filter(i => i.id != itemId);
+
+    document.querySelectorAll('.checklist-item .item-number').forEach((el, idx) => {
+        el.textContent = idx + 1;
+    });
+
+    updateCounts();
+
+    if (checklistItems.length === 0) {
+        document.getElementById('checklistItems').innerHTML = `
+            <div class="empty-state" id="emptyChecklist">
+                <i class="bi bi-arrow-left fs-1 d-block mb-2"></i>
+                Click library items to add them here
+            </div>
+        `;
+    }
+}
+
+function updateCounts() {
+    document.getElementById('itemCount').textContent = checklistItems.length;
+    updateTotal();
+}
+
+function updateTotal() {
+    let total = 0;
+    document.querySelectorAll('.checklist-item input[type="number"]').forEach(input => {
+        total += parseFloat(input.value) || 0;
+    });
+    document.getElementById('checklistTotal').textContent = total.toFixed(1);
+}
+
+// Initialize with existing items if editing
+const existingItems = {{ existing_items_json|safe }};
+if (existingItems && existingItems.length > 0) {
+    document.addEventListener('DOMContentLoaded', function() {
+        existingItems.forEach(item => {
+            const fakeEl = document.createElement('div');
+            addToChecklist(fakeEl, item);
+        });
+    });
+}
+</script>
+{% endblock %}

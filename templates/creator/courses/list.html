@@ -1,0 +1,82 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Courses - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Courses</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-journals me-2"></i>Courses</h1>
+    </div>
+    <a href="{% url 'creator:course_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Add Course
+    </a>
+</div>
+
+<div class="table-card">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Course Code</th>
+                <th>Short Code</th>
+                <th>Name</th>
+                <th>Year</th>
+                <th>ILOs</th>
+                <th>OSCE Marks</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for course in courses %}
+            <tr>
+                <td>
+                    <a href="{% url 'creator:course_detail' course.id %}" class="text-decoration-none fw-bold">
+                        {{ course.code }}
+                    </a>
+                </td>
+                <td>
+                    {% if course.short_code %}
+                        <span class="badge bg-primary">{{ course.short_code }}</span>
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>{{ course.name }}</td>
+                <td><span class="badge bg-secondary">Y{{ course.year_level }}</span></td>
+                <td>{{ course.ilos.count }}</td>
+                <td>
+                    <span class="badge bg-info text-dark">{{ course.get_total_osce_marks }} pts</span>
+                </td>
+                <td>
+                    {% if course.active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'creator:course_detail' course.id %}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
+                        <a href="{% url 'creator:course_edit' course.id %}" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-journals fs-1 d-block mb-2"></i>
+                    No courses yet.<br>
+                    <a href="{% url 'creator:course_create' %}" class="btn btn-primary mt-3"><i class="bi bi-plus-lg me-1"></i>Add First Course</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

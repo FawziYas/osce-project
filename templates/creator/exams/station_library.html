@@ -1,0 +1,184 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Station Library - {{ exam.name }}{% endblock %}
+
+{% block content %}
+<style>
+{% for library in libraries %}
+.library-header-{{ library.id }} {
+    background: linear-gradient(135deg, {{ library.color }} 0%, {{ library.color }} 80%) !important;
+    color: white !important;
+    border: none !important;
+}
+{% endfor %}
+</style>
+
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+            <li class="breadcrumb-item active">Station Library</li>
+        </ol>
+    </nav>
+    <h1>
+        <i class="bi bi-journal-bookmark me-2"></i>Station Template Library
+        <small class="text-muted">{{ exam.name }}</small>
+    </h1>
+    <p class="text-muted mb-0">Organize station templates into libraries for easy selection when setting up sessions.</p>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <a href="{% url 'creator:template_library_create' exam.id %}" class="btn btn-success">
+        <i class="bi bi-folder-plus me-1"></i>New Library
+    </a>
+</div>
+
+<!-- Libraries -->
+{% for library in libraries %}
+<div class="card shadow-sm mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center library-header-{{ library.id }}" data-color="{{ library.color }}">
+        <div>
+            <h5 class="mb-0">
+                <i class="bi bi-folder me-2"></i>{{ library.name }}
+                <span class="badge bg-light text-dark ms-2">{{ library.template_count }} templates</span>
+            </h5>
+            {% if library.description %}
+            <small class="d-block mt-1 opacity-75">{{ library.description }}</small>
+            {% endif %}
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'creator:station_template_create' exam.id %}?library_id={{ library.id }}" class="btn btn-sm btn-light">
+                <i class="bi bi-plus-lg me-1"></i>Add Template
+            </a>
+            <a href="{% url 'creator:template_library_edit' library.id %}" class="btn btn-sm btn-light">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <form action="{% url 'creator:template_library_delete' library.id %}" method="post" style="display: inline;"
+                  onsubmit="return confirm('Delete library &quot;{{ library.name }}&quot;? Templates will become unassigned.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-light text-danger"><i class="bi bi-trash"></i></button>
+            </form>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if library.active_templates %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr><th style="width: 50px;">#</th><th>Station Name</th><th style="width: 100px;">Items</th><th style="width: 100px;">Points</th><th style="width: 120px;">Actions</th></tr></thead>
+                <tbody>
+                    {% for template in library.active_templates %}
+                    <tr>
+                        <td><span class="badge bg-secondary">{{ template.display_order }}</span></td>
+                        <td>
+                            <strong>{{ template.name }}</strong>
+                            {% if template.description %}
+                            <br><small class="text-muted">{{ template.description|truncatechars:80 }}</small>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-info">{{ template.item_count }}</span></td>
+                        <td><span class="badge bg-success">{{ template.total_points }}</span></td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'creator:station_template_edit' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                <form action="{% url 'creator:station_template_delete' template.id %}" method="post" style="display: inline;"
+                                      onsubmit="return confirm('Delete template &quot;{{ template.name }}&quot;?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-3 text-muted">
+            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+            <p class="mb-2">No templates in this library yet</p>
+            <a href="{% url 'creator:station_template_create' exam.id %}?library_id={{ library.id }}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Add First Template
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+<!-- Unassigned Templates -->
+{% if unassigned_templates %}
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-question-circle me-2"></i>Unassigned Templates
+            <span class="badge bg-secondary ms-2">{{ unassigned_templates|length }}</span>
+        </h5>
+        <a href="{% url 'creator:station_template_create' exam.id %}" class="btn btn-sm btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Template
+        </a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr><th style="width: 50px;">#</th><th>Station Name</th><th style="width: 100px;">Items</th><th style="width: 100px;">Points</th><th style="width: 120px;">Actions</th></tr></thead>
+                <tbody>
+                    {% for template in unassigned_templates %}
+                    <tr>
+                        <td><span class="badge bg-secondary">{{ template.display_order }}</span></td>
+                        <td>
+                            <strong>{{ template.name }}</strong>
+                            {% if template.description %}
+                            <br><small class="text-muted">{{ template.description|truncatechars:80 }}</small>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-info">{{ template.item_count }}</span></td>
+                        <td><span class="badge bg-success">{{ template.total_points }}</span></td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'creator:station_template_edit' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                <form action="{% url 'creator:station_template_delete' template.id %}" method="post" style="display: inline;"
+                                      onsubmit="return confirm('Delete template &quot;{{ template.name }}&quot;?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not libraries and not unassigned_templates %}
+<div class="card shadow-sm">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-journal-bookmark fs-1 text-muted d-block mb-3"></i>
+        <h5 class="text-muted">No Template Libraries Yet</h5>
+        <p class="text-muted mb-4">Create your first library to organize station templates</p>
+        <a href="{% url 'creator:template_library_create' exam.id %}" class="btn btn-success me-2">
+            <i class="bi bi-folder-plus me-1"></i>Create Library
+        </a>
+        <a href="{% url 'creator:station_template_create' exam.id %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Create Template
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<div class="mt-4">
+    <div class="alert alert-info">
+        <h6 class="alert-heading"><i class="bi bi-lightbulb me-2"></i>How Libraries Work</h6>
+        <ul class="mb-0 small">
+            <li><strong>Organize by Session:</strong> Create libraries like "Morning Session" or "Afternoon Session"</li>
+            <li><strong>Easy Selection:</strong> When applying templates to a session, choose which library to use</li>
+            <li><strong>Flexible:</strong> Move templates between libraries or leave them unassigned</li>
+            <li><strong>Independent Stations:</strong> Once applied, each station can be edited independently</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

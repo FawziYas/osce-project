@@ -1,0 +1,314 @@
+{% extends 'creator/base_creator.html' %}
+{% load static %}
+{% load osce_filters %}
+
+{% block title %}Score Sheets - {{ session.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        *, *::before, *::after {
+            box-sizing: border-box !important;
+        }
+        html, body {
+            height: auto !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        .sidebar, .btn, .no-print, .student-checkbox { display: none !important; }
+        .hidden-from-print { display: none !important; }
+        .score-sheet.hidden-from-print { display: none !important; }
+        .main-content {
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            overflow: visible !important;
+        }
+        .page-break { page-break-after: always; }
+        body {
+            font-size: 11pt;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .score-sheet {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 10mm 20mm !important;
+            padding-top: 55mm !important;
+            box-shadow: none !important;
+            box-sizing: border-box !important;
+            display: block !important;
+            page-break-inside: avoid;
+            position: relative;
+            background-image: url('{% static "images/letterhead-background.png" %}') !important;
+            background-size: 210mm 297mm !important;
+            background-position: top center !important;
+            background-repeat: no-repeat !important;
+        }
+
+        .exam-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            display: inline-block;
+            text-align: center;
+            padding-bottom: 6px;
+            border-bottom: 3px solid #000;
+            margin-bottom: 6px;
+            direction: rtl;
+        }
+    }
+
+    .score-sheet {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        position: relative;
+        padding-top: 40px;
+    }
+
+    .score-sheet::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 80px;
+        background-image: url('{% static "images/letterhead-background.png" %}');
+        background-size: contain;
+        background-position: top center;
+        background-repeat: no-repeat;
+        opacity: 0.1;
+        pointer-events: none;
+    }
+
+    .student-checkbox {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        transform: scale(1.5);
+        cursor: pointer;
+    }
+
+    .score-sheet-header {
+        border-bottom: 2px solid #0d6efd;
+        padding-bottom: 5px;
+        margin-bottom: 10px;
+    }
+
+    .station-score-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 3px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .station-score-row:last-child {
+        border-bottom: none;
+    }
+
+    .total-row {
+        background: #f8f9fa;
+        padding: 8px 6px;
+        border-radius: 4px;
+        margin-top: 8px;
+        font-weight: bold;
+    }
+
+    .print-controls {
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 100;
+        padding: 15px;
+        border-bottom: 2px solid #dee2e6;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center no-print">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:reports_index' %}">Reports</a></li>
+                <li class="breadcrumb-item active">Score Sheets</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-file-earmark-text me-2"></i>Score Sheets - {{ session.name }}</h1>
+    </div>
+</div>
+
+{% if not single_student %}
+<div class="print-controls no-print">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <button class="btn btn-outline-secondary" onclick="toggleSelectAll()">
+                <i class="bi bi-check-square me-1"></i><span id="selectAllText">Select All</span>
+            </button>
+            <span class="ms-3 text-muted"><span id="selectedCount">0</span> of {{ students|length }} selected</span>
+        </div>
+        <div>
+            <button class="btn btn-primary me-2" onclick="printSelected()">
+                <i class="bi bi-printer me-1"></i>Print Selected
+            </button>
+            <button class="btn btn-outline-primary" onclick="window.print()">
+                <i class="bi bi-printer-fill me-1"></i>Print All
+            </button>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="text-center no-print mb-4">
+    <button class="btn btn-primary btn-lg" onclick="window.print()">
+        <i class="bi bi-printer me-2"></i>Print Score Sheet
+    </button>
+</div>
+{% endif %}
+
+{% for data in students %}
+<div class="score-sheet {% if not forloop.last %}page-break{% endif %}" id="student-{{ data.student.id }}" data-student-id="{{ data.student.id }}">
+    {% if not single_student %}
+    <input type="checkbox" class="student-checkbox no-print" onchange="updateSelectedCount()">
+    {% endif %}
+
+    <div class="mb-4 text-center">
+        <div class="exam-title">تقرير امتحان مفصل</div>
+        <p class="mb-1" style="font-size: 1.25rem; direction: rtl; line-height: 1.6; margin-top:6px;">
+            هذا التقرير الخاص بالطالب <strong>{{ data.student.full_name }}</strong> رقم تسجيله <strong>{{ data.student.student_number }}</strong>
+            للامتحان السريري لمساق <strong>{{ session.exam.course.name }}</strong>
+            الذي أقيم بتاريخ <strong>{{ session.session_date|date:"Y-m-d" }}</strong>
+        </p>
+    </div>
+
+    <h6 class="text-uppercase text-muted mb-3 text-center">Station Scores</h6>
+
+    {% for station in data.stations %}
+    {% with score=data.scores|get_item:station.id %}
+    <div class="station-score-row">
+        <div>
+            <strong>{{ station.name }}</strong>
+            {% if score and score.examiner_id %}
+            <small class="text-muted ms-2">(Examiner: {{ score.examiner.full_name|default:"N/A" }})</small>
+            {% endif %}
+        </div>
+        <div>
+            {% if score %}
+            <span class="badge {% if score.percentage and score.percentage >= 60 %}bg-success{% else %}bg-danger{% endif %}">
+                {{ score.total_score|default:0 }} / {{ score.max_score|default:0 }}
+                ({{ score.percentage_display }}%)
+            </span>
+            {% else %}
+            <span class="badge bg-secondary">Not Scored</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+
+    <div class="total-row d-flex justify-content-between">
+        <span>TOTAL</span>
+        <span>
+            {{ data.total_score }} / {{ data.max_score }}
+            {% if data.max_score > 0 %}
+            ({{ data.percentage_display }}%)
+            —
+            <span class="{% if data.passed %}text-success{% else %}text-danger{% endif %}">
+                {% if data.passed %}PASS{% else %}FAIL{% endif %}
+            </span>
+            {% else %}
+            <span class="text-muted">No Scores</span>
+            {% endif %}
+        </span>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+    document.getElementById('selectedCount').textContent = checked;
+    document.getElementById('selectAllText').textContent = checked === checkboxes.length ? 'Deselect All' : 'Select All';
+}
+
+function toggleSelectAll() {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectedCount();
+}
+
+function printSelected() {
+    const sheets = document.querySelectorAll('.score-sheet');
+
+    const checkedStudentIds = new Set();
+    sheets.forEach(sheet => {
+        const checkbox = sheet.querySelector('.student-checkbox');
+        if (checkbox && checkbox.checked) {
+            checkedStudentIds.add(sheet.dataset.studentId);
+        }
+    });
+
+    if (checkedStudentIds.size === 0) {
+        alert('Please select at least one student to print.');
+        return;
+    }
+
+    sheets.forEach(sheet => {
+        if (!checkedStudentIds.has(sheet.dataset.studentId)) {
+            sheet.classList.add('hidden-from-print');
+            void sheet.offsetHeight;
+        }
+    });
+
+    setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+            sheets.forEach(sheet => {
+                sheet.classList.remove('hidden-from-print');
+            });
+        }, 100);
+    }, 50);
+}
+
+function printStudent(studentId) {
+    const sheets = document.querySelectorAll('.score-sheet');
+    const targetStudentId = studentId.toString();
+
+    sheets.forEach(sheet => {
+        if (sheet.dataset.studentId !== targetStudentId) {
+            sheet.classList.add('hidden-from-print');
+            void sheet.offsetHeight;
+        }
+    });
+
+    setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+            sheets.forEach(sheet => {
+                sheet.classList.remove('hidden-from-print');
+            });
+        }, 100);
+    }, 50);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    {% if not single_student %}
+    updateSelectedCount();
+    {% endif %}
+});
+</script>
+{% endblock %}

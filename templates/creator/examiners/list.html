@@ -1,0 +1,310 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Examiners - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item active">Examiners</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-person-badge me-2"></i>Examiners</h1>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'creator:examiner_download_template' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-download me-1"></i>Template
+        </a>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="bi bi-upload me-1"></i>Bulk Upload
+        </button>
+        <a href="{% url 'creator:examiner_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Add Examiner
+        </a>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="uploadForm" action="{% url 'creator:examiner_bulk_upload' %}" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadModalLabel">Bulk Upload Examiners</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Please use the Excel template to ensure correct formatting.
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select XLSX File</label>
+                        <input class="form-control" type="file" id="file" name="file" accept=".xlsx" required>
+                    </div>
+
+                    <h6>Required Columns:</h6>
+                    <ul class="small mb-0">
+                        <li><code>full_name</code> - Name of examiner</li>
+                        <li><code>username</code> - Unique login ID</li>
+                        <li><code>email</code> - Unique contact email</li>
+                        <li><code>password</code> - Initial login password</li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="submitBtn" class="btn btn-primary">
+                        <span id="btnText">Upload &amp; Import</span>
+                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value">{{ stats.total }}</div>
+                    <div class="stat-label">Total Examiners</div>
+                </div>
+                <i class="bi bi-people fs-1 text-primary opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value">{{ stats.active }}</div>
+                    <div class="stat-label">Active</div>
+                </div>
+                <i class="bi bi-check-circle fs-1 text-success opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value">{{ stats.assigned_today }}</div>
+                    <div class="stat-label">Assigned Today</div>
+                </div>
+                <i class="bi bi-calendar-check fs-1 text-info opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-value">{{ stats.total_assignments }}</div>
+                    <div class="stat-label">Total Assignments</div>
+                </div>
+                <i class="bi bi-clipboard-check fs-1 text-warning opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="searchInput" class="form-label fw-bold">
+                    <i class="bi bi-search me-1"></i>Search Examiners
+                </label>
+                <input type="text" class="form-control" id="searchInput" placeholder="Search by name, username, or email...">
+                <small class="text-muted">Filters across name, username, and email</small>
+            </div>
+            <div class="col-md-3">
+                <label for="departmentFilter" class="form-label fw-bold">
+                    <i class="bi bi-funnel me-1"></i>Department
+                </label>
+                <select class="form-select" id="departmentFilter">
+                    <option value="">All Departments</option>
+                    <option value="Internal Medicine">Internal Medicine</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="General Surgery">General Surgery</option>
+                    <option value="Obstetrics and Gynecology">Obstetrics and Gynecology</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label fw-bold">
+                    <i class="bi bi-toggle-on me-1"></i>Status
+                </label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-card">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>Examiner</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Assignments</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for examiner in examiners %}
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
+                             style="width: 36px; height: 36px; font-size: 0.9rem;">
+                            {{ examiner.full_name|first }}
+                        </div>
+                        <div>
+                            <div class="fw-bold">{{ examiner.display_name }}</div>
+                            {% if examiner.title %}
+                            <small class="text-muted">{{ examiner.title }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td><code>{{ examiner.username }}</code></td>
+                <td>{{ examiner.email }}</td>
+                <td>{{ examiner.department|default:"-" }}</td>
+                <td>
+                    <span class="badge bg-info">{{ examiner.assignment_count }}</span>
+                </td>
+                <td>
+                    {% if examiner.is_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a href="{% url 'creator:examiner_detail' examiner.id %}"
+                           class="btn btn-outline-primary" title="View">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'creator:examiner_edit' examiner.id %}"
+                           class="btn btn-outline-secondary" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        {% if request.user.is_superuser or request.user.role == 'admin' %}
+                        <button type="button" class="btn btn-outline-danger" title="Delete"
+                                onclick="confirmDelete({{ examiner.id }}, '{{ examiner.display_name|escapejs }}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-person-badge fs-1 d-block mb-2"></i>
+                    No examiners yet. <a href="{% url 'creator:examiner_create' %}">Add your first examiner</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong id="deleteExaminerName"></strong>?</p>
+                <p class="text-danger mb-0"><small>This will also remove all their station assignments.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(examinerId, examinerName) {
+    document.getElementById('deleteExaminerName').textContent = examinerName;
+    document.getElementById('deleteForm').action = `/creator/examiners/${examinerId}/delete/`;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+// Search and Filter Functionality
+const searchInput = document.getElementById('searchInput');
+const departmentFilter = document.getElementById('departmentFilter');
+const statusFilter = document.getElementById('statusFilter');
+const tableRows = document.querySelectorAll('table tbody tr');
+
+function filterTable() {
+    const searchValue = searchInput.value.toLowerCase();
+    const departmentValue = departmentFilter.value;
+    const statusValue = statusFilter.value;
+
+    tableRows.forEach(row => {
+        const cells = row.getElementsByTagName('td');
+        if (cells.length === 0) return;
+
+        const examinerCell = cells[0]?.textContent.toLowerCase() || '';
+        const usernameCell = cells[1]?.textContent.toLowerCase() || '';
+        const emailCell = cells[2]?.textContent.toLowerCase() || '';
+        const departmentCell = cells[3]?.textContent.trim() || '';
+        const statusCell = cells[5]?.textContent.trim() || '';
+
+        const searchMatch = searchValue === '' ||
+            examinerCell.includes(searchValue) ||
+            usernameCell.includes(searchValue) ||
+            emailCell.includes(searchValue);
+
+        const departmentMatch = departmentValue === '' || departmentCell === departmentValue;
+        const statusMatch = statusValue === '' || statusCell === statusValue;
+
+        row.style.display = (searchMatch && departmentMatch && statusMatch) ? '' : 'none';
+    });
+}
+
+searchInput?.addEventListener('keyup', filterTable);
+departmentFilter?.addEventListener('change', filterTable);
+statusFilter?.addEventListener('change', filterTable);
+
+// Handle Bulk Upload UI
+const uploadForm = document.getElementById('uploadForm');
+if (uploadForm) {
+    uploadForm.addEventListener('submit', function() {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('btnText');
+        const spinner = document.getElementById('btnSpinner');
+
+        btn.disabled = true;
+        text.textContent = 'Importing Data... Please Wait...';
+        spinner.classList.remove('d-none');
+    });
+}
+</script>
+{% endblock %}

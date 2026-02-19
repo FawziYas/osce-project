@@ -1,0 +1,141 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
+    <title>{% block title %}OSCE Examiner{% endblock %}</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Custom Examiner CSS -->
+    <link href="{% static 'css/examiner.css' %}" rel="stylesheet">
+
+    {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}examiner-body{% endblock %}">
+    <!-- Offline Indicator -->
+    <div id="offline-indicator" class="offline-banner d-none">
+        <i class="bi bi-wifi-off me-2"></i>
+        <span>Offline - Data will sync when connected</span>
+    </div>
+
+    <!-- Navigation (minimal for tablet) -->
+    <nav class="navbar navbar-dark bg-primary sticky-top">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'examiner:home' %}">
+                <i class="bi bi-clipboard-check me-2"></i>
+                <span class="d-none d-sm-inline">OSCE Examiner</span>
+            </a>
+
+            {% if request.user.is_authenticated %}
+            <div class="d-flex align-items-center text-white">
+                <span class="me-3 d-none d-md-inline">
+                    <i class="bi bi-person-circle me-1"></i>
+                    {{ request.user.display_name }}
+                </span>
+                <a href="{% url 'examiner:logout' %}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Flash Messages (Django Messages Framework) -->
+    {% if messages %}
+    <style>
+        .flash-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 320px;
+        }
+        .flash-container .alert {
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .flash-container .alert i {
+            font-size: 1rem;
+        }
+    </style>
+    <div class="flash-container">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show d-flex align-items-center" role="alert">
+            {% if message.tags == 'error' %}
+                <i class="bi bi-exclamation-circle me-2"></i>
+            {% elif message.tags == 'success' %}
+                <i class="bi bi-check-circle me-2"></i>
+            {% elif message.tags == 'warning' %}
+                <i class="bi bi-exclamation-triangle me-2"></i>
+            {% else %}
+                <i class="bi bi-info-circle me-2"></i>
+            {% endif %}
+            <span>{{ message }}</span>
+            <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    <script>
+        document.querySelectorAll('.flash-container .alert').forEach(alert => {
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 3000);
+        });
+    </script>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Offline Storage -->
+    <script src="{% static 'js/offline-storage.js' %}"></script>
+
+    <!-- Main App JS -->
+    <script src="{% static 'js/examiner-app.js' %}"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js')
+                .then(reg => console.log('Service Worker registered'))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        }
+
+        // Offline detection
+        function updateOnlineStatus() {
+            const indicator = document.getElementById('offline-indicator');
+            if (navigator.onLine) {
+                indicator.classList.add('d-none');
+            } else {
+                indicator.classList.remove('d-none');
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

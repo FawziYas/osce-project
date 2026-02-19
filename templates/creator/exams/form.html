@@ -1,0 +1,116 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if exam %}Edit Exam{% else %}New Exam{% endif %} - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item active">{% if exam %}Edit{% else %}New{% endif %}</li>
+        </ol>
+    </nav>
+    <h1>
+        <i class="bi bi-{% if exam %}pencil{% else %}plus-lg{% endif %} me-2"></i>
+        {% if exam %}Edit Exam{% else %}Create New Exam{% endif %}
+    </h1>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <!-- Basic Info -->
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <label for="name" class="form-label fw-bold">Exam Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-lg" id="name" name="name" 
+                               value="{% if exam %}{{ exam.name }}{% endif %}"
+                               placeholder="e.g., Final OSCE 2026" required>
+                    </div>
+                    
+                    <div class="col-md-8">
+                        <label for="course_id" class="form-label fw-bold">Course <span class="text-danger">*</span></label>
+                        <select class="form-select" id="course_id" name="course_id" required {% if exam %}disabled{% endif %}>
+                            <option value="">Select a course...</option>
+                            {% for course in courses %}
+                            <option value="{{ course.id }}" 
+                                    {% if exam and exam.course_id == course.id %}selected{% endif %}>
+                                {{ course.short_code|default:course.code }} - {{ course.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if exam %}
+                        <input type="hidden" name="course_id" value="{{ exam.course_id }}">
+                        <small class="text-muted">Course cannot be changed after creation</small>
+                        {% else %}
+                        <small class="text-muted">Checklist items will be linked to this course's ILOs</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label for="exam_date" class="form-label fw-bold">Target Date</label>
+                        <input type="date" class="form-control" id="exam_date" name="exam_date"
+                               value="{% if exam and exam.exam_date %}{{ exam.exam_date|date:'Y-m-d' }}{% endif %}">
+                        <small class="text-muted">Optional planning date</small>
+                    </div>
+                    
+                    <div class="col-md-12">
+                        <label for="department" class="form-label fw-bold">Department <span class="text-danger">*</span></label>
+                        <select class="form-select" id="department" name="department" required {% if exam %}disabled{% endif %}>
+                            <option value="">Select department...</option>
+                            <option value="Internal Medicine" {% if exam and exam.department == 'Internal Medicine' %}selected{% endif %}>Internal Medicine</option>
+                            <option value="Pediatrics" {% if exam and exam.department == 'Pediatrics' %}selected{% endif %}>Pediatrics</option>
+                            <option value="General Surgery" {% if exam and exam.department == 'General Surgery' %}selected{% endif %}>General Surgery</option>
+                            <option value="Obstetrics and Gynecology" {% if exam and exam.department == 'Obstetrics and Gynecology' %}selected{% endif %}>Obstetrics and Gynecology</option>
+                        </select>
+                        {% if exam %}
+                        <input type="hidden" name="department" value="{{ exam.department }}">
+                        <small class="text-muted">Department cannot be changed after creation</small>
+                        {% endif %}
+                    </div>
+                </div>
+              
+                {% if exam %}
+                <!-- Status (edit only) -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Status</label>
+                    <div class="btn-group w-100" role="group">
+                        {% for status_val in status_choices %}
+                        <input type="radio" class="btn-check" name="status" id="status_{{ status_val }}" 
+                               value="{{ status_val }}" {% if exam.status == status_val %}checked{% endif %}>
+                        <label class="btn btn-outline-{% if status_val == 'draft' %}secondary{% elif status_val == 'ready' %}primary{% elif status_val == 'active' %}success{% else %}info{% endif %}" 
+                               for="status_{{ status_val }}">
+                            {{ status_val|title }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Actions -->
+                <div class="d-flex gap-2 pt-3 border-top">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-lg me-1"></i>
+                        {% if exam %}Save Changes{% else %}Create Exam{% endif %}
+                    </button>
+                    <a href="{% if exam %}{% url 'creator:exam_detail' exam.id %}{% else %}{% url 'creator:exam_list' %}{% endif %}" 
+                       class="btn btn-outline-secondary btn-lg">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        {% if not courses %}
+        <div class="alert alert-warning mt-3">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>No courses found.</strong><br>
+            <a href="{% url 'creator:course_create' %}" class="alert-link">Create a course</a> first.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

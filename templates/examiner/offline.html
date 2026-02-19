@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Offline - OSCE Examiner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .offline-card {
+            background: white;
+            border-radius: 16px;
+            padding: 48px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .offline-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.offline {
+            background: #dc3545;
+        }
+
+        .status-indicator.online {
+            background: #198754;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .btn-retry {
+            min-height: 48px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-card">
+        <div class="offline-icon">📡</div>
+
+        <h2 class="mb-3">You're Offline</h2>
+
+        <p class="text-muted mb-4">
+            Don't worry! Your scores are saved locally on this device.
+            They will automatically sync when you're back online.
+        </p>
+
+        <div class="alert alert-info mb-4">
+            <span class="status-indicator offline" id="status-indicator"></span>
+            <span id="status-text">Waiting for connection...</span>
+        </div>
+
+        <div class="mb-4">
+            <strong>Pending scores:</strong>
+            <span id="pending-count" class="badge bg-primary">0</span>
+        </div>
+
+        <button class="btn btn-primary btn-retry w-100" id="retry-btn">
+            Try Again
+        </button>
+
+        <hr class="my-4">
+
+        <p class="small text-muted mb-0">
+            <strong>Tip:</strong> You can continue marking students.
+            The app works offline - all data is stored on your device.
+        </p>
+    </div>
+
+    <script>
+        // Check connection status
+        function updateStatus() {
+            const indicator = document.getElementById('status-indicator');
+            const text = document.getElementById('status-text');
+
+            if (navigator.onLine) {
+                indicator.classList.remove('offline');
+                indicator.classList.add('online');
+                text.textContent = 'Connection restored!';
+
+                // Redirect back after short delay
+                setTimeout(() => {
+                    window.location.href = '/examiner/';
+                }, 1500);
+            } else {
+                indicator.classList.remove('online');
+                indicator.classList.add('offline');
+                text.textContent = 'Waiting for connection...';
+            }
+        }
+
+        // Update pending count from IndexedDB
+        async function updatePendingCount() {
+            try {
+                const request = indexedDB.open('OSCEExaminerDB', 1);
+                request.onsuccess = () => {
+                    const db = request.result;
+                    if (db.objectStoreNames.contains('syncQueue')) {
+                        const tx = db.transaction('syncQueue', 'readonly');
+                        const store = tx.objectStore('syncQueue');
+                        const countRequest = store.count();
+                        countRequest.onsuccess = () => {
+                            document.getElementById('pending-count').textContent = countRequest.result;
+                        };
+                    }
+                };
+            } catch (e) {
+                console.log('Could not read pending count');
+            }
+        }
+
+        // Event listeners
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            if (navigator.onLine) {
+                window.location.href = '/examiner/';
+            } else {
+                alert('Still offline. Please check your connection.');
+            }
+        });
+
+        // Initial state
+        updateStatus();
+        updatePendingCount();
+    </script>
+</body>
+</html>
