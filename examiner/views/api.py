@@ -233,6 +233,9 @@ def submit_score(request, station_score_id):
     if score.examiner_id != request.user.id:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
+    is_correction = score.unlocked_for_correction  # capture before clearing
+    old_score = score.total_score                  # capture before recalculation
+
     score.calculate_total()
     score.global_rating = data.get('global_rating')
     score.comments = data.get('comments', '')
@@ -263,8 +266,20 @@ def submit_score(request, station_score_id):
             student.status = 'in_progress'
     student.save()
 
-    log_action(request, 'SUBMIT', 'StationScore', str(score.id),
-               f'Submitted score {score.total_score}/{score.max_score}')
+    if is_correction:
+        log_action(request, 'CORRECTION', 'StationScore', str(score.id),
+                   f'Corrected score: {old_score} → {score.total_score}/{score.max_score} '
+                   f'| Examiner: {request.user.display_name}',
+                   extra_data={
+                       'examiner': request.user.username,
+                       'examiner_display': request.user.display_name,
+                       'old_score': old_score,
+                       'new_score': score.total_score,
+                       'max_score': score.max_score,
+                   })
+    else:
+        log_action(request, 'SUBMIT', 'StationScore', str(score.id),
+                   f'Submitted score {score.total_score}/{score.max_score}')
 
     return JsonResponse({
         'success': True,

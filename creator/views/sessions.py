@@ -369,11 +369,35 @@ def unlock_score_for_correction(request, score_id):
     if score.status != 'submitted':
         return JsonResponse({'error': 'Score is not in submitted state'}, status=400)
 
+    examiner_name = score.examiner.display_name if score.examiner else 'Deleted Examiner'
+    student_name = score.session_student.full_name if score.session_student else 'Unknown Student'
+    station_name = score.station.name if score.station else str(score.station_id)
+    old_score = score.total_score
+    max_score = score.max_score
+
     score.unlocked_for_correction = True
     score.save(update_fields=['unlocked_for_correction'])
 
-    examiner_name = score.examiner.display_name if score.examiner else 'Examiner'
-    student_name = score.session_student.full_name if score.session_student else 'Student'
+    from core.utils.audit import log_action
+    log_action(
+        request,
+        'UNLOCK',
+        'StationScore',
+        str(score.id),
+        f'Coordinator {request.user.display_name} unlocked score for correction '
+        f'| Student: {student_name} | Station: {station_name} '
+        f'| Examiner: {examiner_name} | Current score: {old_score}/{max_score}',
+        extra_data={
+            'coordinator': request.user.username,
+            'coordinator_display': request.user.display_name,
+            'examiner': examiner_name,
+            'student': student_name,
+            'station': station_name,
+            'score_before_unlock': old_score,
+            'max_score': max_score,
+        }
+    )
+
     return JsonResponse({
         'success': True,
         'message': f'Score for {student_name} by {examiner_name} has been unlocked for correction.',
