@@ -300,7 +300,7 @@
                         <option value="">-- Select Station --</option>
                         {% for path in paths %}
                         <optgroup label="Path {{ path.name }}">
-                            {% for station in path.ordered_stations %}
+                            {% for station in path.get_stations_in_order %}
                             <option value="{{ station.id }}">{{ station.name }}</option>
                             {% endfor %}
                         </optgroup>
