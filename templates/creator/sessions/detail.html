@@ -324,7 +324,7 @@
                             <div class="fw-semibold">{{ sc.session_student.full_name }}</div>
                             <small class="text-muted">{{ sc.session_student.student_number }}</small>
                         </td>
-                        <td style="font-size:0.82rem;">{{ sc.station.name|default:sc.station_id }}</td>
+                        <td style="font-size:0.82rem;">{{ sc.station.name|default:"—" }}</td>
                         <td style="font-size:0.82rem;">{{ sc.examiner.display_name|default:"Deleted Examiner" }}</td>
                         <td class="text-center" style="font-size:0.82rem;">
                             <span class="badge" style="background:#e0f2fe; color:#0369a1;">{{ sc.total_score }}/{{ sc.max_score }}</span>
@@ -333,7 +333,7 @@
                             {% if not sc.unlocked_for_correction %}
                             <button type="button" class="btn btn-sm"
                                     style="background:#fef3c7; border:1px solid #f59e0b; color:#92400e; font-size:0.78rem; padding:2px 10px; border-radius:6px;"
-                                    onclick="unlockScore('{{ sc.id }}', '{{ sc.session_student.full_name|escapejs }}', '{{ sc.examiner.display_name|default:&quot;Deleted Examiner&quot;|escapejs }}', '{{ sc.station.name|default:sc.station_id|escapejs }}')"
+                                    onclick="unlockScore('{{ sc.id }}', '{{ sc.session_student.full_name|escapejs }}', '{{ sc.examiner.display_name|default:"Deleted Examiner"|escapejs }}', '{{ sc.station.name|default:"Station"|escapejs }}')"
                                     title="Allow examiner to correct this evaluation">
                                 <i class="bi bi-unlock me-1"></i>Unlock
                             </button>
