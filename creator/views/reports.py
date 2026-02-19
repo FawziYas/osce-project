@@ -59,7 +59,14 @@ def reports_scoresheets(request, session_id):
             )['total'] or 0
             max_possible += st_max
 
-        total_score = sum(s.total_score or 0 for s in scores_qs)
+        # Calculate total using average for multiple examiners per station
+        total_score = 0
+        for station_id, scores_list in score_map_all.items():
+            if scores_list:
+                # Use average if multiple scores, otherwise use single score
+                avg_score = sum(s.total_score or 0 for s in scores_list) / len(scores_list)
+                total_score += avg_score
+        
         percentage = (total_score / max_possible * 100) if max_possible > 0 else 0
         
         # Build comments with examiner names
@@ -119,7 +126,14 @@ def reports_student_scoresheet(request, student_id):
         )['total'] or 0
         max_possible += st_max
 
-    _total = sum(s.total_score or 0 for s in scores_qs)
+    # Calculate total using average for multiple examiners per station
+    _total = 0
+    for station_id, scores_list in score_map_all.items():
+        if scores_list:
+            # Use average if multiple scores, otherwise use single score
+            avg_score = sum(s.total_score or 0 for s in scores_list) / len(scores_list)
+            _total += avg_score
+    
     _pct = (_total / max_possible * 100) if max_possible > 0 else 0
     
     # Build comments with examiner names
