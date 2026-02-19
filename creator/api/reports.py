@@ -218,7 +218,7 @@ def export_students_xlsx(request, session_id):
 
     base_headers = ['Student Number', 'Full Name', 'Path']
     station_cols = [f"St.{h['number']}: {h['name']}" for h in station_headers]
-    end_headers = ['Total Score', 'Max Score', 'Percentage', 'Pass/Fail']
+    end_headers = ['Total Score', 'Max Score', 'Percentage', 'Pass/Fail', 'Comments']
     all_headers = base_headers + station_cols + end_headers
 
     # Title rows
@@ -240,17 +240,63 @@ def export_students_xlsx(request, session_id):
         cell.alignment = header_alignment
 
     row_num = 5
-    for row_data, _, _, _, pass_fail in _student_rows(students, station_headers, station_info_map):
-        for col_idx, value in enumerate(row_data, 1):
-            ws.cell(row=row_num, column=col_idx, value=value)
+    for student in students:
+        # Get all scores for this student
+        scores_qs = StationScore.objects.filter(session_student=student)
+        
+        # Build row with station scores
+        row = [student.student_number, student.full_name]
+        path = Path.objects.filter(pk=student.path_id).first() if student.path_id else None
+        row.append(path.name if path else '')
+
+        total_score = 0
+        max_score = 0
+
+        for header in station_headers:
+            s_info = station_info_map.get((student.path_id, header['number']))
+            score_val = ''
+            if s_info:
+                st_max = s_info['max_score']
+                max_score += st_max
+                final = StationScore.get_final_score(student.id, s_info['id'])
+                if final:
+                    score_val = round(final['final_score'], 1)
+                    total_score += final['final_score']
+                else:
+                    score_val = 0
+            row.append(score_val)
+
+        percentage = (total_score / max_score * 100) if max_score > 0 else 0
+        pass_fail = 'PASS' if percentage >= 60 else 'FAIL'
+        
+        # Build comments with examiner names
+        comments_list = []
+        for score in scores_qs:
+            if score.comments and score.comments.strip():
+                examiner_name = score.examiner.full_name if score.examiner else "Unknown Examiner"
+                station_obj = Station.objects.filter(pk=score.station_id).first()
+                station_name = station_obj.name if station_obj else "Unknown Station"
+                comments_list.append(f"{examiner_name} ({station_name}):\n{score.comments}")
+        
+        comments_text = "\n---\n".join(comments_list) if comments_list else ""
+        
+        row.extend([round(total_score, 1), round(max_score, 1), round(percentage, 1), pass_fail, comments_text])
+        
+        # Write row to worksheet
+        for col_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=row_num, column=col_idx)
+            cell.value = value
+            cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+        
         # Color-code pass/fail
-        pf_cell = ws.cell(row=row_num, column=len(row_data))
+        pf_cell = ws.cell(row=row_num, column=len(row) - 1)
         if pass_fail == 'PASS':
             pf_cell.font = Font(color='006100', bold=True)
             pf_cell.fill = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
         else:
             pf_cell.font = Font(color='9C0006', bold=True)
             pf_cell.fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+        
         row_num += 1
 
     # Auto-adjust column widths
@@ -263,7 +309,11 @@ def export_students_xlsx(request, session_id):
             except Exception:
                 pass
         col_letter = get_column_letter(col_idx)
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
+        # Make comments column wider
+        if col_letter == get_column_letter(len(all_headers)):
+            ws.column_dimensions[col_letter].width = 50
+        else:
+            ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
 
     buf = BytesIO()
     wb.save(buf)

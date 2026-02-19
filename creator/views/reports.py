@@ -56,6 +56,19 @@ def reports_scoresheets(request, session_id):
 
         total_score = sum(s.total_score or 0 for s in scores_qs)
         percentage = (total_score / max_possible * 100) if max_possible > 0 else 0
+        
+        # Build comments with examiner names
+        comments_with_examiner = []
+        for score in scores_qs:
+            if score.comments and score.comments.strip():
+                examiner_name = score.examiner.full_name if score.examiner else "Unknown Examiner"
+                comments_with_examiner.append({
+                    'station': Station.objects.filter(pk=score.station_id).first(),
+                    'examiner_name': examiner_name,
+                    'comment_text': score.comments,
+                    'formatted': f"{examiner_name}:\n{score.comments}"
+                })
+        
         student_data.append({
             'student': student,
             'stations': student_stations,
@@ -64,6 +77,7 @@ def reports_scoresheets(request, session_id):
             'max_score': max_possible,
             'percentage_display': round(percentage, 1),
             'passed': percentage >= 60,
+            'comments_with_examiner': comments_with_examiner,
         })
 
     return render(request, 'creator/reports/scoresheets.html', {
@@ -97,6 +111,19 @@ def reports_student_scoresheet(request, student_id):
 
     _total = sum(s.total_score or 0 for s in scores_qs)
     _pct = (_total / max_possible * 100) if max_possible > 0 else 0
+    
+    # Build comments with examiner names
+    comments_with_examiner = []
+    for score in scores_qs:
+        if score.comments and score.comments.strip():
+            examiner_name = score.examiner.full_name if score.examiner else "Unknown Examiner"
+            comments_with_examiner.append({
+                'station': Station.objects.filter(pk=score.station_id).first(),
+                'examiner_name': examiner_name,
+                'comment_text': score.comments,
+                'formatted': f"{examiner_name}:\n{score.comments}"
+            })
+    
     student_data = [{
         'student': student,
         'stations': student_stations,
@@ -105,6 +132,7 @@ def reports_student_scoresheet(request, student_id):
         'max_score': max_possible,
         'percentage_display': round(_pct, 1),
         'passed': _pct >= 60,
+        'comments_with_examiner': comments_with_examiner,
     }]
 
     return render(request, 'creator/reports/scoresheets.html', {

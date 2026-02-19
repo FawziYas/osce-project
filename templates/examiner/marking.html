@@ -175,14 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('beforeunload', (e) => {
         // Prevent leaving without acknowledging data is saved
         e.preventDefault();
-        e.returnValue = 'Your evaluation data is being auto-saved. Leave anyway?';
-        return 'Your evaluation data is being auto-saved. Leave anyway?';
+        e.returnValue = 'Your evaluation data is not submitted yet. Leave anyway?';
+        return 'Your evaluation data is not submitted yet. Leave anyway?';
     });
 
     // Also warn on back button clicks
     document.querySelectorAll('.btn-back').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            if (!confirm('Your data is being auto-saved. Return to dashboard?')) {
+            if (!confirm('Your data is not submitted yet. Return to dashboard?')) {
                 e.preventDefault();
             }
         });

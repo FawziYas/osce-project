@@ -233,10 +233,24 @@
             {% endif %}
         </span>
     </div>
+
+    {% if data.comments_with_examiner %}
+    <div style="margin-top: 20px; padding: 12px; background: #f8f9fa; border-left: 4px solid #0d6efd; border-radius: 4px;">
+        <h6 style="text-transform: uppercase; color: #495057; font-weight: 600; margin-bottom: 12px; margin-top: 0;">
+            <i class="bi bi-chat-square-text"></i> Examiners' Comments
+        </h6>
+        {% for comment in data.comments_with_examiner %}
+        <div style="margin-bottom: 12px; padding: 8px; background: white; border-radius: 4px; border-left: 3px solid #6c757d;">
+            <div style="font-weight: 600; color: #212529; margin-bottom: 4px;">
+                {{ comment.examiner_name }} - {{ comment.station.name }}
+            </div>
+            <div style="color: #495057; white-space: pre-wrap; line-height: 1.5;">{{ comment.comment_text }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 {% endfor %}
-
-<script>
 function updateSelectedCount() {
     const checkboxes = document.querySelectorAll('.student-checkbox');
     const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
