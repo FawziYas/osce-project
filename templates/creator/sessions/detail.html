@@ -3,7 +3,7 @@
 {% block title %}Session - {{ session.name|default:"Session" }}{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-start">
+<div class="page-header d-flex flex-wrap justify-content-between align-items-start gap-2">
     <div>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
@@ -21,7 +21,7 @@
             <span class="badge badge-{{ session.status }}">{{ session.status|title }}</span>
         </p>
     </div>
-    <div class="btn-group">
+    <div class="btn-group flex-wrap">
         {% if session.status == 'scheduled' %}
         <button type="button" class="btn btn-success" onclick="activateSession()"><i class="bi bi-play-fill me-1"></i>Activate</button>
         {% elif session.status == 'in_progress' %}
@@ -44,9 +44,9 @@
     <!-- Paths Panel -->
     <div class="col-12">
         <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h5 class="mb-0"><i class="bi bi-signpost-split me-2"></i>Rotation Paths ({{ paths|length }})</h5>
-                <div class="btn-group" role="group">
+                <div class="btn-group flex-wrap" role="group">
                     <a href="{% url 'creator:apply_station_templates' session.id %}" class="btn btn-sm btn-success" title="Apply station templates to all paths">
                         <i class="bi bi-layers me-1"></i>Apply Templates
                     </a>
@@ -196,8 +196,8 @@
             <!-- Search Bar for Students -->
             {% if total_students > 10 %}
             <div class="p-3 border-bottom">
-                <form method="get" class="d-flex gap-2 align-items-center flex-nowrap">
-                    <input type="text" name="search" class="form-control form-control-sm" placeholder="Search..." value="{{ search_query|default:'' }}" style="width:200px; flex-shrink:0;">
+                <form method="get" class="d-flex gap-2 align-items-center flex-wrap">
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="Search..." value="{{ search_query|default:'' }}" style="min-width:120px; max-width:250px; flex: 1 1 auto;">
                     <button type="submit" class="btn btn-sm btn-outline-secondary" style="white-space: nowrap;" title="Search"><i class="bi bi-search me-1"></i>Search</button>
                     {% if search_query %}
                     <a href="?{% if page_obj %}page=1{% endif %}" class="btn btn-sm btn-outline-danger" style="white-space: nowrap;" title="Clear search"><i class="bi bi-x me-1"></i>Clear</a>
@@ -290,20 +290,31 @@
         </div>
     </div>
     
-    <!-- Session Info -->
+    <!-- Session Info & Examiner Sidebar -->
     <div class="col-md-4">
+        <div class="sidebar-sticky-panel">
         <div class="stat-card mb-3">
             <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Session Info</h6>
-            <ul class="list-unstyled mb-0">
-                <li class="mb-2"><span class="text-muted">Exam:</span><br><strong>{{ session.exam.name|default:"N/A" }}</strong></li>
-                <li class="mb-2"><span class="text-muted">Rotation Time:</span><br><strong>{{ session_metrics.rotation_display }}</strong>
-                    {% if session_metrics.rotation_detail %}<div class="text-muted small">{{ session_metrics.rotation_detail }}</div>{% endif %}
-                </li>
-                <li class="mb-2"><span class="text-muted">Students assigned:</span><br><strong>{{ total_students }} Student{{ total_students|pluralize }}</strong></li>
-                <li class="mb-2"><span class="text-muted">Stations:</span><br><strong>{{ session_metrics.station_display }}</strong>
-                    {% if session_metrics.station_detail %}<div class="text-muted small">{{ session_metrics.station_detail }}</div>{% endif %}
-                </li>
-            </ul>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="text-muted small">Exam</div>
+                    <strong class="small">{{ session.exam.name|default:"N/A"|truncatechars:30 }}</strong>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small">Students</div>
+                    <strong class="small">{{ total_students }}</strong>
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small">Rotation</div>
+                    <strong class="small">{{ session_metrics.rotation_display }}</strong>
+                    {% if session_metrics.rotation_detail %}<div class="text-muted" style="font-size:0.7rem;">{{ session_metrics.rotation_detail }}</div>{% endif %}
+                </div>
+                <div class="col-6">
+                    <div class="text-muted small">Stations</div>
+                    <strong class="small">{{ session_metrics.station_display }}</strong>
+                    {% if session_metrics.station_detail %}<div class="text-muted" style="font-size:0.7rem;">{{ session_metrics.station_detail }}</div>{% endif %}
+                </div>
+            </div>
         </div>
         
         <!-- Examiner Assignments -->
@@ -313,15 +324,16 @@
                 <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#assignExaminerModal"><i class="bi bi-plus-lg"></i></button>
             </div>
             {% if examiner_assignments %}
+            <div style="max-height: 240px; overflow-y: auto;">
             <ul class="list-group list-group-flush">
                 {% for a in examiner_assignments %}
                 <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="fw-bold">{{ a.examiner.display_name|default:"Unknown" }}</div>
-                        <small class="text-muted">{{ a.station_name }}</small>
-                        {% if a.is_primary %}<span class="badge bg-primary ms-1">Primary</span>{% endif %}
+                    <div class="me-2" style="min-width:0;">
+                        <div class="fw-bold text-truncate small">{{ a.examiner.display_name|default:"Unknown" }}</div>
+                        <div class="text-muted text-truncate" style="font-size:0.75rem;">{{ a.station_name }}</div>
+                        {% if a.is_primary %}<span class="badge bg-primary">Primary</span>{% endif %}
                     </div>
-                    <form method="POST" action="{% url 'creator:examiner_unassign' a.id %}" style="display: inline;">
+                    <form method="POST" action="{% url 'creator:examiner_unassign' a.id %}" style="display: inline; flex-shrink:0;">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove?')" {% if session.actual_start %}disabled{% endif %}>
                             <i class="bi bi-x"></i>
@@ -330,6 +342,7 @@
                 </li>
                 {% endfor %}
             </ul>
+            </div>
             {% else %}
             <p class="text-muted small mb-0">No examiners assigned yet.</p>
             {% endif %}
@@ -410,46 +423,43 @@
             </div>
         </div>
         {% endif %}
+        </div><!-- /sidebar-sticky-panel -->
     </div>
 </div>
 
-<!-- Assign Examiner Modal -->
+<!-- Bulk Assign Examiner Modal -->
 <div class="modal fade" id="assignExaminerModal" tabindex="-1">
-    <div class="modal-dialog"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title">Assign Examiner to Station</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <form method="POST" action="{% url 'creator:assign_examiner' session.id %}">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header bg-primary bg-opacity-10">
+            <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>Bulk Assign Examiners</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="bulkAssignForm" method="POST" action="{% url 'creator:assign_examiner' session.id %}">
             {% csrf_token %}
             <div class="modal-body">
+                <!-- Step 1: Select Path -->
                 <div class="mb-3">
-                    <label class="form-label">Examiner</label>
-                    <select name="examiner_id" class="form-select" required>
-                        <option value="">-- Select Examiner --</option>
-                        {% for e in all_examiners %}
-                        <option value="{{ e.id }}">{{ e.display_name }} ({{ e.username }}){% if e.department %} - {{ e.department }}{% endif %}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Station</label>
-                    <select name="station_id" class="form-select" required>
-                        <option value="">-- Select Station --</option>
+                    <label class="form-label fw-semibold">Select Path <span class="text-danger">*</span></label>
+                    <select id="bulkAssignPathSelect" name="path_id" class="form-select" required>
+                        <option value="">-- Choose a Path --</option>
                         {% for path in paths %}
-                        <optgroup label="Path {{ path.name }}">
-                            {% for station in path.get_stations_in_order %}
-                            <option value="{{ station.id }}">{{ station.name }}</option>
-                            {% endfor %}
-                        </optgroup>
+                        <option value="{{ path.id }}">Path {{ path.name }} ({{ path.station_count }} station{{ path.station_count|pluralize }})</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="is_primary" id="is_primary" checked>
-                    <label class="form-check-label" for="is_primary">Primary examiner (unchecked = backup)</label>
+                <!-- Step 2: Dynamic station list loaded via AJAX -->
+                <div id="bulkAssignStationsContainer">
+                    <div class="text-center text-muted py-4" id="bulkAssignPlaceholder">
+                        <i class="bi bi-arrow-up-circle fs-3 d-block mb-2"></i>
+                        Select a path above to load its stations.
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary">Assign</button>
+                <button type="submit" class="btn btn-primary" id="bulkAssignSubmitBtn" disabled>
+                    <i class="bi bi-check-lg me-1"></i>Save All Assignments
+                </button>
             </div>
         </form>
     </div></div>
@@ -708,5 +718,111 @@ function unlockScore(scoreId, studentName, examinerName, stationName) {
     })
     .catch(err => alert('Error: ' + err.message));
 }
+
+// ── Bulk Examiner Assignment Modal ─────────────────────────────────────
+(function() {
+    const pathSelect = document.getElementById('bulkAssignPathSelect');
+    const container = document.getElementById('bulkAssignStationsContainer');
+    const placeholder = document.getElementById('bulkAssignPlaceholder');
+    const submitBtn = document.getElementById('bulkAssignSubmitBtn');
+    const form = document.getElementById('bulkAssignForm');
+
+    if (!pathSelect) return;
+
+    pathSelect.addEventListener('change', function() {
+        const pathId = this.value;
+        if (!pathId) {
+            container.innerHTML = '';
+            container.appendChild(placeholder);
+            placeholder.style.display = '';
+            submitBtn.disabled = true;
+            return;
+        }
+
+        // Show loading
+        container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary" role="status"></div><span class="ms-2 text-muted">Loading stations…</span></div>';
+        submitBtn.disabled = true;
+
+        // AJAX fetch stations partial
+        fetch(`/creator/sessions/{{ session.id }}/path/${pathId}/stations-for-assignment/`)
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.text();
+            })
+            .then(html => {
+                container.innerHTML = html;
+                // Enable submit only if there are station rows
+                const selects = container.querySelectorAll('.examiner-1-select');
+                submitBtn.disabled = selects.length === 0;
+
+                // Add live validation listeners
+                selects.forEach(sel => {
+                    sel.addEventListener('change', validateBulkForm);
+                });
+                container.querySelectorAll('.examiner-2-select').forEach(sel => {
+                    sel.addEventListener('change', validateBulkForm);
+                });
+            })
+            .catch(err => {
+                container.innerHTML = '<div class="alert alert-danger py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>Failed to load stations: ' + err.message + '</div>';
+                submitBtn.disabled = true;
+            });
+    });
+
+    // Client-side validation
+    function validateBulkForm() {
+        const e1Selects = container.querySelectorAll('.examiner-1-select');
+        let allValid = true;
+
+        e1Selects.forEach(sel => {
+            const stationId = sel.dataset.stationId;
+            const e2 = container.querySelector(`select[name="examiner_2_${stationId}"]`);
+
+            // Examiner 1 is required
+            if (!sel.value) {
+                sel.classList.add('is-invalid');
+                allValid = false;
+            } else {
+                sel.classList.remove('is-invalid');
+            }
+
+            // Examiner 1 and 2 can't be same
+            if (e2 && sel.value && e2.value && sel.value === e2.value) {
+                e2.classList.add('is-invalid');
+                allValid = false;
+            } else if (e2) {
+                e2.classList.remove('is-invalid');
+            }
+        });
+
+        submitBtn.disabled = !allValid;
+        return allValid;
+    }
+
+    // Form submit validation
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (!validateBulkForm()) {
+                e.preventDefault();
+                alert('Please fill in all required Examiner 1 fields and fix any errors.');
+                return false;
+            }
+        });
+    }
+
+    // Reset modal when closed
+    const modal = document.getElementById('assignExaminerModal');
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', function() {
+            pathSelect.value = '';
+            container.innerHTML = '';
+            if (placeholder) {
+                container.appendChild(placeholder);
+                placeholder.style.display = '';
+            }
+            submitBtn.disabled = true;
+        });
+    }
+})();
 </script>
 {% endblock %}

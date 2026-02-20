@@ -51,6 +51,7 @@ urlpatterns = [
     path('sessions/<uuid:session_id>/delete/', sessions.session_delete, name='session_delete'),
     path('sessions/<uuid:session_id>/download-student-paths-pdf/', sessions.download_student_paths_pdf, name='download_student_paths_pdf'),
     path('sessions/<uuid:session_id>/assign-examiner/', sessions.assign_examiner, name='assign_examiner'),
+    path('sessions/<uuid:session_id>/path/<uuid:path_id>/stations-for-assignment/', sessions.get_path_stations_for_assignment, name='path_stations_for_assignment'),
     path('scores/<uuid:score_id>/unlock/', sessions.unlock_score_for_correction, name='unlock_score'),
 
     # ── Paths ──────────────────────────────────────────────────────────────

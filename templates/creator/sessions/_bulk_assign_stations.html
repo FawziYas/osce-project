@@ -1,0 +1,57 @@
+{% comment %}
+Partial template loaded via AJAX when a path is selected in the bulk assignment modal.
+Renders one row per station with Examiner 1 (required) and Examiner 2 (optional) dropdowns.
+Each station object has .assigned_primary and .assigned_secondary (examiner IDs or None).
+{% endcomment %}
+
+{% if stations %}
+<div class="alert alert-info py-2 mb-3 small">
+    <i class="bi bi-info-circle me-1"></i>
+    <strong>Path {{ path.name }}</strong> &mdash; {{ stations|length }} station{{ stations|length|pluralize }}.
+    Examiner 1 is <strong>required</strong> for each station. Examiner 2 is optional.
+</div>
+
+<div class="table-responsive">
+<table class="table table-sm table-hover align-middle mb-0">
+    <thead class="table-light">
+        <tr>
+            <th style="width:5%;">#</th>
+            <th style="width:25%;">Station</th>
+            <th style="width:35%;">Examiner 1 <span class="text-danger">*</span></th>
+            <th style="width:35%;">Examiner 2 <small class="text-muted fw-normal">(optional)</small></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for station in stations %}
+        <tr>
+            <td class="text-muted">{{ station.station_number }}</td>
+            <td class="fw-semibold small">{{ station.name }}</td>
+            <td>
+                <select name="examiner_1_{{ station.id }}" class="form-select form-select-sm examiner-1-select" required
+                        data-station-id="{{ station.id }}">
+                    <option value="">-- Select Examiner --</option>
+                    {% for e in all_examiners %}
+                    <option value="{{ e.id }}" {% if station.assigned_primary == e.id %}selected{% endif %}>{{ e.display_name }} ({{ e.username }}){% if e.department %} – {{ e.department }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <select name="examiner_2_{{ station.id }}" class="form-select form-select-sm examiner-2-select"
+                        data-station-id="{{ station.id }}">
+                    <option value="">-- None --</option>
+                    {% for e in all_examiners %}
+                    <option value="{{ e.id }}" {% if station.assigned_secondary == e.id %}selected{% endif %}>{{ e.display_name }} ({{ e.username }}){% if e.department %} – {{ e.department }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<div class="text-center text-muted py-3">
+    <i class="bi bi-exclamation-circle fs-3 d-block mb-2"></i>
+    This path has no active stations. Add stations first.
+</div>
+{% endif %}

@@ -3,7 +3,7 @@
 {% block title %}Checklist Library - OSCE Creator{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex justify-content-between align-items-center">
+<div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <div>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
@@ -85,6 +85,7 @@
         </div>
         <span class="badge bg-secondary item-count">{{ ilo.library_items.count }} items</span>
     </div>
+    <div class="table-responsive">
     <table class="table table-hover mb-0">
         <thead>
             <tr>
@@ -118,6 +119,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endif %}
 {% empty %}

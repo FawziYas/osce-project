@@ -154,8 +154,8 @@
 <!-- Search Box (cross-page) -->
 {% if not single_student %}
 <div class="no-print" style="background: white; padding: 15px; margin: 20px 0; border-radius: 8px; border: 1px solid #dee2e6;">
-    <form method="get" style="display: flex; gap: 8px; align-items: center;">
-        <input type="text" name="search" class="form-control" placeholder="Search by student name or number..." value="{{ search_query|default:'' }}" style="max-width: 400px;">
+    <form method="get" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <input type="text" name="search" class="form-control" placeholder="Search by student name or number..." value="{{ search_query|default:'' }}" style="max-width: 400px; min-width: 150px; flex: 1 1 auto;">
         <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i> Search</button>
         {% if search_query %}
         <a href="?" class="btn btn-outline-danger"><i class="bi bi-x"></i> Clear</a>

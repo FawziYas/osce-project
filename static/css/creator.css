@@ -1,0 +1,379 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   OSCE Creator — Responsive Stylesheet
+   Breakpoints:  mobile < 576 < tablet < 992 < desktop
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens ──────────────────────────────────────────────────── */
+:root {
+    --primary-color: #0d6efd;
+    --sidebar-width: 260px;
+    --sidebar-bg-start: #1a1a2e;
+    --sidebar-bg-end: #16213e;
+    --touch-target-min: 44px;
+    --font-size-base: 14px;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────── */
+body {
+    font-size: var(--font-size-base);
+    overflow-x: hidden;          /* prevent horizontal scroll */
+}
+
+/* helper for the dark-blue background */
+.bg-creator-dark {
+    background: var(--sidebar-bg-start) !important;
+}
+
+/* ── Sidebar (Desktop: fixed, Mobile: off-canvas) ───────────────────── */
+.sidebar {
+    background: linear-gradient(180deg, var(--sidebar-bg-start) 0%, var(--sidebar-bg-end) 100%);
+    width: var(--sidebar-width);
+    color: rgba(255,255,255,0.7);
+}
+
+/* Desktop (≥ 992px): sidebar is permanently visible */
+@media (min-width: 992px) {
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 1030;
+        border-right: 1px solid rgba(255,255,255,0.06);
+        overflow-y: auto;
+    }
+}
+
+/* Mobile / Tablet (< 992px): off-canvas styling handled by Bootstrap */
+@media (max-width: 991.98px) {
+    .sidebar {
+        --bs-offcanvas-width: var(--sidebar-width);
+    }
+}
+
+/* Sidebar internals */
+.sidebar .brand {
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 600;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.sidebar .brand i {
+    color: #0dcaf0;
+}
+
+.sidebar .user-info {
+    background: rgba(255,255,255,0.05);
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    margin: 0 0.75rem 0.5rem;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.875rem;
+}
+.sidebar .user-info .user-name {
+    color: white;
+    font-weight: 500;
+}
+.sidebar .user-info i {
+    color: #0dcaf0;
+}
+
+.sidebar .nav-link {
+    color: rgba(255,255,255,0.7);
+    padding: 0.65rem 1rem;
+    margin: 0.125rem 0.5rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s;
+    min-height: var(--touch-target-min);
+    display: flex;
+    align-items: center;
+}
+.sidebar .nav-link:hover {
+    color: white;
+    background: rgba(255,255,255,0.1);
+}
+.sidebar .nav-link.active {
+    color: white;
+    background: var(--primary-color);
+}
+.sidebar .nav-link i {
+    width: 24px;
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+
+.sidebar .nav-section {
+    color: rgba(255,255,255,0.4);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 1rem 1rem 0.3rem;
+    margin-top: 0.25rem;
+}
+
+/* ── Main Content ───────────────────────────────────────────────────── */
+.main-content {
+    min-height: 100vh;
+    background: #f8f9fa;
+    padding: 1.25rem;
+}
+
+@media (min-width: 992px) {
+    .main-content {
+        margin-left: var(--sidebar-width);
+        padding: 1.5rem 2rem;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .main-content {
+        margin-left: 0;
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .main-content {
+        padding: 0.75rem;
+    }
+}
+
+/* ── Stat Cards ─────────────────────────────────────────────────────── */
+.stat-card {
+    background: white;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.05);
+    height: 100%;          /* equal height in rows */
+}
+.stat-card .stat-icon {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+.stat-card .stat-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+.stat-card .stat-label {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 575.98px) {
+    .stat-card {
+        padding: 1rem;
+    }
+    .stat-card .stat-value {
+        font-size: 1.4rem;
+    }
+    .stat-card .stat-icon {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        font-size: 1.25rem;
+    }
+}
+
+/* Theme colours */
+.theme-1 { background: #6f42c1; color: white; }
+.theme-2 { background: #0d6efd; color: white; }
+.theme-3 { background: #198754; color: white; }
+.theme-4 { background: #fd7e14; color: white; }
+.theme-5 { background: #20c997; color: white; }
+.theme-6 { background: #dc3545; color: white; }
+
+.theme-badge-1 { background: #6f42c1; }
+.theme-badge-2 { background: #0d6efd; }
+.theme-badge-3 { background: #198754; }
+.theme-badge-4 { background: #fd7e14; }
+.theme-badge-5 { background: #20c997; }
+.theme-badge-6 { background: #dc3545; }
+.theme-badge-7 { background: #6c757d; }
+
+/* ── Table Cards — Scrollable on Small Screens ──────────────────────── */
+.table-card {
+    background: white;
+    border-radius: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+.table-card .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.table-card .table {
+    margin-bottom: 0;
+}
+.table-card .table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #6c757d;
+    border-top: none;
+    white-space: nowrap;
+}
+
+/* Force horizontal scroll for tables on small screens */
+@media (max-width: 767.98px) {
+    .table-card {
+        border-radius: 0.5rem;
+    }
+    .table-card .table thead th,
+    .table-card .table tbody td {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.6rem;
+    }
+    /* If developer hasn't wrapped table in .table-responsive, force overflow anyway */
+    .table-card {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ── Status Badges ──────────────────────────────────────────────────── */
+.badge-draft        { background: #ffc107; color: #000; }
+.badge-ready        { background: #0dcaf0; color: #000; }
+.badge-scheduled    { background: #0d6efd; color: #fff; }
+.badge-active       { background: #198754; }
+.badge-in_progress  { background: #fd7e14; color: #fff; }
+.badge-completed    { background: #6c757d; }
+
+/* ── Page Header ────────────────────────────────────────────────────── */
+.page-header {
+    margin-bottom: 1.5rem;
+}
+.page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0;
+}
+.page-header .breadcrumb {
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 575.98px) {
+    .page-header h1 {
+        font-size: 1.2rem;
+    }
+    .page-header {
+        margin-bottom: 1rem;
+    }
+}
+
+/* ── Buttons — Touch Friendly ───────────────────────────────────────── */
+@media (max-width: 767.98px) {
+    .btn {
+        min-height: var(--touch-target-min);
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+    .btn-sm {
+        min-height: 38px;
+        padding: 0.35rem 0.75rem;
+    }
+    /* Stack action buttons vertically on very small screens */
+    .btn-group-responsive {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .btn-group-responsive .btn {
+        width: 100%;
+    }
+}
+
+/* ── Forms — Stack on Mobile ────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+    .form-control, .form-select {
+        min-height: var(--touch-target-min);
+        font-size: 1rem;   /* prevent iOS zoom on focus */
+    }
+    /* Force inline form groups to stack */
+    .row > [class*="col-md-"],
+    .row > [class*="col-lg-"] {
+        /* already handled by Bootstrap */
+    }
+}
+
+/* ── Cards & Modals ─────────────────────────────────────────────────── */
+@media (max-width: 575.98px) {
+    .card {
+        border-radius: 0.5rem;
+    }
+    .card-body {
+        padding: 1rem;
+    }
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+}
+
+/* ── Critical Indicator ─────────────────────────────────────────────── */
+.critical-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #dc3545;
+    margin-right: 0.25rem;
+}
+
+/* Interaction type badges */
+.interaction-passive {
+    background: #e9ecef;
+    color: #495057;
+}
+.interaction-active {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* ── Responsive Utilities ───────────────────────────────────────────── */
+/* Truncate long text in table cells */
+.text-truncate-cell {
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 767.98px) {
+    .text-truncate-cell {
+        max-width: 120px;
+    }
+}
+
+/* Hide non-essential columns on small screens */
+@media (max-width: 767.98px) {
+    .d-table-hide-sm {
+        display: none !important;
+    }
+}
+
+/* ── Sticky Sidebar Panel (Session detail right column) ─────────────── */
+@media (min-width: 768px) {
+    .sidebar-sticky-panel {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 2rem);
+        overflow-y: auto;
+    }
+}
+
+/* ── Print Styles ───────────────────────────────────────────────────── */
+@media print {
+    .sidebar, .navbar, .toast-container { display: none !important; }
+    .main-content { margin-left: 0; padding: 0; }
+}

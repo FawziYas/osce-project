@@ -225,9 +225,9 @@
             <div class="item-meta">
                 <span class="theme-dot"></span>
                 <input type="number" class="form-control form-control-sm item-points-input"
-                       style="width: 60px;" min="0" step="0.5" value="1">
+                       style="width: 70px; min-width: 60px;" min="0" step="0.5" value="1">
                 <span class="text-muted">pts</span>
-                <select class="form-select form-select-sm item-interaction" style="width: 100px;">
+                <select class="form-select form-select-sm item-interaction" style="width: 110px; min-width: 90px;">
                     <option value="passive">Passive</option>
                     <option value="active">Active</option>
                 </select>
@@ -317,10 +317,10 @@ function addToChecklist(element, item) {
                 <span class="theme-dot" style="background: ${item.theme_color};"></span>
                 <input type="number" class="form-control form-control-sm"
                        name="points_item_${item.ilo_id}_${item.id || 'new_' + itemCounter}"
-                       style="width: 60px;" min="0" step="0.5" value="${item.points}"
+                       style="width: 70px; min-width: 60px;" min="0" step="0.5" value="${item.points}"
                        onchange="updateTotal()">
                 <span class="text-muted">pts</span>
-                <select class="form-select form-select-sm" style="width: 100px;"
+                <select class="form-select form-select-sm" style="width: 110px; min-width: 90px;"
                         name="interaction_item_${item.ilo_id}_${item.id || 'new_' + itemCounter}">
                     <option value="passive" ${item.interaction_type !== 'active' ? 'selected' : ''}>Passive</option>
                     <option value="active" ${item.interaction_type === 'active' ? 'selected' : ''}>Active</option>

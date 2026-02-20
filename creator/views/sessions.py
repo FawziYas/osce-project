@@ -377,33 +377,134 @@ def download_student_paths_pdf(request, session_id):
 
 @login_required
 def assign_examiner(request, session_id):
-    """Assign an examiner to a station for this session (POST only)."""
+    """Bulk-assign examiners to all stations of a path (POST only)."""
+    from django.db import transaction
+
     session = get_object_or_404(ExamSession, pk=session_id)
 
-    examiner_id = request.POST.get('examiner_id')
-    station_id = request.POST.get('station_id')
-    is_primary = 'is_primary' in request.POST
-
-    if not examiner_id or not station_id:
-        messages.error(request, 'Please select both examiner and station.')
+    if request.method != 'POST':
         return redirect('creator:session_detail', session_id=str(session_id))
 
-    if ExaminerAssignment.objects.filter(
-        session=session, station_id=station_id, examiner_id=examiner_id
-    ).exists():
-        messages.warning(request, 'This examiner is already assigned to this station.')
+    path_id = request.POST.get('path_id')
+    if not path_id:
+        messages.error(request, 'Please select a path.')
         return redirect('creator:session_detail', session_id=str(session_id))
 
-    ExaminerAssignment.objects.create(
-        session=session,
-        station_id=station_id,
-        examiner_id=int(examiner_id),
-        is_primary=is_primary,
-    )
+    path = get_object_or_404(Path, pk=path_id, session=session, is_deleted=False)
+    stations = path.get_stations_in_order()
+    all_examiners = Examiner.objects.filter(is_active=True, role='examiner')
 
-    examiner = get_object_or_404(Examiner, pk=int(examiner_id))
-    messages.success(request, f'Assigned {examiner.display_name} to station.')
+    created = 0
+    skipped = 0
+    errors = []
+
+    # Validate: Examiner 1 is required for every station
+    missing_e1 = []
+    for station in stations:
+        e1_val = request.POST.get(f'examiner_1_{station.id}', '').strip()
+        if not e1_val:
+            missing_e1.append(station.name)
+    if missing_e1:
+        messages.error(request, f'Examiner 1 is required for: {(", ").join(missing_e1)}')
+        return redirect('creator:session_detail', session_id=str(session_id))
+
+    try:
+        with transaction.atomic():
+            for station in stations:
+                sid = str(station.id)
+                e1_val = request.POST.get(f'examiner_1_{sid}', '').strip()
+                e2_val = request.POST.get(f'examiner_2_{sid}', '').strip()
+
+                # Check same examiner in both slots
+                if e1_val and e2_val and e1_val == e2_val:
+                    errors.append(f'Station {station.name}: Examiner 1 and 2 cannot be the same.')
+                    continue
+
+                for examiner_id_str, is_primary in [(e1_val, True), (e2_val, False)]:
+                    if not examiner_id_str:
+                        continue
+                    try:
+                        examiner_id = int(examiner_id_str)
+                    except (ValueError, TypeError):
+                        errors.append(f'Invalid examiner ID for station {station.name}.')
+                        continue
+
+                    if not all_examiners.filter(pk=examiner_id).exists():
+                        errors.append(f'Examiner ID {examiner_id} not found.')
+                        continue
+
+                    if ExaminerAssignment.objects.filter(
+                        session=session, station=station, examiner_id=examiner_id
+                    ).exists():
+                        skipped += 1
+                        continue
+
+                    ExaminerAssignment.objects.create(
+                        session=session,
+                        station=station,
+                        examiner_id=examiner_id,
+                        is_primary=is_primary,
+                    )
+                    created += 1
+
+    except Exception as exc:
+        messages.error(request, f'Error saving assignments: {exc}')
+        return redirect('creator:session_detail', session_id=str(session_id))
+
+    # Build success message
+    parts = []
+    if created:
+        parts.append(f'{created} assignment(s) created')
+    if skipped:
+        parts.append(f'{skipped} duplicate(s) skipped')
+    if errors:
+        parts.append(f'{len(errors)} error(s)')
+        for e in errors:
+            messages.warning(request, e)
+    if parts:
+        messages.success(request, f'Path {path.name}: {", ".join(parts)}.')
+    else:
+        messages.info(request, 'No changes made.')
+
     return redirect('creator:session_detail', session_id=str(session_id))
+
+
+@login_required
+def get_path_stations_for_assignment(request, session_id, path_id):
+    """AJAX endpoint: return HTML partial with station rows for the bulk assignment modal."""
+    session = get_object_or_404(ExamSession, pk=session_id)
+    path = get_object_or_404(Path, pk=path_id, session=session, is_deleted=False)
+    stations = path.get_stations_in_order()
+    all_examiners = Examiner.objects.filter(is_active=True, role='examiner').order_by('full_name')
+
+    # Pre-load existing assignments for this path's stations
+    existing = ExaminerAssignment.objects.filter(
+        session=session, station__in=stations
+    ).select_related('examiner', 'station')
+
+    # Build lookup: station_id -> {primary: examiner_id, secondary: examiner_id}
+    assignment_map = {}
+    for a in existing:
+        sid = str(a.station_id)
+        if sid not in assignment_map:
+            assignment_map[sid] = {'primary': None, 'secondary': None}
+        if a.is_primary:
+            assignment_map[sid]['primary'] = a.examiner_id
+        else:
+            assignment_map[sid]['secondary'] = a.examiner_id
+
+    # Annotate stations with their existing assignments for easy template access
+    stations_list = list(stations)
+    for s in stations_list:
+        mapping = assignment_map.get(str(s.id), {})
+        s.assigned_primary = mapping.get('primary')
+        s.assigned_secondary = mapping.get('secondary')
+
+    return render(request, 'creator/sessions/_bulk_assign_stations.html', {
+        'stations': stations_list,
+        'all_examiners': all_examiners,
+        'path': path,
+    })
 
 
 @login_required

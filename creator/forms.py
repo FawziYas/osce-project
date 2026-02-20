@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator, RegexValidator
 import re
 
-from core.models import Examiner, Course, Exam, ExamSession, Path, Station
+from core.models import Examiner, Course, Exam, ExamSession, Path, Station, ExaminerAssignment
 
 
 class ExaminerCreateForm(forms.ModelForm):
@@ -172,3 +172,33 @@ class PathForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'rotation_minutes': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 60}),
         }
+
+
+class BulkStationAssignmentForm(forms.Form):
+    """
+    One row per station in the bulk assignment modal.
+    Fields: station_id (hidden), examiner_1 (required), examiner_2 (optional).
+    """
+    station_id = forms.UUIDField(widget=forms.HiddenInput())
+    examiner_1 = forms.IntegerField(required=False, widget=forms.Select(attrs={
+        'class': 'form-select form-select-sm',
+    }))
+    examiner_2 = forms.IntegerField(required=False, widget=forms.Select(attrs={
+        'class': 'form-select form-select-sm',
+    }))
+
+    def __init__(self, *args, examiner_choices=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        choices = [('', '-- None --')]
+        if examiner_choices:
+            choices += examiner_choices
+        self.fields['examiner_1'].widget.choices = [('', '-- Select --')] + (examiner_choices or [])
+        self.fields['examiner_2'].widget.choices = choices
+
+    def clean(self):
+        cleaned = super().clean()
+        e1 = cleaned.get('examiner_1')
+        e2 = cleaned.get('examiner_2')
+        if e1 and e2 and e1 == e2:
+            raise ValidationError('Examiner 1 and Examiner 2 cannot be the same person.')
+        return cleaned
