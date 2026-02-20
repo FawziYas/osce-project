@@ -3,6 +3,9 @@ Django admin registration for all core models.
 """
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+import logging
+
+audit_logger = logging.getLogger('osce.audit')
 
 # Customize Django admin site labels
 admin.site.site_header = "OSCE Administration"
@@ -15,6 +18,7 @@ from .models import (
     DryQuestion, MCQOption, DryStationResponse,
     OSCEExamPath, OSCERoomAssignment, OSCEPathStudent,
     StationVariant, TemplateLibrary, StationTemplate, AuditLog,
+    LoginAuditLog,
 )
 
 
@@ -109,12 +113,71 @@ class ChecklistItemAdmin(admin.ModelAdmin):
     list_display = ('item_number', 'description', 'station', 'points', 'is_critical')
 
 
+def _get_client_ip(request):
+    """Extract client IP from request, handling proxies."""
+    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded:
+        return x_forwarded.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+
+def revert_to_scheduled(modeladmin, request, queryset):
+    """Admin action: revert completed sessions back to scheduled."""
+    # Permission check: superuser or has can_revert_session permission
+    if not (request.user.is_superuser or request.user.has_perm('core.can_revert_session')):
+        modeladmin.message_user(
+            request,
+            'You do not have permission to revert sessions.',
+            level='error',
+        )
+        return
+
+    reverted = 0
+    skipped = 0
+    ip_address = _get_client_ip(request)
+
+    for session in queryset.select_for_update():
+        previous_status = session.status
+        if previous_status != 'completed':
+            skipped += 1
+            modeladmin.message_user(
+                request,
+                f'Skipped "{session.name}" – status is "{previous_status}", not "completed".',
+                level='warning',
+            )
+            continue
+
+        session.status = 'scheduled'
+        session.save(update_fields=['status', 'updated_at'])
+        reverted += 1
+
+        audit_logger.info(
+            'SESSION_REVERT | admin=%s | session_id=%s | '
+            'previous_status=%s | new_status=scheduled | ip=%s',
+            request.user.username,
+            session.id,
+            previous_status,
+            ip_address,
+        )
+
+    if reverted:
+        modeladmin.message_user(
+            request,
+            f'Successfully reverted {reverted} session(s) to "scheduled".',
+            level='success',
+        )
+
+
+revert_to_scheduled.short_description = 'Revert to Scheduled (completed → scheduled)'
+
+
 # ── Session ──────────────────────────────────────────────────────
 @admin.register(ExamSession)
 class ExamSessionAdmin(admin.ModelAdmin):
     list_display = ('name', 'exam', 'session_date', 'session_type', 'status')
     list_filter = ('status', 'session_type')
     search_fields = ('name',)
+    actions = [revert_to_scheduled]
 
 
 @admin.register(SessionStudent)
@@ -218,4 +281,34 @@ class AuditLogAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+
+# ── Login Audit Log ─────────────────────────────────────────────
+@admin.register(LoginAuditLog)
+class LoginAuditLogAdmin(admin.ModelAdmin):
+    """Read-only, non-deletable audit trail for login attempts."""
+    list_display = ('timestamp', 'username_attempted', 'success', 'ip_address', 'user_agent_short')
+    list_filter = ('success', 'timestamp')
+    search_fields = ('username_attempted', 'ip_address')
+    readonly_fields = (
+        'id', 'user', 'username_attempted', 'ip_address',
+        'user_agent', 'timestamp', 'success',
+    )
+    date_hierarchy = 'timestamp'
+    list_per_page = 50
+
+    def user_agent_short(self, obj):
+        """Truncate user-agent for list display."""
+        ua = obj.user_agent or ''
+        return (ua[:80] + '…') if len(ua) > 80 else ua
+    user_agent_short.short_description = 'User Agent'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False

@@ -138,6 +138,51 @@ ILO_THEMES = {
 # ==========================================================================
 # DJANGO-AXES RATE LIMITING
 # ==========================================================================
+
+# ==========================================================================
+# TRUSTED PROXIES (for X-Forwarded-For IP extraction)
+# ==========================================================================
+# Add your reverse-proxy IPs here in production (e.g. ['127.0.0.1', '10.0.0.1'])
+# If empty, X-Forwarded-For is trusted from any source (dev convenience).
+TRUSTED_PROXIES = env.list('TRUSTED_PROXIES', default=[])
+
+# ==========================================================================
+# AUDIT LOGGING
+# ==========================================================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'audit': {
+            'format': '[{asctime}] {levelname} {name} | {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'audit',
+        },
+        'audit_file': {
+            'class': 'logging.FileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'audit.log'),
+            'formatter': 'audit',
+            'encoding': 'utf-8',
+        },
+    },
+    'loggers': {
+        'osce.audit': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+        },
+    },
+}
 if TESTING:
     # Don't use axes in tests (it requires request object)
     AUTHENTICATION_BACKENDS = [

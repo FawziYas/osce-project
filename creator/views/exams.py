@@ -12,6 +12,7 @@ from django.http import JsonResponse
 
 from core.models import (
     Course, Exam, ExamSession, Path, Station, ChecklistItem,
+    SessionStudent,
 )
 from core.utils.naming import generate_path_name
 
@@ -169,13 +170,17 @@ def exam_detail(request, exam_id):
     exam = get_object_or_404(Exam, pk=exam_id)
     sessions = ExamSession.objects.filter(exam=exam).order_by('session_date')
     stations = Station.objects.filter(exam=exam, active=True)
-    total_marks = sum(s.get_max_score() for s in stations) if stations.exists() else 0
+    
+    # Calculate total students across all sessions
+    total_students = SessionStudent.objects.filter(
+        session__exam=exam
+    ).count()
 
     return render(request, 'creator/exams/detail.html', {
         'exam': exam,
         'stations': stations,
         'sessions': sessions,
-        'total_marks': total_marks,
+        'total_students': total_students,
     })
 
 

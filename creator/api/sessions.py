@@ -1,6 +1,8 @@
 """
-Creator API – Session endpoints (status, activate, deactivate, complete, delete, restore).
+Creator API – Session endpoints (status, activate, deactivate, complete, delete, restore, revert).
 """
+import logging
+
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -10,6 +12,8 @@ from core.models import (
     ExamSession, SessionStudent, Path, Station, ExaminerAssignment, StationScore,
 )
 from core.models.mixins import TimestampMixin
+
+audit_logger = logging.getLogger('osce.audit')
 
 
 @login_required
@@ -134,3 +138,54 @@ def restore_session_api(request, session_id):
     session.status = 'completed'
     session.save()
     return JsonResponse({'message': f"Session '{session.name}' restored"})
+
+
+@login_required
+@require_POST
+def revert_session_to_scheduled(request, session_id):
+    """
+    POST /api/creator/sessions/<id>/revert-to-scheduled
+
+    Revert a completed session back to scheduled.
+    Only superusers or users with core.can_revert_session permission.
+    """
+    # Permission check
+    if not (request.user.is_superuser or request.user.has_perm('core.can_revert_session')):
+        return JsonResponse(
+            {'error': 'You do not have permission to revert sessions.'},
+            status=403,
+        )
+
+    session = get_object_or_404(ExamSession, pk=session_id)
+    previous_status = session.status
+
+    if previous_status != 'completed':
+        return JsonResponse(
+            {'error': f'Cannot revert: session status is "{previous_status}", not "completed".'},
+            status=400,
+        )
+
+    session.status = 'scheduled'
+    session.save(update_fields=['status', 'updated_at'])
+
+    # Extract client IP
+    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded:
+        ip_address = x_forwarded.split(',')[0].strip()
+    else:
+        ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+    # Audit log
+    audit_logger.info(
+        'SESSION_REVERT | admin=%s | session_id=%s | '
+        'previous_status=%s | new_status=scheduled | ip=%s',
+        request.user.username,
+        session.id,
+        previous_status,
+        ip_address,
+    )
+
+    return JsonResponse({
+        'message': f'Session "{session.name}" reverted from completed to scheduled.',
+        'status': 'scheduled',
+    })

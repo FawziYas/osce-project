@@ -44,6 +44,9 @@ class ExamSession(models.Model):
 
     class Meta:
         db_table = 'exam_sessions'
+        permissions = [
+            ('can_revert_session', 'Can revert completed session to scheduled'),
+        ]
 
     def __str__(self):
         return f'{self.name} on {self.session_date}'
@@ -58,6 +61,10 @@ class ExamSession(models.Model):
     @property
     def student_count(self):
         return self.students.count()
+
+    @property
+    def path_count(self):
+        return self.paths.count()
 
     def to_dict(self):
         return {

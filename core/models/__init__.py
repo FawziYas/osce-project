@@ -16,6 +16,7 @@ from .station_variant import StationVariant
 from .template_library import TemplateLibrary
 from .station_template import StationTemplate
 from .audit import AuditLog
+from .login_audit import LoginAuditLog
 
 __all__ = [
     # Base
@@ -41,4 +42,5 @@ __all__ = [
     'DryQuestion', 'MCQOption', 'DryStationResponse',
     # Audit
     'AuditLog',
+    'LoginAuditLog',
 ]

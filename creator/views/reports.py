@@ -3,6 +3,7 @@ Reports views – scoresheets and report index.
 """
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Sum
 
@@ -15,9 +16,19 @@ from core.models import (
 @login_required
 def reports_index(request):
     """Reports dashboard – select session and generate reports."""
-    sessions = ExamSession.objects.filter(
+    # Base filter
+    sessions_qs = ExamSession.objects.filter(
         exam__is_deleted=False, exam__course__active=True,
-    ).select_related('exam', 'exam__course').order_by('-session_date')
+    ).select_related('exam', 'exam__course')
+    
+    # Permission-based filtering
+    # Only superusers can see all sessions (scheduled, in_progress, completed)
+    # Coordinator and Admin can see only completed sessions
+    # Regular examiners can see only completed sessions
+    if not request.user.is_superuser:
+        sessions_qs = sessions_qs.filter(status='completed')
+    
+    sessions = sessions_qs.order_by('-session_date')
 
     selected_session = None
     session_id = request.GET.get('session_id')
@@ -34,6 +45,13 @@ def reports_index(request):
 def reports_scoresheets(request, session_id):
     """Print-ready score sheets for a session with pagination, search, and print_all mode."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    
+    # Access control: non-superusers can only view completed sessions
+    if not request.user.is_superuser and session.status != 'completed':
+        return HttpResponseForbidden(
+            "You do not have permission to view this session. "
+            "Only superusers can view non-completed sessions."
+        )
     
     # Search filter
     search_query = request.GET.get('search', '').strip()
@@ -136,6 +154,13 @@ def reports_student_scoresheet(request, student_id):
     """Print-ready score sheet for a single student."""
     student = get_object_or_404(SessionStudent, pk=student_id)
     session = get_object_or_404(ExamSession, pk=student.session_id)
+    
+    # Access control: non-superusers can only view completed sessions
+    if not request.user.is_superuser and session.status != 'completed':
+        return HttpResponseForbidden(
+            "You do not have permission to view this session. "
+            "Only superusers can view non-completed sessions."
+        )
 
     if student.path_id:
         student_stations = Station.objects.filter(

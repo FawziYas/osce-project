@@ -28,6 +28,11 @@
         <button type="button" class="btn btn-warning" onclick="deactivateSession()"><i class="bi bi-pause-fill me-1"></i>Pause</button>
         <button type="button" class="btn btn-secondary" onclick="completeSession()"><i class="bi bi-stop-fill me-1"></i>Complete</button>
         {% elif session.status == 'completed' %}
+        {% if user.is_superuser or perms.core.can_revert_session %}
+        <button type="button" class="btn btn-outline-primary" onclick="revertToScheduled()" title="Revert session back to scheduled status">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Scheduled
+        </button>
+        {% endif %}
         <button type="button" class="btn btn-outline-danger" onclick="archiveSession()"><i class="bi bi-archive me-1"></i>Archive</button>
         {% elif session.status == 'archived' %}
         <button type="button" class="btn btn-outline-success" onclick="restoreSession()"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
@@ -534,6 +539,17 @@ function archiveSession() {
 function restoreSession() {
     if (confirm('Restore this session?')) {
         fetch('/api/creator/sessions/{{ session.id }}/restore', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session restored');location.reload();});
+    }
+}
+function revertToScheduled() {
+    if (confirm('⚠️ Revert this completed session back to "Scheduled"?\n\nThis will allow the session to be re-activated. Existing scores will NOT be deleted.\n\nThis action is audited.')) {
+        fetch('/api/creator/sessions/{{ session.id }}/revert-to-scheduled', {method:'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert('Error: ' + data.error); }
+            else { alert(data.message || 'Session reverted to scheduled'); location.reload(); }
+        })
+        .catch(err => alert('Request failed: ' + err.message));
     }
 }
 function updateStudentPath(studentId, pathId) {
