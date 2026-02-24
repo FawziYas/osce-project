@@ -103,6 +103,7 @@ urlpatterns = [
     # ── Students ───────────────────────────────────────────────────────────
     path('sessions/<uuid:session_id>/students/add/', students.add_students, name='add_students'),
     path('sessions/<uuid:session_id>/students/upload-xlsx/', students.upload_students_xlsx, name='upload_students_xlsx'),
+    path('sessions/<uuid:session_id>/students/search/', sessions.live_student_search, name='live_student_search'),
 
     # ── Reports ────────────────────────────────────────────────────────────
     path('reports/', reports.reports_index, name='reports_index'),

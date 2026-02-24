@@ -11,6 +11,7 @@ audit_logger = logging.getLogger('osce.audit')
 admin.site.site_header = "OSCE Administration"
 admin.site.site_title = "OSCE Administration"
 admin.site.index_title = "OSCE Administration"
+
 from .models import (
     Theme, Course, ILO, Exam, Station, ChecklistItem,
     ExamSession, SessionStudent, StationScore, ItemScore,
@@ -18,8 +19,95 @@ from .models import (
     DryQuestion, MCQOption, DryStationResponse,
     OSCEExamPath, OSCERoomAssignment, OSCEPathStudent,
     StationVariant, TemplateLibrary, StationTemplate, AuditLog,
-    LoginAuditLog,
+    LoginAuditLog, UserSession, UserProfile,
 )
+
+
+# ── User Profiles (default-password / forced-change tracking) ────
+@admin.action(description='Reset selected users to default password')
+def reset_to_default_password(modeladmin, request, queryset):
+    """Set password back to DEFAULT_USER_PASSWORD and flag must_change_password."""
+    from django.conf import settings as _settings
+
+    if not request.user.is_superuser:
+        modeladmin.message_user(request, 'Only superusers can reset passwords.', level='ERROR')
+        return
+
+    default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    count = 0
+    for profile in queryset.select_related('user'):
+        profile.user.set_password(default_pw)
+        profile.user.save(update_fields=['password'])
+        profile.must_change_password = True
+        profile.password_changed_at = None
+        profile.save(update_fields=['must_change_password', 'password_changed_at'])
+        audit_logger.warning(
+            "Admin '%s' reset password for user '%s'.",
+            request.user.username, profile.user.username,
+        )
+        count += 1
+    modeladmin.message_user(request, f'{count} user(s) reset to default password.')
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ('get_username', 'get_email', 'must_change_password', 'password_changed_at')
+    list_filter = ('must_change_password',)
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('user', 'password_changed_at')
+    actions = [reset_to_default_password]
+    ordering = ('user__username',)
+
+    @admin.display(description='Username', ordering='user__username')
+    def get_username(self, obj):
+        return obj.user.username
+
+    @admin.display(description='Email', ordering='user__email')
+    def get_email(self, obj):
+        return obj.user.email
+
+    def has_add_permission(self, request):
+        return False  # Profiles are created automatically by the signal
+
+    def has_delete_permission(self, request, obj=None):
+        return False  # Never delete profiles manually
+
+
+# ── Active User Sessions ─────────────────────────────────────────
+@admin.action(description='End selected sessions')
+def end_sessions(modeladmin, request, queryset):
+    """Delete Django session records and UserSession rows for selected entries."""
+    from django.contrib.sessions.models import Session
+    keys = list(queryset.values_list('session_key', flat=True))
+    Session.objects.filter(session_key__in=keys).delete()
+    queryset.delete()
+    audit_logger.warning(
+        'ADMIN: ended %d session(s) for [%s] by %s',
+        len(keys), ', '.join(keys), request.user.username
+    )
+
+
+@admin.register(UserSession)
+class UserSessionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'session_key', 'created_at', 'session_status')
+    list_filter = ('created_at',)
+    search_fields = ('user__username', 'session_key')
+    readonly_fields = ('user', 'session_key', 'created_at')
+    actions = [end_sessions]
+    ordering = ('-created_at',)
+
+    @admin.display(description='Session alive?')
+    def session_status(self, obj):
+        return '✅ Active' if obj.is_session_alive() else '❌ Expired'
+
+    def has_add_permission(self, request):
+        return False  # Sessions are created by the login flow only
+
+    def delete_model(self, request, obj):
+        """Ensure Django Session row is also purged."""
+        from django.contrib.sessions.models import Session
+        Session.objects.filter(session_key=obj.session_key).delete()
+        super().delete_model(request, obj)
 
 
 # ── Custom User Admin ─────────────────────────────────────────────

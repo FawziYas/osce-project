@@ -1,18 +1,24 @@
 """
-Login audit signal handlers.
+Login audit signal handlers + auto-provisioning for new users.
 
 Listens to Django's user_logged_in and user_login_failed signals
 to create immutable LoginAuditLog records for every authentication attempt.
+
+Also listens to post_save on the custom User model to:
+  - assign the default password from settings.DEFAULT_USER_PASSWORD
+  - create a UserProfile with must_change_password=True
 """
 import logging
 
 from django.conf import settings
-from django.contrib.auth.signals import user_logged_in, user_login_failed
+from django.contrib.auth.signals import user_logged_in, user_login_failed, user_logged_out
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from core.models.login_audit import LoginAuditLog
 
 logger = logging.getLogger('osce.audit')
+auth_logger = logging.getLogger('osce.auth')
 
 
 def _get_client_ip(request):
@@ -81,3 +87,61 @@ def log_failed_login(sender, credentials, request, **kwargs):
         ip,
         user_agent[:120],
     )
+
+
+@receiver(user_logged_out)
+def cleanup_user_session(sender, request, user, **kwargs):
+    """Remove the UserSession record when a user logs out."""
+    if user is None:
+        return
+    try:
+        from core.models.user_session import UserSession
+        UserSession.objects.filter(user=user).delete()
+        logger.info(
+            'LOGOUT | user=%s | ip=%s',
+            getattr(user, 'username', str(user)),
+            _get_client_ip(request),
+        )
+    except Exception:
+        pass  # Never crash the logout flow
+
+
+# ── Auto-provision new users with default password + profile ──────────
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def provision_new_user(sender, instance, created, **kwargs):
+    """
+    On user creation:
+      1. Set the password to settings.DEFAULT_USER_PASSWORD
+         (unless the user is a superuser — they set their own via createsuperuser).
+      2. Create a UserProfile with must_change_password=True
+         (False for superusers — they already chose a password).
+    """
+    if not created:
+        return
+
+    from core.models.user_profile import UserProfile
+
+    if instance.is_superuser:
+        # Superusers set their own password via createsuperuser — don't override
+        UserProfile.objects.get_or_create(
+            user=instance,
+            defaults={'must_change_password': False},
+        )
+        auth_logger.info(
+            "Superuser '%s' created.  Profile created with must_change_password=False.",
+            instance.username,
+        )
+    else:
+        default_pw = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+        instance.set_password(default_pw)
+        instance.save(update_fields=['password'])
+
+        UserProfile.objects.get_or_create(
+            user=instance,
+            defaults={'must_change_password': True},
+        )
+
+        auth_logger.info(
+            "New user '%s' created.  Default password assigned.  must_change_password=True.",
+            instance.username,
+        )

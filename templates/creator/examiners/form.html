@@ -37,14 +37,15 @@
                         <label class="form-label">Full Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="full_name" required
                                value="{{ examiner.full_name|default:'' }}"
-                               placeholder="John Smith">
+                               placeholder="Mohammed Ahmed">
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Username <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="username" required
                                value="{{ examiner.username|default:'' }}"
-                               placeholder="jsmith" {% if examiner %}readonly{% endif %}>
+                               placeholder="700125" {% if examiner %}readonly{% endif %}>
+                                <div class="form-text">Use financial number (e.g., 700125).</div>
                         {% if examiner %}
                         <div class="form-text">Username cannot be changed</div>
                         {% endif %}
@@ -54,7 +55,7 @@
                         <label class="form-label">Email <span class="text-danger">*</span></label>
                         <input type="email" class="form-control" name="email" required
                                value="{{ examiner.email|default:'' }}"
-                               placeholder="jsmith@hospital.edu">
+                               placeholder="moh@najah.edu">
                     </div>
 
                     <div class="col-md-6">
@@ -69,13 +70,13 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">
-                            Password {% if not examiner %}<span class="text-danger">*</span>{% endif %}
-                        </label>
+                        <label class="form-label">Password</label>
+                        {% if not examiner %}
+                        <input type="text" class="form-control" value="{{ default_password }}" readonly>
+                        <div class="form-text">Default password will be set automatically. User must change it on first login.</div>
+                        {% else %}
                         <input type="password" class="form-control" name="password"
-                               {% if not examiner %}required{% endif %}
-                               placeholder="{% if examiner %}Leave blank to keep current{% else %}Enter password{% endif %}">
-                        {% if examiner %}
+                               placeholder="Leave blank to keep current">
                         <div class="form-text">Leave blank to keep current password</div>
                         {% endif %}
                     </div>
@@ -110,7 +111,7 @@
             <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>Tips</h6>
             <ul class="mb-0 ps-3">
                 <li class="mb-2">Username is used for login</li>
-                <li class="mb-2">Email is for password reset (future)</li>
+
                 <li class="mb-2">Inactive examiners cannot login</li>
                 <li>Assign examiners to stations from the Session page</li>
             </ul>

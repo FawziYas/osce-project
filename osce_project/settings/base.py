@@ -24,6 +24,13 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
 
+# Secret admin URL path — scanners probing /admin/ get a 404
+# Change SECRET_ADMIN_URL in .env to rotate the admin URL with no code changes
+SECRET_ADMIN_URL = env('SECRET_ADMIN_URL', default='manage-osce-exam-77x')
+
+# Default password for every newly-created user (overridden on first login)
+DEFAULT_USER_PASSWORD = env('DEFAULT_USER_PASSWORD', default='123456789')
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -48,8 +55,12 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # Admin double-lock: blocks /admin/ entirely, gates secret URL with session token
+    'core.middleware.AdminAccessMiddleware',
     # Django-axes rate limiting (must be after AuthenticationMiddleware)
     'axes.middleware.AxesMiddleware',
+    # Force password change for users with default password
+    'core.middleware.ForcePasswordChangeMiddleware',
     # Role-based access control (must be after AuthenticationMiddleware)
     'core.middleware.RoleBasedAccessMiddleware',
     # Custom session timeout (must be after AuthenticationMiddleware)
@@ -73,6 +84,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.admin_token',
             ],
         },
     },
@@ -170,10 +182,21 @@ LOGGING = {
             'formatter': 'audit',
             'encoding': 'utf-8',
         },
+        'auth_file': {
+            'class': 'logging.FileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'auth.log'),
+            'formatter': 'audit',
+            'encoding': 'utf-8',
+        },
     },
     'loggers': {
         'osce.audit': {
             'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'osce.auth': {
+            'handlers': ['console', 'auth_file'],
             'level': 'INFO',
             'propagate': False,
         },
@@ -194,10 +217,10 @@ else:
         'django.contrib.auth.backends.ModelBackend',
     ]
 
-# Lock out after 5 failed attempts
-AXES_FAILURE_LIMIT = 5
-# Lock out for 15 minutes
-AXES_COOLOFF_TIME = timedelta(minutes=15)
+# Lock out after 10 failed attempts
+AXES_FAILURE_LIMIT = 10
+# Lock out for 10 minutes
+AXES_COOLOFF_TIME = timedelta(minutes=10)
 # Lock based on username and IP for better security
 AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
 # Reset attempts on successful login
@@ -206,3 +229,5 @@ AXES_RESET_ON_SUCCESS = True
 AXES_CACHE = 'default'
 # Enable in admin
 AXES_ENABLE_ADMIN = True
+# Enable access failure logging
+AXES_ENABLE_ACCESS_FAILURE_LOG = True

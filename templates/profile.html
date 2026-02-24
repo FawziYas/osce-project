@@ -1,0 +1,272 @@
+{% extends base_template %}
+
+{% block title %}My Profile – OSCE{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Profile page ─────────────────────────────────────────────────── */
+.profile-page { max-width: 1000px; }
+
+/* Back bar */
+.profile-backbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+.profile-backbar a.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #fff;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.profile-backbar a.back-btn:hover {
+    background: #f0f4ff;
+    color: #0d6efd;
+    border-color: #c2d0f8;
+}
+
+/* Avatar card */
+.avatar-wrap {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+/* Info rows */
+.info-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label {
+    flex: 0 0 140px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    padding-top: 0.1rem;
+}
+.info-value {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #111827;
+    word-break: break-word;
+}
+
+/* Section label */
+.section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin-bottom: 1.1rem;
+}
+
+/* Password strength rules */
+.pw-rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+.pw-rule {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+}
+
+/* Field errors */
+.field-errors {
+    list-style: none;
+    padding: 0;
+    margin: 0.3rem 0 0;
+}
+.field-errors li {
+    font-size: 0.8rem;
+    color: #dc3545;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.field-errors li::before { content: ''; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 px-4 profile-page">
+
+    {% if is_examiner_view %}
+    <!-- Examiner Header (Mobile/Tablet Style) -->
+    <div class="d-flex align-items-center justify-content-between mb-4 pb-3 border-bottom">
+        <div>
+            <h4 class="mb-1 fw-bold text-primary"><i class="bi bi-person-gear me-2"></i>My Profile</h4>
+            <p class="text-muted mb-0 small">Manage your specialist account settings</p>
+        </div>
+        <a href="{{ home_url }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-house me-1"></i> Home
+        </a>
+    </div>
+    {% else %}
+    <!-- Default / Creator Header -->
+    <div class="profile-backbar">
+        <a href="{{ home_url }}" class="back-btn">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+        <span class="text-muted small"><i class="bi bi-lock me-1"></i>Your data only</span>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{% if 'success' in message.tags %}success{% elif 'error' in message.tags %}danger{% else %}{{ message.tags }}{% endif %} d-flex align-items-center gap-2 py-2 mb-3 shadow-sm" role="alert">
+        {% if 'success' in message.tags %}
+            <i class="bi bi-check-circle-fill fs-5 flex-shrink-0"></i>
+        {% else %}
+            <i class="bi bi-exclamation-circle-fill fs-5 flex-shrink-0"></i>
+        {% endif %}
+        <span>{{ message }}</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="row g-4 {% if is_examiner_view %}justify-content-center{% endif %}">
+
+        <!-- ══ LEFT: Account Info ══ -->
+        <div class="col-12 col-lg-4">
+            <div class="stat-card h-100 {% if is_examiner_view %}shadow-sm border-0{% endif %}">
+                <p class="section-label text-primary-emphasis"><i class="bi bi-person me-1"></i>Account Details</p>
+
+                <!-- Avatar + name -->
+                <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                    <div class="avatar-wrap {% if is_examiner_view %}bg-gradient-primary{% endif %}">
+                        <span class="fs-2">{{ request.user.display_name|slice:":1"|upper }}</span>
+                    </div>
+                    <div>
+                        <div class="fw-bold fs-5">{{ request.user.display_name }}</div>
+                        <div class="text-muted small">@{{ request.user.username }}</div>
+                        <div class="mt-1">
+                            {% if request.user.is_superuser %}
+                                <span class="badge bg-danger">Superuser</span>
+                            {% elif request.user.role == 'admin' %}
+                                <span class="badge bg-warning text-dark">Admin</span>
+                            {% elif request.user.role == 'coordinator' %}
+                                <span class="badge bg-info text-dark">Coordinator</span>
+                            {% else %}
+                                <span class="badge bg-primary">Examiner</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-row border-bottom py-2">
+                    <span class="info-label text-muted small fw-bold">EMAIL</span>
+                    <span class="info-value ms-auto">{{ request.user.email }}</span>
+                </div>
+                {% if request.user.department %}
+                <div class="info-row border-bottom py-2">
+                    <span class="info-label text-muted small fw-bold">DEPARTMENT</span>
+                    <span class="info-value ms-auto">{{ request.user.department }}</span>
+                </div>
+                {% endif %}
+                <div class="info-row border-bottom py-2">
+                    <span class="info-label text-muted small fw-bold">JOINED</span>
+                    <span class="info-value ms-auto">
+                        {% if account_created %}{{ account_created|date:"M Y" }}{% else %}—{% endif %}
+                    </span>
+                </div>
+                <div class="info-row py-2">
+                    <span class="info-label text-muted small fw-bold">STATUS</span>
+                    <span class="info-value ms-auto">
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
+                            <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>Active
+                        </span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ RIGHT: Change Password ══ -->
+        <div class="col-12 col-lg-8">
+            <div class="stat-card h-100 {% if is_examiner_view %}shadow-sm border-0{% endif %}">
+                <p class="section-label text-primary-emphasis"><i class="bi bi-shield-lock me-1"></i>Security</p>
+                <p class="text-muted small mb-4">
+                    Update your password regularly to keep your account secure.
+                </p>
+
+                <form method="POST" novalidate>
+                    {% csrf_token %}
+                    <div class="row g-3">
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-muted">CURRENT PASSWORD</label>
+                            {{ password_form.current_password }}
+                            {% if password_form.current_password.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ password_form.current_password.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">NEW PASSWORD</label>
+                            {{ password_form.new_password }}
+                            {% if password_form.new_password.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ password_form.new_password.errors.0 }}
+                            </div>
+                            {% else %}
+                            <div class="form-text small text-muted">Min 8 chars, 1 upper, 1 number</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">CONFIRM NEW</label>
+                            {{ password_form.confirm_new_password }}
+                            {% if password_form.confirm_new_password.errors %}
+                            <div class="text-danger small mt-1">
+                                {{ password_form.confirm_new_password.errors.0 }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 mt-4 d-flex gap-2 justify-content-end">
+                            <a href="{{ home_url }}" class="btn btn-light text-muted">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-check2-circle me-1"></i> Update
+                            </button>
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+

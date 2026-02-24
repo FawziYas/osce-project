@@ -39,12 +39,15 @@
             </a>
 
             {% if request.user.is_authenticated %}
-            <div class="d-flex align-items-center text-white">
-                <span class="me-3 d-none d-md-inline">
+            <div class="d-flex align-items-center text-white gap-2">
+                <span class="me-1 d-none d-md-inline">
                     <i class="bi bi-person-circle me-1"></i>
                     {{ request.user.display_name }}
                 </span>
-                <a href="{% url 'examiner:logout' %}" class="btn btn-outline-light btn-sm">
+                <a href="{% url 'profile' %}" class="btn btn-outline-light btn-sm" title="Profile">
+                    <i class="bi bi-person-gear"></i>
+                </a>
+                <a href="{% url 'examiner:logout' %}" class="btn btn-outline-light btn-sm" title="Sign out">
                     <i class="bi bi-box-arrow-right"></i>
                 </a>
             </div>

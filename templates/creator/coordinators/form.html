@@ -25,25 +25,26 @@
                     <div class="col-12">
                         <label class="form-label">Full Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="full_name" required
-                               placeholder="Dr. Jane Smith">
+                               placeholder="Dr. Amjad Bdair">
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Username <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="username" required
-                               placeholder="jsmith">
+                               placeholder="52526">
+                               <div class="form-text">Use financial number (e.g., 52526).</div>
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Email <span class="text-danger">*</span></label>
                         <input type="email" class="form-control" name="email" required
-                               placeholder="jsmith@hospital.edu">
+                               placeholder="Amjad@hospital.edu">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Password <span class="text-danger">*</span></label>
-                        <input type="password" class="form-control" name="password" required
-                               placeholder="Minimum 8 characters">
+                        <label class="form-label">Password</label>
+                        <input type="text" class="form-control" value="{{ default_password }}" readonly>
+                        <div class="form-text">Default password will be set automatically. User must change it on first login.</div>
                     </div>
 
                     <div class="col-12">

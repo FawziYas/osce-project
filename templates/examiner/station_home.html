@@ -21,6 +21,10 @@
             <div class="doctor-badge">
                 {{ request.user.display_name }}
             </div>
+            <a href="{% url 'profile' %}" class="btn-signout-link" title="My Profile">
+                <i class="bi bi-person-circle"></i>
+                Profile
+            </a>
             <a href="{% url 'examiner:logout' %}" class="btn-signout-link">
                 <i class="bi bi-box-arrow-right"></i>
                 Sign Out

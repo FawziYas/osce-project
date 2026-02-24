@@ -2,8 +2,62 @@
 
 {% block title %}Session - {{ session.name|default:"Session" }}{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Live Student Search ──────────────────────────────────────────────── */
+.student-search-wrapper { position: relative; max-width: 380px; }
+.student-search-icon {
+    position: absolute; left: 0.65rem; top: 50%; transform: translateY(-50%);
+    color: #6c757d; pointer-events: none; font-size: 0.85rem;
+}
+.student-search-input {
+    padding-left: 2rem !important;
+    padding-right: 2.2rem !important;
+}
+.student-search-clear {
+    position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: #6c757d; cursor: pointer;
+    padding: 0; font-size: 0.75rem; line-height: 1;
+}
+.student-search-clear:hover { color: #343a40; }
+
+/* ── Session Info Alert ──────────────────────────────────────────────── */
+.session-info-alert {
+    background: linear-gradient(135deg, #FEF3C7 0%, #FCD34D 100%);
+    border: 2px solid #F59E0B;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+.session-info-alert:hover {
+    background: linear-gradient(135deg, #FCE5A8 0%, #FBD35F 100%);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+.session-info-alert i.toggle-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    margin-left: 0.5rem;
+}
+.session-info-alert.collapsed i.toggle-icon {
+    transform: rotate(-90deg);
+}
+
+/* ── Path Card Badges (Hidden by Default) ──────────────────────────────── */
+.path-details-toggle {
+    display: none;
+}
+.path-details-toggle.show {
+    display: block;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header d-flex flex-wrap justify-content-between align-items-start gap-2">
+
     <div>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb">
@@ -77,6 +131,19 @@
                                     <span class="badge bg-info me-1">{{ path.station_count }} stations</span>
                                     <span class="badge bg-success me-1">{{ path.total_marks }} marks</span>
                                 </div>
+                                {% if path.unassigned_count > 0 %}
+                                <div class="path-details-toggle small" style="border-top: 1px solid #e9ecef; padding-top: 0.75rem;">
+                                    <div class="d-flex align-items-center gap-1 mb-2">
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ path.unassigned_count }} unassigned
+                                        </span>
+                                    </div>
+                                    <div class="text-warning fw-semibold">
+                                        <i class="bi bi-person-x me-1"></i>
+                                        No examiner: {% for s in path.unassigned_stations %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
                                 <div class="small text-muted">
                                     <i class="bi bi-people me-1"></i>{{ path.student_count }} student{{ path.student_count|pluralize }} assigned
                                 </div>
@@ -193,16 +260,24 @@
             </div>
             
             {% if students %}
-            <!-- Search Bar for Students -->
+            <!-- Live Search Bar for Students -->
             {% if total_students > 10 %}
             <div class="p-3 border-bottom">
-                <form method="get" class="d-flex gap-2 align-items-center flex-wrap">
-                    <input type="text" name="search" class="form-control form-control-sm" placeholder="Search..." value="{{ search_query|default:'' }}" style="min-width:120px; max-width:250px; flex: 1 1 auto;">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary" style="white-space: nowrap;" title="Search"><i class="bi bi-search me-1"></i>Search</button>
-                    {% if search_query %}
-                    <a href="?{% if page_obj %}page=1{% endif %}" class="btn btn-sm btn-outline-danger" style="white-space: nowrap;" title="Clear search"><i class="bi bi-x me-1"></i>Clear</a>
-                    {% endif %}
-                </form>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="student-search-wrapper">
+                        <i class="bi bi-search student-search-icon"></i>
+                        <input type="text" id="studentLiveSearch"
+                               class="form-control form-control-sm student-search-input"
+                               placeholder="Search students by name or number..."
+                               autocomplete="off" spellcheck="false"
+                               data-search-url="{% url 'creator:live_student_search' session.id %}">
+                        <button type="button" id="studentSearchClear"
+                                class="student-search-clear d-none" title="Clear">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <small id="studentSearchStatus" class="text-muted"></small>
+                </div>
             </div>
             {% endif %}
             <!-- Students Table with improved styling for large datasets -->
@@ -217,7 +292,7 @@
                             <th class="text-center" style="width: 50px;">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="students-tbody">
                         {% for student in students %}
                         <tr>
                             <td><code class="text-primary fw-bold">{{ student.student_number }}</code></td>
@@ -314,6 +389,17 @@
                     <strong class="small">{{ session_metrics.station_display }}</strong>
                     {% if session_metrics.station_detail %}<div class="text-muted" style="font-size:0.7rem;">{{ session_metrics.station_detail }}</div>{% endif %}
                 </div>
+                {% if total_unassigned > 0 and session.status != 'archived' %}
+                <div class="col-12">
+                    <div class="alert alert-warning py-2 px-2 mb-0" role="alert" onclick="togglePathDetails(event)" style="cursor: pointer; border-radius: 4px;">
+                        <div class="d-flex align-items-center gap-2" style="font-size: 0.85rem;">
+                            <i class="bi bi-exclamation-triangle-fill" style="flex-shrink: 0;"></i>
+                            <small><strong>{{ total_unassigned }}</strong> station{{ total_unassigned|pluralize }} unassigned</small>
+                            <i class="bi bi-chevron-down toggle-icon" style="margin-left: auto; font-size: 0.75rem;"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
         
@@ -824,5 +910,154 @@ function unlockScore(scoreId, studentName, examinerName, stationName) {
         });
     }
 })();
+
+// ── Live Student Search (in-table filter) ──────────────────────────────
+(function () {
+    const searchInput  = document.getElementById('studentLiveSearch');
+    const clearBtn     = document.getElementById('studentSearchClear');
+    const statusEl     = document.getElementById('studentSearchStatus');
+    const tbody        = document.getElementById('students-tbody');
+    if (!searchInput || !tbody) return;
+
+    const SEARCH_URL    = searchInput.dataset.searchUrl;
+    const SESSION_STARTED = {{ session.actual_start|yesno:'true,false' }};
+    // Available paths for building the select options in search results
+    const SESSION_PATHS = [
+        {% for path in paths %}{"id":"{{ path.id }}","name":"{{ path.name }}"}{% if not forloop.last %},{% endif %}{% endfor %}
+    ];
+
+    // Snapshot the original server-rendered rows
+    const originalRows = tbody.innerHTML;
+
+    let lastQuery = '';
+
+    const STATUS_BADGE = {
+        registered:  'bg-primary',
+        checked_in:  'bg-info text-dark',
+        in_progress: 'bg-warning text-dark',
+        completed:   'bg-success',
+        absent:      'bg-danger',
+    };
+
+    function performSearch(q) {
+        if (q.length < 2) { restoreOriginal(); lastQuery = ''; return; }
+        if (q === lastQuery) return;
+
+        // Show spinner row while waiting
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted"><span class="spinner-border spinner-border-sm me-1"></span>Searching…</td></tr>';
+        if (statusEl) statusEl.textContent = '';
+
+        lastQuery = q;
+        fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), {
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function (r) { return r.ok ? r.json() : {results: []}; })
+        .then(function (data) {
+            const students = data.results || [];
+            if (students.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3 text-muted"><i class="bi bi-person-x me-1"></i>No students match your search.</td></tr>';
+                if (statusEl) statusEl.textContent = 'No results';
+            } else {
+                tbody.innerHTML = students.map(buildRow).join('');
+                if (statusEl) statusEl.textContent = students.length + (students.length === 20 ? '+ matches (top 20)' : ' match' + (students.length === 1 ? '' : 'es'));
+            }
+        })
+        .catch(function () { restoreOriginal(); });
+    }
+
+
+    function buildRow(s) {
+        const badge   = STATUS_BADGE[s.status] || 'bg-secondary';
+        const label   = s.status.replace(/_/g, ' ');
+        const disabled = (s.status !== 'registered' || SESSION_STARTED) ? ' disabled' : '';
+
+        let pathOpts = '<option value="">Unassigned</option>';
+        SESSION_PATHS.forEach(function (p) {
+            const sel = (p.id === s.path_id) ? ' selected' : '';
+            pathOpts += `<option value="${p.id}"${sel}>Path ${p.name}</option>`;
+        });
+
+        const deleteDis = SESSION_STARTED ? ' disabled' : '';
+
+        return `<tr>
+            <td><code class="text-primary fw-bold">${s.student_number}</code></td>
+            <td>${s.full_name}</td>
+            <td>
+                <select class="form-select form-select-sm" style="width:auto;"
+                        onchange="updateStudentPath('${s.id}', this.value)"${disabled}>
+                    ${pathOpts}
+                </select>
+            </td>
+            <td><span class="badge ${badge}">${label}</span></td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="deleteStudent('${s.id}', ${JSON.stringify(s.full_name)})"
+                        title="Delete"${deleteDis}>
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>`;
+    }
+
+    function restoreOriginal() {
+        tbody.innerHTML = originalRows;
+        if (statusEl) statusEl.textContent = '';
+    }
+
+    searchInput.addEventListener('blur', function () {
+        const q = this.value.trim();
+        if (q.length >= 2) {
+            performSearch(q);
+        }
+    });
+
+    searchInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const q = this.value.trim();
+            if (q.length >= 2) {
+                performSearch(q);
+            } else {
+                restoreOriginal();
+            }
+        }
+    });
+
+    // Update clear button visibility as user types
+    searchInput.addEventListener('input', function () {
+        const q = this.value.trim();
+        clearBtn.classList.toggle('d-none', q.length === 0);
+    });
+
+    clearBtn.addEventListener('click', function () {
+        searchInput.value = '';
+        lastQuery = '';
+        clearBtn.classList.add('d-none');
+        restoreOriginal();
+        searchInput.focus();
+    });
+})();
+
+// Toggle per-path details visibility
+function togglePathDetails(event) {
+    event.preventDefault();
+    const alert = event.currentTarget;
+    const isCollapsed = alert.classList.contains('collapsed');
+    
+    // Toggle the alert styling
+    alert.classList.toggle('collapsed');
+    
+    // Toggle all path-details-toggle elements
+    const details = document.querySelectorAll('.path-details-toggle');
+    details.forEach(detail => {
+        if (isCollapsed) {
+            // Was collapsed, now expand
+            detail.classList.add('show');
+        } else {
+            // Was expanded, now collapse
+            detail.classList.remove('show');
+        }
+    });
+}
 </script>
 {% endblock %}

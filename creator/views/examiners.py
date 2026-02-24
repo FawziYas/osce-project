@@ -4,6 +4,7 @@ Examiner management views – list, CRUD, unassign, bulk upload/download templat
 from datetime import datetime
 from io import BytesIO
 from django.utils import timezone
+from django.conf import settings
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -53,11 +54,19 @@ def examiner_create(request):
 
         if Examiner.objects.filter(username=username).exists():
             messages.error(request, f'Username "{username}" already exists.')
-            return render(request, 'creator/examiners/form.html', {'examiner': None})
+            default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+            return render(request, 'creator/examiners/form.html', {
+                'examiner': None,
+                'default_password': default_password,
+            })
 
         if Examiner.objects.filter(email=email).exists():
             messages.error(request, f'Email "{email}" already exists.')
-            return render(request, 'creator/examiners/form.html', {'examiner': None})
+            default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+            return render(request, 'creator/examiners/form.html', {
+                'examiner': None,
+                'default_password': default_password,
+            })
 
         examiner = Examiner(
             username=username,
@@ -67,13 +76,18 @@ def examiner_create(request):
             department=request.POST.get('department', '').strip() or '',
             is_active='is_active' in request.POST,
         )
-        examiner.set_password(request.POST['password'])
+        # Password is set automatically to DEFAULT_USER_PASSWORD by the
+        # post_save signal.  User will be forced to change it on first login.
         examiner.save()
 
         messages.success(request, f'Examiner "{examiner.display_name}" created successfully.')
         return redirect('creator:examiner_list')
 
-    return render(request, 'creator/examiners/form.html', {'examiner': None})
+    default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    return render(request, 'creator/examiners/form.html', {
+        'examiner': None,
+        'default_password': default_password,
+    })
 
 
 @login_required
@@ -214,10 +228,10 @@ def examiner_download_template(request):
     ws = wb.active
     ws.title = 'Examiners Template'
 
-    headers = ['title', 'full_name', 'username', 'email', 'password', 'department']
+    headers = ['title', 'full_name', 'username', 'email', 'department']
     arabic_hints = [
         'اللقب (مثلاً Dr.)', 'الاسم الكامل', 'اسم المستخدم',
-        'البريد الإلكتروني', 'كلمة المرور', 'القسم',
+        'البريد الإلكتروني', 'القسم',
     ]
 
     header_fill = PatternFill(start_color='CFE2F3', end_color='CFE2F3', fill_type='solid')
@@ -233,11 +247,11 @@ def examiner_download_template(request):
         hint.font = Font(italic=True, color='666666')
         hint.alignment = Alignment(horizontal='right')
 
-    sample = ['Dr.', 'Ahmed Mansour', 'ahmed_m', 'ahmed@example.com', 'ahmed123', 'Surgery']
+    sample = ['Dr.', 'Ahmed Mansour', 'ahmed_m', 'ahmed@example.com', 'Surgery']
     for col, val in enumerate(sample, 1):
         ws.cell(row=3, column=col, value=val)
 
-    for i in range(1, 7):
+    for i in range(1, 6):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 20
 
     output = BytesIO()
@@ -278,7 +292,7 @@ def examiner_bulk_upload(request):
         ws = wb.active
 
         headers = [str(c.value).strip().lower() for c in ws[1] if c.value]
-        required = ['full_name', 'username', 'email', 'password']
+        required = ['full_name', 'username', 'email']
         for field in required:
             if field not in headers:
                 messages.error(request, f'Missing required column: {field}')
@@ -295,11 +309,10 @@ def examiner_bulk_upload(request):
                 username = str(row[idx['username']]).strip().lower()
                 email = str(row[idx['email']]).strip().lower()
                 full_name = str(row[idx['full_name']]).strip()
-                password = str(row[idx['password']])
                 title = str(row[idx.get('title', -1)]).strip() if 'title' in idx and row[idx['title']] else ''
                 department = str(row[idx.get('department', -1)]).strip() if 'department' in idx and row[idx['department']] else ''
 
-                if not all([username, email, full_name, password]):
+                if not all([username, email, full_name]):
                     errors_list.append(f'Row {row_num}: Missing required data')
                     continue
 
@@ -318,7 +331,7 @@ def examiner_bulk_upload(request):
                     department=department,
                     is_active=True,
                 )
-                new_examiner.set_password(password)
+                # Password is set automatically by the post_save signal
                 new_examiner.save()
                 success_count += 1
             except Exception as e:
@@ -374,19 +387,24 @@ def coordinator_create(request):
         messages.error(request, 'You do not have permission to add coordinators.')
         return redirect('creator:dashboard')
 
+    default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+
     if request.method == 'POST':
         username = request.POST.get('username', '').strip().lower()
         email = request.POST.get('email', '').strip().lower()
         full_name = request.POST.get('full_name', '').strip()
-        password = request.POST.get('password', '')
 
         if Examiner.objects.filter(username=username).exists():
             messages.error(request, f'Username "{username}" already exists.')
-            return render(request, 'creator/coordinators/form.html')
+            return render(request, 'creator/coordinators/form.html', {
+                'default_password': default_password,
+            })
 
         if Examiner.objects.filter(email=email).exists():
             messages.error(request, f'Email "{email}" already exists.')
-            return render(request, 'creator/coordinators/form.html')
+            return render(request, 'creator/coordinators/form.html', {
+                'default_password': default_password,
+            })
 
         coordinator = Examiner(
             username=username,
@@ -395,13 +413,16 @@ def coordinator_create(request):
             role='coordinator',
             is_active=True,
         )
-        coordinator.set_password(password)
+        # Password is set automatically to DEFAULT_USER_PASSWORD by the
+        # post_save signal.  User will be forced to change it on first login.
         coordinator.save()
 
         messages.success(request, f'Coordinator "{full_name}" created successfully.')
         return redirect('creator:coordinator_list')
 
-    return render(request, 'creator/coordinators/form.html')
+    return render(request, 'creator/coordinators/form.html', {
+        'default_password': default_password,
+    })
 
 
 @login_required

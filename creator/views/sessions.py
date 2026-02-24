@@ -21,6 +21,38 @@ from core.utils.naming import generate_path_name
 
 
 @login_required
+def live_student_search(request, session_id):
+    """AJAX endpoint: real-time student search scoped to a session."""
+    session = get_object_or_404(ExamSession, pk=session_id)
+    q = request.GET.get('q', '').strip()
+
+    if len(q) < 2:
+        return JsonResponse({'results': []})
+
+    qs = (
+        SessionStudent.objects.filter(session=session)
+        .filter(
+            full_name__icontains=q
+        ) | SessionStudent.objects.filter(
+            session=session, student_number__icontains=q
+        )
+    ).select_related('path').order_by('student_number').distinct()[:20]
+
+    results = [
+        {
+            'id': str(s.id),
+            'student_number': s.student_number,
+            'full_name': s.full_name,
+            'status': s.status,
+            'path_id': str(s.path_id) if s.path_id else '',
+            'path_name': s.path.name if s.path else None,
+        }
+        for s in qs
+    ]
+    return JsonResponse({'results': results})
+
+
+@login_required
 def session_list(request, exam_id):
     """List sessions for an exam with search."""
     exam = get_object_or_404(Exam, pk=exam_id)
@@ -237,6 +269,24 @@ def session_detail(request, session_id):
             and (_now - score.completed_at) <= 300
         )
 
+    # Build per-path unassigned station counts in a single query pass
+    # Collect station IDs that DO have an assignment for this session
+    assigned_station_ids = set(
+        ExaminerAssignment.objects.filter(session=session)
+        .values_list('station_id', flat=True)
+    )
+
+    total_unassigned = 0
+    paths = list(paths)   # materialise so we can annotate
+    for path in paths:
+        unassigned = [
+            s for s in path.stations.filter(active=True, is_deleted=False)
+            if s.id not in assigned_station_ids
+        ]
+        path.unassigned_stations = unassigned      # attach to object
+        path.unassigned_count = len(unassigned)    # convenience count
+        total_unassigned += len(unassigned)
+
     return render(request, 'creator/sessions/detail.html', {
         'session': session,
         'students': students,
@@ -249,6 +299,7 @@ def session_detail(request, session_id):
         'all_examiners': all_examiners,
         'session_metrics': session_metrics,
         'submitted_scores': submitted_scores_list,
+        'total_unassigned': total_unassigned,
     })
 
 

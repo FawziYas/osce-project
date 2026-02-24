@@ -123,19 +123,39 @@
                 </li>
             </ul>
             
+            {% if user.is_superuser %}
             <div class="nav-section">Examiner</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'examiner:home' %}">
+                    <a class="nav-link text-warning-emphasis" href="{% url 'examiner:home' %}">
                         <i class="bi bi-tablet"></i> Examiner Interface
+                        <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">Superuser</span>
                     </a>
                 </li>
             </ul>
+            {% endif %}
 
             <!-- Push sign-out to bottom -->
             <div class="mt-auto">
                 <div class="nav-section">Account</div>
                 <ul class="nav flex-column mb-3">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/profile/' %}active{% endif %}" href="{% url 'profile' %}">
+                            <i class="bi bi-person-circle"></i> My Profile
+                        </a>
+                    </li>
+                    {% if user.is_staff %}
+                    <li class="nav-item">
+                        <form method="POST" action="{% url 'admin_gateway' %}" id="admin-gateway-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="token" value="{{ ADMIN_TOKEN }}">
+                            <button type="submit" class="nav-link w-100 text-start border-0 bg-transparent"
+                                    style="color:#e879f9;">
+                                <i class="bi bi-shield-lock-fill"></i> Admin Panel
+                            </button>
+                        </form>
+                    </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link text-danger" href="{% url 'creator:logout' %}">
                             <i class="bi bi-box-arrow-right"></i> Sign Out

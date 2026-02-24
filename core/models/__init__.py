@@ -17,6 +17,8 @@ from .template_library import TemplateLibrary
 from .station_template import StationTemplate
 from .audit import AuditLog
 from .login_audit import LoginAuditLog
+from .user_session import UserSession
+from .user_profile import UserProfile
 
 __all__ = [
     # Base
@@ -43,4 +45,8 @@ __all__ = [
     # Audit
     'AuditLog',
     'LoginAuditLog',
+    # Session tracking
+    'UserSession',
+    # User profile
+    'UserProfile',
 ]
