@@ -101,6 +101,7 @@ urlpatterns = [
     path('coordinators/<int:coordinator_id>/edit/', examiners.coordinator_edit, name='coordinator_edit'),
     path('coordinators/<int:coordinator_id>/delete/', examiners.coordinator_delete, name='coordinator_delete'),
     # ── Students ───────────────────────────────────────────────────────────
+    path('students/', students.student_list, name='student_list'),
     path('sessions/<uuid:session_id>/students/add/', students.add_students, name='add_students'),
     path('sessions/<uuid:session_id>/students/upload-xlsx/', students.upload_students_xlsx, name='upload_students_xlsx'),
     path('sessions/<uuid:session_id>/students/search/', sessions.live_student_search, name='live_student_search'),

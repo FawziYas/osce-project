@@ -7,6 +7,7 @@ Superusers can delete records via Django Admin to free stuck sessions.
 """
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class UserSession(models.Model):
@@ -33,6 +34,16 @@ class UserSession(models.Model):
         return f'{self.user.username} — {self.session_key}'
 
     def is_session_alive(self):
-        """Check that the session key still exists in Django's session store."""
+        """
+        Check that the session key still exists AND has not expired.
+        
+        Checks both:
+        1. Session key exists in Django's session store
+        2. Session expire_date is in the future (not expired)
+        """
         from django.contrib.sessions.models import Session
-        return Session.objects.filter(session_key=self.session_key).exists()
+        now = timezone.now()
+        return Session.objects.filter(
+            session_key=self.session_key,
+            expire_date__gt=now  # Only valid if expiry is in the future
+        ).exists()

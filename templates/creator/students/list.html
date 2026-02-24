@@ -1,0 +1,178 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Student Lists{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-people me-2"></i>Student Lists</h1>
+        <p class="text-muted mb-0">All students across all exam sessions</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-3">
+        <form method="GET" id="filterForm" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold mb-1">Exam</label>
+                <select name="exam_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All Exams</option>
+                    {% for exam in all_exams %}
+                    <option value="{{ exam.id }}" {% if exam.id|stringformat:"s" == selected_exam_id %}selected{% endif %}>
+                        {{ exam.name|truncatechars:40 }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold mb-1">Session</label>
+                <select name="session_id" class="form-select form-select-sm" {% if not sessions_for_exam %}disabled{% endif %}>
+                    <option value="">All Sessions</option>
+                    {% for s in sessions_for_exam %}
+                    <option value="{{ s.id }}" {% if s.id|stringformat:"s" == selected_session_id %}selected{% endif %}>
+                        {{ s.name|default:s.session_date|truncatechars:35 }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold mb-1">Status</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All Statuses</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if val == status_filter %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold mb-1">Search</label>
+                <input type="text" name="q" class="form-control form-control-sm" placeholder="Name or registration number…" value="{{ search_q }}">
+            </div>
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i></button>
+                {% if search_q or selected_exam_id or selected_session_id or status_filter %}
+                <a href="{% url 'creator:student_list' %}" class="btn btn-outline-secondary btn-sm" title="Clear filters"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="table-card">
+    <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+        <h6 class="mb-0">
+            <i class="bi bi-list-ul me-1"></i>
+            {% if total_count %}
+                {{ total_count }} student{{ total_count|pluralize }}
+                {% if search_q %} matching "<strong>{{ search_q }}</strong>"{% endif %}
+            {% else %}
+                No students found
+            {% endif %}
+        </h6>
+    </div>
+
+    {% if page_obj %}
+    <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Reg. No.</th>
+                    <th>Student Name</th>
+                    <th>Exam</th>
+                    <th>Session</th>
+                    <th>Path</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in page_obj %}
+                <tr>
+                    <td class="ps-3 font-monospace small">{{ student.student_number }}</td>
+                    <td>{{ student.full_name }}</td>
+                    <td class="small text-muted">
+                        <a href="{% url 'creator:exam_detail' student.session.exam_id %}" class="text-decoration-none">
+                            {{ student.session.exam.name|truncatechars:30 }}
+                        </a>
+                    </td>
+                    <td class="small">
+                        <a href="{% url 'creator:session_detail' student.session_id %}" class="text-decoration-none">
+                            {{ student.session.name|default:student.session.session_date }}
+                        </a>
+                    </td>
+                    <td class="small">
+                        {% if student.path %}
+                            <span class="badge bg-info text-dark">Path {{ student.path.name }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if student.status == 'registered' %}
+                            <span class="badge bg-secondary">Registered</span>
+                        {% elif student.status == 'checked_in' %}
+                            <span class="badge bg-info text-dark">Checked In</span>
+                        {% elif student.status == 'in_progress' %}
+                            <span class="badge bg-primary">In Progress</span>
+                        {% elif student.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                        {% elif student.status == 'absent' %}
+                            <span class="badge bg-danger">Absent</span>
+                        {% else %}
+                            <span class="badge bg-light text-dark">{{ student.status|title }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{% url 'creator:session_detail' student.session_id %}" class="btn btn-sm btn-outline-secondary" title="View session">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+        <small class="text-muted">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+            &nbsp;&mdash;&nbsp; {{ total_count }} total
+        </small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if selected_exam_id %}exam_id={{ selected_exam_id }}&{% endif %}{% if selected_session_id %}session_id={{ selected_session_id }}&{% endif %}{% if search_q %}q={{ search_q }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if selected_exam_id %}exam_id={{ selected_exam_id }}&{% endif %}{% if selected_session_id %}session_id={{ selected_session_id }}&{% endif %}{% if search_q %}q={{ search_q }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center text-muted py-5">
+        <i class="bi bi-people fs-1 d-block mb-2"></i>
+        {% if search_q or selected_exam_id or selected_session_id or status_filter %}
+            No students match the current filters.
+            <br><a href="{% url 'creator:student_list' %}" class="btn btn-sm btn-outline-secondary mt-2">Clear filters</a>
+        {% else %}
+            No students registered yet. Add students through a session.
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

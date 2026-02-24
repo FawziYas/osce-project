@@ -116,9 +116,8 @@
             <div class="nav-section">Students</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="nav-link text-muted" href="#">
+                    <a class="nav-link {% if request.path == '/creator/students/' %}active{% endif %}" href="{% url 'creator:student_list' %}">
                         <i class="bi bi-people"></i> Student Lists
-                        <span class="badge bg-secondary ms-1">via Session</span>
                     </a>
                 </li>
             </ul>
