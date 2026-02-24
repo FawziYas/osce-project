@@ -122,18 +122,6 @@
                 </li>
             </ul>
             
-            {% if user.is_superuser %}
-            <div class="nav-section">Examiner</div>
-            <ul class="nav flex-column">
-                <li class="nav-item">
-                    <a class="nav-link text-warning-emphasis" href="{% url 'examiner:home' %}">
-                        <i class="bi bi-tablet"></i> Examiner Interface
-                        <span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem;">Superuser</span>
-                    </a>
-                </li>
-            </ul>
-            {% endif %}
-
             <!-- Push sign-out to bottom -->
             <div class="mt-auto">
                 <div class="nav-section">Account</div>
