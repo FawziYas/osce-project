@@ -16,6 +16,7 @@
     display: flex;
     align-items: center;
     margin: 0;
+    justify-content: center;
 }
 
 .session-name i {
@@ -25,14 +26,14 @@
 .stations-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
-    align-items: stretch;
-    justify-content: flex-start;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: center;
 }
 
 .station-card-compact {
-    flex: 0 0 280px;
-    display: flex;
+    flex: 0 0 auto;
+    width: 280px;
 }
 
 .station-card-small {
@@ -139,20 +140,15 @@
 
 @media (max-width: 768px) {
     .stations-row {
-        gap: 16px;
+        gap: 12px;
     }
     
     .station-card-compact {
-        flex: 0 0 calc(50% - 8px);
+        width: 100%;
+        flex: 0 0 calc(50% - 6px);
     }
     
     .station-card-small {
         min-height: auto;
-    }
-}
-
-@media (max-width: 480px) {
-    .station-card-compact {
-        flex: 0 0 100%;
     }
 }
