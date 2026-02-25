@@ -176,11 +176,14 @@ def exam_detail(request, exam_id):
         session__exam=exam
     ).count()
 
+    can_delete_sessions = request.user.is_superuser or request.user.has_perm('core.can_delete_session')
+
     return render(request, 'creator/exams/detail.html', {
         'exam': exam,
         'stations': stations,
         'sessions': sessions,
         'total_students': total_students,
+        'can_delete_sessions': can_delete_sessions,
     })
 
 
