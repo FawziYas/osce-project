@@ -139,6 +139,34 @@ def delete_session_api(request, session_id):
 
 @login_required
 @require_POST
+def hard_delete_session_api(request, session_id):
+    """POST /api/creator/sessions/<id>/hard-delete
+
+    Permanently removes the session and all related data from the database.
+    SUPERUSER ONLY – this action is irreversible.
+    """
+    if not request.user.is_superuser:
+        return JsonResponse(
+            {'error': 'Only superusers can permanently delete sessions.'},
+            status=403,
+        )
+
+    session = get_object_or_404(ExamSession, pk=session_id)
+    name = session.name
+
+    audit_logger.warning(
+        'SESSION_HARD_DELETE | admin=%s | session_id=%s | session_name=%s',
+        request.user.username,
+        session.id,
+        name,
+    )
+
+    session.delete()
+    return JsonResponse({'message': f"Session '{name}' permanently deleted."})
+
+
+@login_required
+@require_POST
 def restore_session_api(request, session_id):
     """POST /api/creator/sessions/<id>/restore
     

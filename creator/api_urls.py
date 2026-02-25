@@ -30,6 +30,7 @@ urlpatterns = [
     path('sessions/<uuid:session_id>/complete', sessions.complete_session, name='complete_session'),
     path('sessions/<uuid:session_id>', sessions.delete_session_api, name='delete_session'),
     path('sessions/<uuid:session_id>/restore', sessions.restore_session_api, name='restore_session'),
+    path('sessions/<uuid:session_id>/hard-delete', sessions.hard_delete_session_api, name='hard_delete_session'),
     path('sessions/<uuid:session_id>/revert-to-scheduled', sessions.revert_session_to_scheduled, name='revert_session'),
 
     # ── Paths ────────────────────────────────────────────────────────────────

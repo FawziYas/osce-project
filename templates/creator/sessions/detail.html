@@ -87,12 +87,12 @@
             <i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Scheduled
         </button>
         {% endif %}
-        {% if can_delete_sessions %}
-        <button type="button" class="btn btn-outline-danger" onclick="archiveSession()"><i class="bi bi-archive me-1"></i>Archive</button>
+        {% if request.user.is_superuser %}
+        <button type="button" class="btn btn-danger" onclick="hardDeleteSession()"><i class="bi bi-trash me-1"></i>Delete Permanently</button>
         {% endif %}
         {% elif session.status == 'archived' %}
-        {% if can_delete_sessions %}
-        <button type="button" class="btn btn-outline-success" onclick="restoreSession()"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+        {% if request.user.is_superuser %}
+        <button type="button" class="btn btn-danger" onclick="hardDeleteSession()"><i class="bi bi-trash me-1"></i>Delete Permanently</button>
         {% endif %}
         {% endif %}
     </div>
@@ -627,16 +627,11 @@ function completeSession() {
         fetch('/api/creator/sessions/{{ session.id }}/complete', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session completed');location.reload();});
     }
 }
-function archiveSession() {
-    if (confirm('Archive this session?')) {
-        fetch('/api/creator/sessions/{{ session.id }}', {method:'POST'}).then(r=>r.json()).then(data=>{
-            if (data.error) alert('Error: '+data.error); else {alert(data.message||'Session archived');location.reload();}
-        });
-    }
-}
-function restoreSession() {
-    if (confirm('Restore this session?')) {
-        fetch('/api/creator/sessions/{{ session.id }}/restore', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session restored');location.reload();});
+function hardDeleteSession() {
+    if (confirm('⚠️ PERMANENTLY DELETE this session?\n\nThis will delete all students, scores, and paths. This CANNOT be undone.')) {
+        fetch('/api/creator/sessions/{{ session.id }}/hard-delete', {method:'POST'}).then(r=>r.json()).then(data=>{
+            if (data.error) alert('Error: '+data.error); else {alert(data.message||'Session deleted'); window.location.href='/creator/exams/{{ session.exam.id }}/';}
+        }).catch(err => alert('Error: ' + err.message));
     }
 }
 function revertToScheduled() {
