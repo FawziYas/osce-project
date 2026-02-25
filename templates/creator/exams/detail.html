@@ -125,6 +125,15 @@
                             <a href="{% url 'creator:session_edit' session.id %}" class="btn btn-outline-secondary" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
+                            {% if session.status == 'completed' %}
+                            <button type="button" class="btn btn-outline-danger" onclick="archiveSessionFromExam('{{ session.id }}', '{{ session.name }}')" title="Archive">
+                                <i class="bi bi-archive"></i>
+                            </button>
+                            {% elif session.status == 'archived' %}
+                            <button type="button" class="btn btn-outline-success" onclick="restoreSessionFromExam('{{ session.id }}', '{{ session.name }}')" title="Restore">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -164,6 +173,26 @@ function archiveExam() {
         if (data.success) { alert(data.message); location.reload(); }
         else alert('Error: ' + (data.message || 'Unknown error'));
     }).catch(err => alert('Error: ' + err.message));
+}
+
+function archiveSessionFromExam(sessionId, sessionName) {
+    if (confirm(`Archive session "${sessionName}"?`)) {
+        fetch(`/api/creator/sessions/${sessionId}`, {method:'POST'})
+        .then(r => r.json()).then(data => {
+            if (data.error) alert('Error: ' + data.error);
+            else { alert(data.message || 'Session archived'); location.reload(); }
+        }).catch(err => alert('Error: ' + err.message));
+    }
+}
+
+function restoreSessionFromExam(sessionId, sessionName) {
+    if (confirm(`Restore session "${sessionName}"?`)) {
+        fetch(`/api/creator/sessions/${sessionId}/restore`, {method:'POST'})
+        .then(r => r.json()).then(data => {
+            if (data.error) alert('Error: ' + data.error);
+            else { alert(data.message || 'Session restored'); location.reload(); }
+        }).catch(err => alert('Error: ' + err.message));
+    }
 }
 </script>
 

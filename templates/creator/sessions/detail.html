@@ -629,7 +629,7 @@ function completeSession() {
 }
 function archiveSession() {
     if (confirm('Archive this session?')) {
-        fetch('/api/creator/sessions/{{ session.id }}', {method:'DELETE'}).then(r=>r.json()).then(data=>{
+        fetch('/api/creator/sessions/{{ session.id }}', {method:'POST'}).then(r=>r.json()).then(data=>{
             if (data.error) alert('Error: '+data.error); else {alert(data.message||'Session archived');location.reload();}
         });
     }
