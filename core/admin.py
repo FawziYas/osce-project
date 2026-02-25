@@ -3,6 +3,9 @@ Django admin registration for all core models.
 """
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.http import HttpResponseRedirect
+from django.urls import path, reverse
+from django.utils.html import format_html
 import logging
 
 audit_logger = logging.getLogger('osce.audit')
@@ -24,53 +27,14 @@ from .models import (
 
 
 # ── User Profiles (default-password / forced-change tracking) ────
-@admin.action(description='Reset selected users to default password')
-def reset_to_default_password(modeladmin, request, queryset):
-    """Set password back to DEFAULT_USER_PASSWORD and flag must_change_password."""
-    from django.conf import settings as _settings
-
-    if not request.user.is_superuser:
-        modeladmin.message_user(request, 'Only superusers can reset passwords.', level='ERROR')
-        return
-
-    default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '123456789')
-    count = 0
-    for profile in queryset.select_related('user'):
-        profile.user.set_password(default_pw)
-        profile.user.save(update_fields=['password'])
-        profile.must_change_password = True
-        profile.password_changed_at = None
-        profile.save(update_fields=['must_change_password', 'password_changed_at'])
-        audit_logger.warning(
-            "Admin '%s' reset password for user '%s'.",
-            request.user.username, profile.user.username,
-        )
-        count += 1
-    modeladmin.message_user(request, f'{count} user(s) reset to default password.')
-
-
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('get_username', 'get_email', 'must_change_password', 'password_changed_at')
-    list_filter = ('must_change_password',)
-    search_fields = ('user__username', 'user__email')
-    readonly_fields = ('user', 'password_changed_at')
-    actions = [reset_to_default_password]
-    ordering = ('user__username',)
-
-    @admin.display(description='Username', ordering='user__username')
-    def get_username(self, obj):
-        return obj.user.username
-
-    @admin.display(description='Email', ordering='user__email')
-    def get_email(self, obj):
-        return obj.user.email
-
-    def has_add_permission(self, request):
-        return False  # Profiles are created automatically by the signal
-
-    def has_delete_permission(self, request, obj=None):
-        return False  # Never delete profiles manually
+# ── User Profile Inline (embedded inside ExaminerAdmin) ─────────
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    verbose_name = 'Password & Profile'
+    verbose_name_plural = 'Password & Profile'
+    readonly_fields = ('password_changed_at',)
+    fields = ('must_change_password', 'password_changed_at')
 
 
 # ── Active User Sessions ─────────────────────────────────────────
@@ -111,17 +75,56 @@ class UserSessionAdmin(admin.ModelAdmin):
 
 
 # ── Custom User Admin ─────────────────────────────────────────────
+@admin.action(description='🔑 Reset selected users to default password')
+def reset_examiner_password(modeladmin, request, queryset):
+    """Reset password to DEFAULT_USER_PASSWORD and flag must_change_password on the linked UserProfile."""
+    from django.conf import settings as _settings
+
+    if not request.user.is_superuser:
+        modeladmin.message_user(request, 'Only superusers can reset passwords.', level='ERROR')
+        return
+
+    default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    count = 0
+    for examiner in queryset:
+        examiner.set_password(default_pw)
+        examiner.save(update_fields=['password'])
+        # Mark the linked UserProfile so the user is forced to change on next login
+        try:
+            profile = examiner.profile
+            profile.must_change_password = True
+            profile.password_changed_at = None
+            profile.save(update_fields=['must_change_password', 'password_changed_at'])
+        except Exception:
+            pass  # Profile may not exist yet
+        audit_logger.warning(
+            "Admin '%s' reset password for examiner '%s'.",
+            request.user.username, examiner.username,
+        )
+        count += 1
+    modeladmin.message_user(request, f'{count} user(s) reset to default password and marked must change password.')
+
+
 @admin.register(Examiner)
 class ExaminerAdmin(BaseUserAdmin):
-    list_display = ('username', 'email', 'full_name', 'role', 'title', 'department', 'is_active', 'is_deleted', 'is_staff')
+    list_display = ('username', 'email', 'full_name', 'role', 'title', 'department', 'is_active', 'get_must_change_password', 'is_deleted', 'is_staff')
     list_filter = ('role', 'is_active', 'is_deleted', 'is_staff', 'department')
     search_fields = ('username', 'email', 'full_name')
     ordering = ('username',)
+    actions = [reset_examiner_password]
+    inlines = [UserProfileInline]
+    readonly_fields = ('reset_password_button',)
+
+    # Override the admin display name to "Users Profiles"
+    class Meta:
+        verbose_name = 'Users Profile'
+        verbose_name_plural = 'Users Profiles'
 
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Personal Info', {'fields': ('full_name', 'email', 'title', 'department')}),
         ('Role & Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Password Reset', {'fields': ('reset_password_button',)}),
     )
     add_fieldsets = (
         (None, {
@@ -129,6 +132,74 @@ class ExaminerAdmin(BaseUserAdmin):
             'fields': ('username', 'email', 'full_name', 'role', 'password1', 'password2'),
         }),
     )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                '<int:pk>/reset-default-password/',
+                self.admin_site.admin_view(self.reset_default_password_view),
+                name='core_examiner_reset_default_password',
+            ),
+        ]
+        return custom + urls
+
+    def reset_default_password_view(self, request, pk):
+        """Handle the reset-to-default-password button from the detail page."""
+        from django.conf import settings as _settings
+        from django.contrib import messages
+
+        if not request.user.is_superuser:
+            messages.error(request, 'Only superusers can reset passwords.')
+            return HttpResponseRedirect(reverse('admin:core_examiner_change', args=[pk]))
+
+        try:
+            examiner = Examiner.objects.get(pk=pk)
+        except Examiner.DoesNotExist:
+            messages.error(request, 'User not found.')
+            return HttpResponseRedirect(reverse('admin:core_examiner_changelist'))
+
+        default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '123456789')
+        examiner.set_password(default_pw)
+        examiner.save(update_fields=['password'])
+
+        try:
+            profile = examiner.profile
+            profile.must_change_password = True
+            profile.password_changed_at = None
+            profile.save(update_fields=['must_change_password', 'password_changed_at'])
+        except Exception:
+            pass
+
+        audit_logger.warning(
+            "Admin '%s' reset password for examiner '%s' via detail page.",
+            request.user.username, examiner.username,
+        )
+        messages.success(
+            request,
+            f"Password for '{examiner.username}' reset to default. They will be forced to change it on next login."
+        )
+        return HttpResponseRedirect(reverse('admin:core_examiner_change', args=[pk]))
+
+    @admin.display(description='Reset Password')
+    def reset_password_button(self, obj):
+        if not obj or not obj.pk:
+            return '—'
+        url = reverse('admin:core_examiner_reset_default_password', args=[obj.pk])
+        return format_html(
+            '<a class="button" href="{}" style="background:#ba2121;color:#fff;'
+            'padding:6px 14px;border-radius:4px;text-decoration:none;font-weight:bold;"'
+            ' onclick="return confirm(\'Reset password for {} to the default password and mark must change?\');">'
+            '🔑 Reset to Default Password</a>',
+            url, obj.username,
+        )
+
+    @admin.display(description='Must Change PW?', boolean=True)
+    def get_must_change_password(self, obj):
+        try:
+            return obj.profile.must_change_password
+        except Exception:
+            return None
 
     def has_delete_permission(self, request, obj=None):
         """Only superuser and admin can delete examiners."""
@@ -400,3 +471,94 @@ class LoginAuditLogAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+# ── Custom Admin Sidebar Grouping ────────────────────────────────
+_ADMIN_GROUPS = [
+    {
+        'name': 'Users & Access',
+        'models': ['Examiner', 'UserSession', 'Group'],
+    },
+    {
+        'name': 'Logs & Audit',
+        'models': ['AuditLog', 'LoginAuditLog', 'AccessAttempt', 'AccessFailureLog', 'AccessLog'],
+    },
+    {
+        'name': 'Courses & Curriculum',
+        'models': ['Theme', 'Course', 'ILO'],
+    },
+    {
+        'name': 'Exam Management',
+        'models': ['Exam', 'Station', 'ChecklistItem', 'Path',
+                   'ExamSession', 'SessionStudent', 'ExaminerAssignment',
+                   'StationScore', 'ItemScore'],
+    },
+    {
+        'name': 'OSCE Paths',
+        'models': ['OSCEExamPath', 'OSCERoomAssignment', 'OSCEPathStudent'],
+    },
+    {
+        'name': 'Library & Templates',
+        'models': ['ChecklistLibrary', 'DryQuestion', 'MCQOption',
+                   'DryStationResponse', 'StationVariant',
+                   'TemplateLibrary', 'StationTemplate'],
+    },
+]
+
+_original_get_app_list = admin.AdminSite.get_app_list
+
+
+def _custom_get_app_list(self, request, app_label=None):
+    """Reorganise the admin sidebar into logical groups."""
+    original = _original_get_app_list(self, request, app_label)
+
+    # When filtering by a single app (e.g. breadcrumb links), use the
+    # default behaviour so individual app pages still work correctly.
+    if app_label is not None:
+        return original
+
+    # Build a flat lookup: object_name -> model dict
+    model_lookup: dict = {}
+    for app in original:
+        for model in app['models']:
+            model_lookup[model['object_name']] = model
+
+    custom_list = []
+    used: set = set()
+
+    for group in _ADMIN_GROUPS:
+        models = []
+        for name in group['models']:
+            if name in model_lookup:
+                models.append(model_lookup[name])
+                used.add(name)
+        if models:
+            custom_list.append({
+                'name': group['name'],
+                'app_label': group['name'],
+                'app_url': '#',
+                'has_module_perms': True,
+                'models': models,
+            })
+
+    # Catch-all for any registered model not in the explicit groups
+    remaining = [m for app in original for m in app['models']
+                 if m['object_name'] not in used]
+    if remaining:
+        custom_list.append({
+            'name': 'Other',
+            'app_label': 'other',
+            'app_url': '#',
+            'has_module_perms': True,
+            'models': remaining,
+        })
+
+    return custom_list
+
+
+admin.AdminSite.get_app_list = _custom_get_app_list
+
+# ── Rename Examiner in admin sidebar to "Users Profiles" ─────────
+# We patch _meta here (admin-only) so no migration is needed.
+Examiner._meta.verbose_name = 'Users Profile'
+Examiner._meta.verbose_name_plural = 'Users Profiles'
