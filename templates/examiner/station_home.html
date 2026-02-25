@@ -64,11 +64,15 @@
                     <div class="station-card">
                         <div class="station-card-header">
                             <div class="station-title-section">
-                                <h3>
-                                    <i class="bi bi-geo-alt"></i>
+                                <div class="path-badge-large mb-2">
+                                    <i class="bi bi-signpost-split me-1"></i>Path {{ item.path_name }}
+                                </div>
+                                <h3 class="mb-1">
+                                    <i class="bi bi-geo-alt text-primary"></i>
                                     <span>Station {{ item.station_number }}</span>
                                 </h3>
-                                <p class="station-subtitle">{{ item.station_name }}</p>
+                                <p class="station-subtitle text-muted mb-3">{{ item.station_name }}</p>
+                                
                                 <div class="station-details">
                                     <div class="station-detail-item">
                                         <i class="bi bi-book"></i>
@@ -84,33 +88,18 @@
                                         </span>
                                     </div>
                                     <div class="station-detail-item">
-                                        <i class="bi bi-signpost-split"></i>
-                                        <span>Path <strong>{{ item.path_name }}</strong></span>
-                                    </div>
-                                    <div class="station-detail-item">
                                         <i class="bi bi-people"></i>
                                         <span><strong>{{ item.total_students }}</strong> students</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="station-meta-badges">
-                                <div class="meta-badge-inline">
-                                    <div class="badge-duration">
-                                        <i class="bi bi-stopwatch"></i>
-                                        <span>{{ item.station_duration|default:8 }} min</span>
-                                    </div>
-                                    <div class="badge-points">
-                                        <i class="bi bi-trophy"></i>
-                                        <span>{{ item.station_max_score|default:0 }} pts</span>
-                                    </div>
-                                </div>
-                        </div>
+                            
 
                         <a href="{% url 'examiner:station_dashboard' item.assignment.id %}"
                            class="station-start-button">
                             <i class="bi bi-play-circle-fill"></i>
-                            <span>Start Marking ({{ item.total_students }} students)</span>
+                            <span>Start Marking</span>
                         </a>
                     </div>
                     {% endfor %}
@@ -151,8 +140,9 @@
                             </div>
 
                             <div class="upcoming-details">
-                                <h4>St {{ item.station_number }} - {{ item.station_name }} ({{ item.path_name }})</h4>
-                                <p class="upcoming-info">
+                                <div class="mb-1 text-success fw-bold small"><i class="bi bi-signpost-split me-1"></i>Path {{ item.path_name }}</div>
+                                <h4 class="mb-0">St {{ item.station_number }} - {{ item.station_name }}</h4>
+                                <p class="upcoming-info mt-1">
                                     {% if item.session and item.session.exam %}{{ item.session.exam.name }}{% else %}Exam{% endif %}
                                 </p>
                             </div>

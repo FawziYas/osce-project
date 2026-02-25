@@ -618,3 +618,34 @@
         justify-content: space-between;
     }
 }
+
+
+/* --- Path Badge Styles --- */
+.path-badge-large {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+    margin-bottom: 12px;
+}
+
+.station-card h3 {
+    font-size: 1.25rem;
+    color: #1f2937;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.station-subtitle {
+    font-size: 1rem;
+    color: #6b7280;
+    margin-bottom: 16px;
+}
