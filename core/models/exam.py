@@ -33,6 +33,9 @@ class Exam(TimestampMixin):
 
     class Meta:
         db_table = 'exams'
+        permissions = [
+            ('can_change_exam_date', 'Can change exam date even when sessions are in progress'),
+        ]
 
     def __str__(self):
         return self.name

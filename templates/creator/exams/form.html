@@ -55,7 +55,15 @@
                         <input type="date" class="form-control" id="exam_date" name="exam_date"
                                value="{% if exam and exam.exam_date %}{{ exam.exam_date|date:'Y-m-d' }}{% endif %}"
                                {% if date_field_disabled %}disabled{% endif %}>
-                        <small class="text-muted">Optional planning date{% if date_field_disabled %}<br><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Locked: Sessions in progress or completed</span>{% endif %}</small>
+                        <small class="text-muted">Optional planning date
+                            {% if sessions_in_progress %}
+                                {% if can_override_date %}
+                                <br><span class="text-info"><i class="bi bi-shield-check me-1"></i>Sessions in progress — you have override permission</span>
+                                {% else %}
+                                <br><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Locked: Sessions are currently in progress</span>
+                                {% endif %}
+                            {% endif %}
+                        </small>
                     </div>
                     
                     <div class="col-md-12">
