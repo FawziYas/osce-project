@@ -68,7 +68,7 @@ def create_path(request, session_id):
             session=session,
             name=path_name,
             rotation_minutes=int(
-                request.POST.get('rotation_minutes', exam.station_duration_minutes or 8)
+                request.POST.get('rotation_minutes') or exam.station_duration_minutes or 8
             ),
             is_active=True,
         )
@@ -111,7 +111,7 @@ def edit_path(request, path_id):
 
     if request.method == 'POST':
         path.name = request.POST.get('name', path.name).strip()
-        new_rot = int(request.POST.get('rotation_minutes', path.rotation_minutes))
+        new_rot = int(request.POST.get('rotation_minutes') or path.rotation_minutes)
         path.rotation_minutes = new_rot
         path.save()
 
