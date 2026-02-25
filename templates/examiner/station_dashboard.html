@@ -60,39 +60,11 @@
             </div>
         </div>
 
-        <div class="progress-section">
-            <div class="progress-label">Completion Progress</div>
-            <div class="progress-bar-wrapper">
-                <div class="progress-bar-fill" style="width: {{ progress_pct }}%"></div>
-            </div>
-            <div class="progress-count">
-                {{ scored_count }}/{{ total_count }}
-            </div>
-        </div>
     </div>
 </header>
 
 <div class="dashboard-content">
-    <!-- Scenario Card -->
-    {% if assignment.station.scenario or assignment.station.instructions %}
-    <div class="scenario-card">
-        <div class="scenario-header">
-            <div class="scenario-icon">
-                <i class="bi bi-file-text"></i>
-            </div>
-            <h2 class="scenario-title">Clinical Scenario</h2>
-        </div>
-        <div class="scenario-content">
-            {% if assignment.station.scenario %}{{ assignment.station.scenario }}{% else %}No scenario provided.{% endif %}
-        </div>
-        {% if assignment.station.instructions %}
-        <div class="scenario-instructions">
-            <strong><i class="bi bi-info-circle me-2"></i>Instructions:</strong>
-            {{ assignment.station.instructions }}
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
+   
 
     <!-- Stats Grid -->
     <div class="stats-grid">
@@ -110,18 +82,6 @@
         </div>
     </div>
 
-    <!-- Dual Examiner Info Banner -->
-    <div class="info-banner">
-        <div class="info-icon">
-            <i class="bi bi-info"></i>
-        </div>
-        <div class="info-content">
-            <p>
-                <strong>Dual Examiner Mode:</strong> Both examiners mark independently.
-                The final score is calculated as the average of both evaluations.
-            </p>
-        </div>
-    </div>
 
     <!-- Students Section -->
     <div class="students-section">

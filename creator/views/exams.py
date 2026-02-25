@@ -190,6 +190,11 @@ def exam_edit(request, exam_id):
     exam = get_object_or_404(Exam, pk=exam_id)
     courses = Course.objects.filter(active=True).order_by('code')
 
+    # Check if any sessions are active or completed (date lock)
+    active_or_completed_sessions = ExamSession.objects.filter(
+        exam=exam, status__in=['in_progress', 'completed']
+    ).exists()
+
     if request.method == 'POST':
         exam.course_id = int(request.POST['course_id'])
         exam.name = request.POST['name']
@@ -200,12 +205,20 @@ def exam_edit(request, exam_id):
         if request.POST.get('exam_date'):
             new_date = datetime.strptime(request.POST['exam_date'], '%Y-%m-%d').date()
             if exam.exam_date != new_date:
-                exam.exam_date = new_date
-                updated = ExamSession.objects.filter(exam=exam).update(session_date=new_date)
-                messages.info(
-                    request,
-                    f'Exam date updated to {new_date:%Y-%m-%d}. All {updated} session(s) updated automatically.',
-                )
+                # Prevent date change if sessions are in progress or completed
+                if active_or_completed_sessions:
+                    messages.error(
+                        request,
+                        'Cannot change the exam date while sessions are in progress or completed. '
+                        'Complete or revert all active sessions first.'
+                    )
+                else:
+                    exam.exam_date = new_date
+                    updated = ExamSession.objects.filter(exam=exam).update(session_date=new_date)
+                    messages.info(
+                        request,
+                        f'Exam date updated to {new_date:%Y-%m-%d}. All {updated} session(s) updated automatically.',
+                    )
 
         if request.POST.get('number_of_stations'):
             exam.number_of_stations = int(request.POST['number_of_stations'])
@@ -214,7 +227,11 @@ def exam_edit(request, exam_id):
         messages.success(request, f'Exam "{exam.name}" updated.')
         return redirect('creator:exam_detail', exam_id=str(exam.id))
 
-    return render(request, 'creator/exams/form.html', {'exam': exam, 'courses': courses})
+    return render(request, 'creator/exams/form.html', {
+        'exam': exam,
+        'courses': courses,
+        'date_field_disabled': active_or_completed_sessions,
+    })
 
 
 # ---------------------------------------------------------------------------

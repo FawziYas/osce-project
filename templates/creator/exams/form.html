@@ -53,8 +53,9 @@
                     <div class="col-md-4">
                         <label for="exam_date" class="form-label fw-bold">Target Date</label>
                         <input type="date" class="form-control" id="exam_date" name="exam_date"
-                               value="{% if exam and exam.exam_date %}{{ exam.exam_date|date:'Y-m-d' }}{% endif %}">
-                        <small class="text-muted">Optional planning date</small>
+                               value="{% if exam and exam.exam_date %}{{ exam.exam_date|date:'Y-m-d' }}{% endif %}"
+                               {% if date_field_disabled %}disabled{% endif %}>
+                        <small class="text-muted">Optional planning date{% if date_field_disabled %}<br><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Locked: Sessions in progress or completed</span>{% endif %}</small>
                     </div>
                     
                     <div class="col-md-12">

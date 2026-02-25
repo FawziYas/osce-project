@@ -46,39 +46,6 @@
             </div>
         </div>
     </div>
-    <div class="header-stats">
-        <div class="stat-box">
-            <div class="stat-label">Progress</div>
-            <div class="stat-value"><span id="progress-count">0</span>/<span id="progress-total">0</span></div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Total Marks</div>
-            <div class="stat-value">{{ max_score }}</div>
-        </div>
-        <div class="stat-box">
-            <div class="stat-label">Student Mark</div>
-            <div class="stat-value">
-                <span id="student-mark">0.0</span><span class="stat-max">/{{ max_score }}</span>
-            </div>
-        </div>
-        {% if co_examiner_name %}
-        <div class="stat-box" style="background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.4);">
-            <div class="stat-label" style="color:#38bdf8">Co-Examiner</div>
-            <div class="stat-value" style="font-size:0.85rem; color:#38bdf8">
-                <i class="bi bi-person-check me-1"></i>{{ co_examiner_name }}
-                {% if co_examiner_score is not None %}<span style="opacity:0.8">({{ co_examiner_score }})</span>{% endif %}
-            </div>
-        </div>
-        {% endif %}
-        {% if both_finalized %}
-        <div class="stat-box" style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4);">
-            <div class="stat-label" style="color:#818cf8">Finalized</div>
-            <div class="stat-value" style="color:#818cf8">
-                <i class="bi bi-check-all me-1"></i>Avg {{ final_avg }}
-            </div>
-        </div>
-        {% endif %}
-    </div>
 </header>
 
 <div class="container-fluid py-3 px-2">
@@ -392,7 +359,8 @@ function renderChecklist(data) {
 
     container.innerHTML = html;
 
-    document.getElementById('progress-total').textContent = data.items.length;
+    const progressTotal = document.getElementById('progress-total');
+    if (progressTotal) progressTotal.textContent = data.items.length;
 }
 
 function renderQuestionCard(item, itemNum) {
@@ -548,7 +516,9 @@ function updateStudentMark() {
         total += evaluations[itemId].score;
     }
 
-    document.getElementById('student-mark').textContent = total.toFixed(1);
+    const studentMark = document.getElementById('student-mark');
+    if (studentMark) studentMark.textContent = total.toFixed(1);
+    
     const footerTotal = document.getElementById('footer-total-mark');
     if (footerTotal) {
         const max = MARKING_DATA.maxScore || 0;
@@ -563,8 +533,10 @@ function updateProgress() {
     const totalQuestions = checklistItems.length;
     const answeredQuestions = Object.keys(evaluations).length;
 
-    document.getElementById('progress-count').textContent = answeredQuestions;
-    document.getElementById('progress-total').textContent = totalQuestions;
+    const progressCount = document.getElementById('progress-count');
+    const progressTotal = document.getElementById('progress-total');
+    if (progressCount) progressCount.textContent = answeredQuestions;
+    if (progressTotal) progressTotal.textContent = totalQuestions;
 }
 
 // ============================================================================

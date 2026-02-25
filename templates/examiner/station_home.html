@@ -120,41 +120,6 @@
                     </div>
                 {% endif %}
             </section>
-
-            <!-- Recent Assignments -->
-            {% if recent_assignments %}
-            <section class="section-card">
-                <div class="section-header recent">
-                    <h2 class="section-title">
-                        <i class="bi bi-clock-history"></i>
-                        <span>Recent Exams</span>
-                    </h2>
-                    <span class="section-count">{{ recent_assignments|length }}</span>
-                </div>
-
-                {% for item in recent_assignments %}
-                <a href="{% url 'examiner:station_dashboard' item.assignment.id %}"
-                   class="recent-station-link">
-                    <div class="recent-row">
-                        <div class="recent-info">
-                            <h5>Station {{ item.station_number }} - {{ item.station_name }}</h5>
-                            <p class="recent-subtext">
-                                {% if item.session and item.session.session_date %}{{ item.session.session_date|date:"M d" }}{% endif %}
-                                - {% if item.session and item.session.exam %}{{ item.session.exam.name }}{% else %}Exam{% endif %}
-                            </p>
-                            <span class="students-badge">
-                                <i class="bi bi-people me-1"></i>{{ item.total_students }} students
-                            </span>
-                        </div>
-                        <span class="badge-completed">
-                            <i class="bi bi-check-circle-fill"></i>
-                            <span>Completed</span>
-                        </span>
-                    </div>
-                </a>
-                {% endfor %}
-            </section>
-            {% endif %}
         </div>
 
         <div class="home-sidebar">
@@ -197,16 +162,6 @@
                 {% endif %}
             </section>
 
-            <!-- Info Card -->
-            <div class="info-card">
-                <h6>
-                    <i class="bi bi-info-circle"></i>
-                    <span>Marking System</span>
-                </h6>
-                <p>
-                    Each station requires separate marks from both examiners. The final score is the <strong>average</strong>.
-                </p>
-            </div>
         </div>
     </div>
 </div>
