@@ -14,7 +14,6 @@ class Course(TimestampMixin):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, default='')
     year_level = models.IntegerField(default=1)
-    active = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'courses'
@@ -29,7 +28,7 @@ class Course(TimestampMixin):
         return self.code
 
     def get_total_osce_marks(self):
-        return sum(ilo.osce_marks or 0 for ilo in self.ilos.filter(active=True))
+        return sum(ilo.osce_marks or 0 for ilo in self.ilos.all())
 
     def to_dict(self):
         return {
@@ -40,9 +39,8 @@ class Course(TimestampMixin):
             'name': self.name,
             'description': self.description,
             'year_level': self.year_level,
-            'active': self.active,
             'total_osce_marks': self.get_total_osce_marks(),
-            'ilo_count': self.ilos.filter(active=True).count(),
+            'ilo_count': self.ilos.count(),
         }
 
 
@@ -61,7 +59,6 @@ class ILO(TimestampMixin):
     number = models.IntegerField()
     description = models.TextField()
     osce_marks = models.IntegerField(default=0)
-    active = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'ilos'
@@ -70,9 +67,6 @@ class ILO(TimestampMixin):
                 fields=['course', 'number'],
                 name='unique_course_ilo_number'
             ),
-        ]
-        indexes = [
-            models.Index(fields=['course', 'active'], name='idx_ilo_course_active'),
         ]
 
     def __str__(self):

@@ -76,7 +76,7 @@ class Exam(TimestampMixin):
         from .course import ILO
         errors = []
         distribution = self.get_ilo_distribution()
-        ilos = ILO.objects.filter(course_id=self.course_id, active=True)
+        ilos = ILO.objects.filter(course_id=self.course_id)
         for ilo in ilos:
             if not ilo.osce_marks:
                 continue

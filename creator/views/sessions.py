@@ -119,7 +119,7 @@ def session_create(request, exam_id):
         session.save()
 
         if not Path.objects.filter(session=session, is_deleted=False).exists():
-            for path_num in range(1, number_of_paths + 1):
+            for path_num in range(number_of_paths):
                 path_name = generate_path_name(path_num)
                 Path.objects.create(
                     session=session,
@@ -128,7 +128,8 @@ def session_create(request, exam_id):
                     is_active=True,
                 )
 
-        messages.success(request, f'Session "{session.name}" created with 3 paths (A, B, C). Now add stations.')
+        path_labels = ', '.join(str(i + 1) for i in range(number_of_paths))
+        messages.success(request, f'Session "{session.name}" created with {number_of_paths} paths ({path_labels}). Now add stations.')
         return redirect('creator:session_detail', session_id=str(session.id))
 
     return render(request, 'creator/sessions/form.html', {'exam': exam, 'session': None})

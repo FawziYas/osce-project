@@ -17,7 +17,7 @@ def station_create(request, path_id):
     """Create a new station within a path – simple form builder."""
     path = get_object_or_404(Path, pk=path_id)
     exam = path.exam
-    ilos = ILO.objects.filter(course_id=exam.course_id, active=True).order_by('number')
+    ilos = ILO.objects.filter(course_id=exam.course_id).order_by('number')
     max_num = Station.objects.filter(path=path).aggregate(m=Max('station_number'))['m'] or 0
 
     if request.method == 'POST':
@@ -126,7 +126,7 @@ def station_edit(request, station_id):
     path = station.path
     exam = path.exam if path else None
     ilos = ILO.objects.filter(
-        course_id=exam.course_id, active=True
+        course_id=exam.course_id
     ).order_by('number') if exam else ILO.objects.none()
     existing_items = list(ChecklistItem.objects.filter(station=station).order_by('item_number'))
     existing_items_dicts = [

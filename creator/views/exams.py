@@ -57,7 +57,7 @@ def exam_list(request):
 @login_required
 def exam_wizard(request):
     """Multi-step exam creation wizard – Exam → Sessions → Paths."""
-    courses = Course.objects.filter(active=True).order_by('code')
+    courses = Course.objects.order_by('code')
 
     if request.method == 'POST':
         # ---------- Exam ----------
@@ -136,12 +136,11 @@ def exam_wizard(request):
             session.save()
 
             if not Path.objects.filter(session=session, is_deleted=False).exists():
-                for path_num in range(1, number_of_paths + 1):
+                for path_num in range(number_of_paths):
                     path_name = generate_path_name(path_num)
                     Path.objects.create(
                         session=session,
                         name=path_name,
-                        description=f'Path {path_name}',
                         rotation_minutes=exam.station_duration_minutes,
                         is_active=True,
                     )
@@ -191,7 +190,7 @@ def exam_detail(request, exam_id):
 def exam_edit(request, exam_id):
     """Edit an exam."""
     exam = get_object_or_404(Exam, pk=exam_id)
-    courses = Course.objects.filter(active=True).order_by('code')
+    courses = Course.objects.order_by('code')
 
     # Check if any sessions are active or completed (date lock)
     active_or_completed_sessions = ExamSession.objects.filter(

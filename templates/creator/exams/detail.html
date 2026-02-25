@@ -152,7 +152,7 @@
 
 <script>
 function deleteExam() {
-    fetch(`/creator/exams/{{ exam.id }}/delete`, {
+    fetch(`/creator/exams/{{ exam.id }}/delete/`, {
         method: 'POST', headers: {'Content-Type': 'application/json'}
     })
     .then(r => r.json()).then(data => {
@@ -162,7 +162,7 @@ function deleteExam() {
 }
 
 function archiveExam() {
-    fetch(`/creator/exams/{{ exam.id }}/archive`, {
+    fetch(`/creator/exams/{{ exam.id }}/archive/`, {
         method: 'POST', headers: {'Content-Type': 'application/json'}
     })
     .then(r => r.json()).then(data => {

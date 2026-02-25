@@ -109,7 +109,7 @@ def station_template_create(request, exam_id):
     """Create a new station template."""
     exam = get_object_or_404(Exam, pk=exam_id)
     library_id = request.GET.get('library_id') or request.POST.get('library_id')
-    ilos = ILO.objects.filter(course_id=exam.course_id, active=True).order_by('number')
+    ilos = ILO.objects.filter(course_id=exam.course_id).order_by('number')
     libraries = TemplateLibrary.objects.filter(exam=exam, is_active=True).order_by('name')
     max_order = StationTemplate.objects.filter(exam=exam).aggregate(
         m=Max('display_order')
@@ -164,7 +164,7 @@ def station_template_edit(request, template_id):
     """Edit a station template."""
     template = get_object_or_404(StationTemplate, pk=template_id)
     exam = template.exam
-    ilos = ILO.objects.filter(course_id=exam.course_id, active=True).order_by('number')
+    ilos = ILO.objects.filter(course_id=exam.course_id).order_by('number')
     libraries = TemplateLibrary.objects.filter(exam=exam, is_active=True).order_by('name')
     existing_items = template.get_checklist_items()
 

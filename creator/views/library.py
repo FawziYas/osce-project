@@ -11,8 +11,8 @@ from core.models import Course, ILO, ChecklistLibrary
 @login_required
 def library_list(request):
     """List all library items grouped by course/ILO."""
-    courses = Course.objects.filter(active=True).order_by('short_code', 'code')
-    ilos = ILO.objects.filter(course__active=True).select_related(
+    courses = Course.objects.order_by('short_code', 'code')
+    ilos = ILO.objects.select_related(
         'course', 'theme'
     ).order_by('course__code', 'number')
     total_items = ChecklistLibrary.objects.count()
@@ -27,7 +27,7 @@ def library_list(request):
 @login_required
 def library_item_create(request):
     """Create a new library item."""
-    courses = Course.objects.filter(active=True).order_by('code')
+    courses = Course.objects.order_by('code')
 
     if request.method == 'POST':
         ChecklistLibrary.objects.create(
@@ -49,7 +49,7 @@ def library_item_create(request):
 def library_item_edit(request, item_id):
     """Edit a library item."""
     item = get_object_or_404(ChecklistLibrary, pk=item_id)
-    courses = Course.objects.filter(active=True).order_by('code')
+    courses = Course.objects.order_by('code')
 
     if request.method == 'POST':
         item.ilo_id = int(request.POST['ilo_id'])

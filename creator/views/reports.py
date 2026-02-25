@@ -18,7 +18,7 @@ def reports_index(request):
     """Reports dashboard – select session and generate reports."""
     # Base filter
     sessions_qs = ExamSession.objects.filter(
-        exam__is_deleted=False, exam__course__active=True,
+        exam__is_deleted=False,
     ).select_related('exam', 'exam__course')
     
     # Permission-based filtering

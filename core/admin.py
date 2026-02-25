@@ -220,21 +220,22 @@ class ThemeAdmin(admin.ModelAdmin):
 class ILOInline(admin.TabularInline):
     model = ILO
     extra = 0
-    fields = ('number', 'description', 'osce_marks', 'theme', 'active')
+    fields = ('number', 'description', 'osce_marks', 'theme')
 
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ('code', 'short_code', 'name', 'year_level', 'active')
-    list_filter = ('year_level', 'active')
+    list_display = ('code', 'short_code', 'name', 'year_level')
+    list_filter = ('year_level',)
     search_fields = ('code', 'short_code', 'name')
     inlines = [ILOInline]
 
 
 @admin.register(ILO)
 class ILOAdmin(admin.ModelAdmin):
-    list_display = ('number', 'course', 'theme', 'osce_marks', 'active')
-    list_filter = ('course', 'theme', 'active')
+    list_display = ('number', 'course', 'theme', 'osce_marks')
+    list_filter = ('course', 'theme')
+
 
 
 # ── Exam / Station / ChecklistItem ───────────────────────────────

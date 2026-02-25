@@ -14,7 +14,7 @@ from core.utils.audit import log_action
 @login_required
 def dashboard(request):
     """Main creator dashboard – overview of exams and courses."""
-    courses = Course.objects.filter(active=True).all()
+    courses = Course.objects.all()
     exams = Exam.objects.filter(is_deleted=False) \
         .select_related('course') \
         .order_by('-created_at')[:10]

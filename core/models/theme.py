@@ -38,7 +38,7 @@ class Theme(TimestampMixin):
             'icon': self.icon,
             'display_order': self.display_order,
             'active': self.active,
-            'ilo_count': self.ilos.filter(active=True).count(),
+            'ilo_count': self.ilos.count(),
         }
 
 

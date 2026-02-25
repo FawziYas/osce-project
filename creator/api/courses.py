@@ -13,13 +13,13 @@ from core.models import Course, ILO, ChecklistLibrary
 @require_GET
 def get_courses(request):
     """GET /api/creator/courses"""
-    courses = Course.objects.filter(active=True).order_by('code')
+    courses = Course.objects.order_by('code')
     return JsonResponse([{
         'id': c.id,
         'code': c.code,
         'name': c.name,
         'year_level': c.year_level,
-        'ilo_count': c.ilos.filter(active=True).count(),
+        'ilo_count': c.ilos.count(),
     } for c in courses], safe=False)
 
 
@@ -28,7 +28,7 @@ def get_courses(request):
 def get_course_ilos(request, course_id):
     """GET /api/creator/courses/<id>/ilos"""
     ilos = ILO.objects.filter(
-        course_id=course_id, active=True
+        course_id=course_id
     ).select_related('theme').order_by('number')
 
     return JsonResponse([{

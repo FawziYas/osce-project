@@ -1,17 +1,12 @@
 """
-Path naming utility – Excel-style column naming (A, B, ..., Z, AA, AB, ...).
+Path naming utility – numeric naming (1, 2, 3, ...).
 """
 
 
 def generate_path_name(index: int) -> str:
     """
-    Generate an Excel-style column name for a given 0-based index.
+    Generate a numeric path name for a given 0-based index.
 
-    0 -> A, 1 -> B, ... 25 -> Z, 26 -> AA, 27 -> AB, etc.
+    0 -> 1, 1 -> 2, 2 -> 3, etc.
     """
-    name = ''
-    index += 1  # 1-based
-    while index > 0:
-        index, remainder = divmod(index - 1, 26)
-        name = chr(65 + remainder) + name
-    return name
+    return str(index + 1)

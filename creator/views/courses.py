@@ -29,7 +29,6 @@ def course_create(request):
             name=request.POST['name'],
             year_level=int(request.POST.get('year_level', 1)),
             description=request.POST.get('description', ''),
-            active=True,
         )
         messages.success(request, f'Course "{course.code}" created successfully.')
         return redirect('creator:course_detail', course_id=course.id)
@@ -58,7 +57,6 @@ def course_edit(request, course_id):
         course.name = request.POST['name']
         course.year_level = int(request.POST.get('year_level', course.year_level))
         course.description = request.POST.get('description', '')
-        course.active = 'active' in request.POST
         course.save()
         messages.success(request, f'Course "{course.code}" updated.')
         return redirect('creator:course_detail', course_id=course.id)
@@ -86,7 +84,6 @@ def ilo_create(request, course_id):
             description=request.POST['description'],
             theme_id=int(request.POST.get('theme_id', 1)) if request.POST.get('theme_id') else None,
             osce_marks=int(request.POST.get('osce_marks', 0)),
-            active=True,
         )
         messages.success(request, f'ILO {max_num + 1} created.')
         return redirect('creator:course_detail', course_id=course_id)
@@ -108,7 +105,6 @@ def ilo_edit(request, ilo_id):
         ilo.description = request.POST['description']
         ilo.theme_id = int(request.POST.get('theme_id')) if request.POST.get('theme_id') else None
         ilo.osce_marks = int(request.POST.get('osce_marks', 0))
-        ilo.active = 'active' in request.POST
         ilo.save()
         messages.success(request, f'ILO {ilo.number} updated.')
         return redirect('creator:course_detail', course_id=ilo.course_id)

@@ -22,17 +22,15 @@ from core.models import (
 def get_stats_overview(request):
     """GET /api/creator/stats/overview"""
     return JsonResponse({
-        'courses': Course.objects.filter(active=True).count(),
-        'ilos': ILO.objects.filter(active=True).count(),
+        'courses': Course.objects.count(),
+        'ilos': ILO.objects.count(),
         'exams': Exam.objects.filter(is_deleted=False).count(),
         'stations': Station.objects.filter(
             active=True,
             is_deleted=False,
             path__session__exam__is_deleted=False,
         ).count(),
-        'library_items': ChecklistLibrary.objects.filter(
-            ilo__active=True,
-        ).count(),
+        'library_items': ChecklistLibrary.objects.count(),
         'examiners': Examiner.objects.count(),
         'sessions': ExamSession.objects.filter(
             exam__is_deleted=False,
