@@ -87,9 +87,13 @@
             <i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Scheduled
         </button>
         {% endif %}
+        {% if can_delete_sessions %}
         <button type="button" class="btn btn-outline-danger" onclick="archiveSession()"><i class="bi bi-archive me-1"></i>Archive</button>
+        {% endif %}
         {% elif session.status == 'archived' %}
+        {% if can_delete_sessions %}
         <button type="button" class="btn btn-outline-success" onclick="restoreSession()"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+        {% endif %}
         {% endif %}
     </div>
 </div>

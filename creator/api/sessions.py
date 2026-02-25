@@ -110,7 +110,17 @@ def complete_session(request, session_id):
 @login_required
 @require_POST
 def delete_session_api(request, session_id):
-    """DELETE (POST) /api/creator/sessions/<id>/delete"""
+    """DELETE (POST) /api/creator/sessions/<id>/delete
+    
+    Only superusers or users with core.can_delete_session permission can delete/archive sessions.
+    """
+    # Permission check: only superuser or users with core.can_delete_session permission
+    if not (request.user.is_superuser or request.user.has_perm('core.can_delete_session')):
+        return JsonResponse(
+            {'error': 'You do not have permission to delete sessions.'},
+            status=403,
+        )
+    
     session = get_object_or_404(ExamSession, pk=session_id)
 
     score_count = StationScore.objects.filter(
@@ -130,7 +140,17 @@ def delete_session_api(request, session_id):
 @login_required
 @require_POST
 def restore_session_api(request, session_id):
-    """POST /api/creator/sessions/<id>/restore"""
+    """POST /api/creator/sessions/<id>/restore
+    
+    Only superusers or users with core.can_delete_session permission can restore archived sessions.
+    """
+    # Permission check: same as delete - can restore if can delete
+    if not (request.user.is_superuser or request.user.has_perm('core.can_delete_session')):
+        return JsonResponse(
+            {'error': 'You do not have permission to restore sessions.'},
+            status=403,
+        )
+    
     session = get_object_or_404(ExamSession, pk=session_id)
     if session.status != 'archived':
         return JsonResponse({'error': 'Session is not archived'}, status=400)

@@ -46,6 +46,7 @@ class ExamSession(models.Model):
         db_table = 'exam_sessions'
         permissions = [
             ('can_revert_session', 'Can revert completed session to scheduled'),
+            ('can_delete_session', 'Can archive/delete sessions'),
         ]
 
     def __str__(self):

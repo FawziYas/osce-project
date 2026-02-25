@@ -300,6 +300,7 @@ def session_detail(request, session_id):
         'session_metrics': session_metrics,
         'submitted_scores': submitted_scores_list,
         'total_unassigned': total_unassigned,
+        'can_delete_sessions': request.user.is_superuser or request.user.has_perm('core.can_delete_session'),
     })
 
 
