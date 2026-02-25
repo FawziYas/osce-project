@@ -161,7 +161,6 @@
                 <th>Username</th>
                 <th>Email</th>
                 <th>Department</th>
-                <th>Assignments</th>
                 <th>Status</th>
                 <th>Actions</th>
             </tr>
@@ -170,25 +169,17 @@
             {% for examiner in examiners %}
             <tr>
                 <td>
-                    <div class="d-flex align-items-center">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2"
-                             style="width: 36px; height: 36px; font-size: 0.9rem;">
-                            {{ examiner.full_name|first }}
-                        </div>
+                    
                         <div>
                             <div class="fw-bold">{{ examiner.display_name }}</div>
-                            {% if examiner.title %}
-                            <small class="text-muted">{{ examiner.title }}</small>
-                            {% endif %}
+                         
                         </div>
                     </div>
                 </td>
                 <td><code>{{ examiner.username }}</code></td>
                 <td>{{ examiner.email }}</td>
                 <td>{{ examiner.department|default:"-" }}</td>
-                <td>
-                    <span class="badge bg-info">{{ examiner.assignment_count }}</span>
-                </td>
+               
                 <td>
                     {% if examiner.is_active %}
                         <span class="badge bg-success">Active</span>

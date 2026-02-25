@@ -104,7 +104,6 @@
                     </div>
                     <div class="form-section">
                         <h6>Exam Configuration</h6>
-                        <p class="form-text text-muted small mb-3">Stations will be added separately after exam creation.</p>
                         <div class="mb-3">
                             <label for="exam_weight" class="form-label">Exam Weight <span class="text-danger">*</span></label>
                             <div class="input-group" style="max-width: 220px;">
@@ -112,7 +111,7 @@
                                        min="1" step="0.5" placeholder="e.g. 40" required>
                                 <span class="input-group-text">pts</span>
                             </div>
-                            <div class="form-text">Auto-filled from the selected course's OSCE mark. You can override it — this is the score students' results will be reported out of.</div>
+                            <div class="form-text">Auto-filled from the selected course's OSCE mark. You can edit </div>
                         </div>
                     </div>
                 </div>
@@ -122,12 +121,6 @@
             <div class="wizard-step" data-step="2">
                 <div class="wizard-card">
                     <h4 class="mb-4"><i class="bi bi-calendar-event me-2"></i>Exam Sessions</h4>
-                    <p class="form-text text-muted mb-3">Define exam sessions (Morning, Afternoon, All Day, or Custom). Each session can have a different number of rotation paths.</p>
-                    <div class="alert alert-info mb-3">
-                        <i class="bi bi-info-circle me-2"></i>
-                        <strong>Session Date Fixed</strong><br>
-                        <small>All sessions will use the exam date: <span id="examDateDisplay">-</span></small>
-                    </div>
                     <div id="sessionsContainer">
                         <div class="session-input-group">
                             <div class="row align-items-end">
@@ -175,10 +168,6 @@
                                 </dl>
                             </div>
                         </div>
-                    </div>
-                    <div class="alert alert-info mb-0">
-                        <i class="bi bi-lightbulb me-2"></i>
-                        <strong>Next steps:</strong> After creation, you'll add stations to each path and assign students.
                     </div>
                 </div>
             </div>
