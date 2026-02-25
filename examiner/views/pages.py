@@ -2,7 +2,6 @@
 Examiner page views – HTML page responses for the tablet interface.
 """
 import json
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from axes.decorators import axes_dispatch
@@ -49,43 +48,36 @@ def logout_view(request):
 
 # ── helpers ────────────────────────────────────────────────────────
 
-def _consolidate_assignments(assignments):
+def _build_assignment_cards(assignments):
     """
-    Group assignments by (session_id, station_number) since an examiner
-    sits in ONE room and marks students from ALL paths.
+    Build one card per assignment. Each assignment maps to one station
+    on one path, so the examiner sees a separate card per path.
     """
-    grouped = defaultdict(list)
+    cards = []
     for a in assignments:
-        if a.station:
-            key = (str(a.session_id), a.station.station_number)
-            grouped[key].append(a)
+        if not a.station:
+            continue
 
-    consolidated = []
-    for (session_id, station_num), group in grouped.items():
-        first = group[0]
+        student_count = 0
+        if a.station.path_id:
+            student_count = SessionStudent.objects.filter(
+                session_id=a.session_id,
+                path_id=a.station.path_id,
+            ).count()
 
-        total_students = 0
-        for a in group:
-            if a.station and a.station.path_id:
-                total_students += SessionStudent.objects.filter(
-                    session_id=session_id,
-                    path_id=a.station.path_id,
-                ).count()
-
-        consolidated.append({
-            'assignment': first,
-            'assignment_id': str(first.id),
-            'station_number': station_num,
-            'station_name': first.station.name if first.station else 'Unknown',
-            'station_duration': first.station.duration_minutes if first.station else 8,
-            'station_max_score': first.station.get_max_score() if first.station else 0,
-            'session': first.session,
-            'total_students': total_students,
-            'paths_count': len(group),
-            'all_assignments': group,
+        cards.append({
+            'assignment': a,
+            'assignment_id': str(a.id),
+            'station_number': a.station.station_number,
+            'station_name': a.station.name if a.station else 'Unknown',
+            'station_duration': a.station.duration_minutes if a.station else 8,
+            'station_max_score': a.station.get_max_score() if a.station else 0,
+            'session': a.session,
+            'total_students': student_count,
+            'path_name': a.station.path.name if a.station.path else '',
         })
 
-    return consolidated
+    return cards
 
 
 @login_required
@@ -101,7 +93,7 @@ def home(request):
             session__status__in=['scheduled', 'in_progress'],
         ).select_related('station', 'session', 'station__path')
     )
-    today_assignments = _consolidate_assignments(today_raw)
+    today_assignments = _build_assignment_cards(today_raw)
 
     # Recent (last 7 days)
     week_ago = today - timedelta(days=7)
@@ -113,7 +105,7 @@ def home(request):
             session__status='completed',
         ).select_related('station', 'session', 'station__path')
     )
-    recent_assignments = _consolidate_assignments(recent_raw)
+    recent_assignments = _build_assignment_cards(recent_raw)
 
     # Upcoming
     upcoming_raw = list(
@@ -123,7 +115,7 @@ def home(request):
             session__status__in=['scheduled'],
         ).select_related('station', 'session', 'station__path')
     )
-    upcoming_assignments = _consolidate_assignments(upcoming_raw)
+    upcoming_assignments = _build_assignment_cards(upcoming_raw)
 
     return render(request, 'examiner/station_home.html', {
         'assignments': today_assignments,

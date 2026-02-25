@@ -84,8 +84,12 @@
                                         </span>
                                     </div>
                                     <div class="station-detail-item">
+                                        <i class="bi bi-signpost-split"></i>
+                                        <span>Path <strong>{{ item.path_name }}</strong></span>
+                                    </div>
+                                    <div class="station-detail-item">
                                         <i class="bi bi-people"></i>
-                                        <span><strong>{{ item.total_students }}</strong> students across <strong>{{ item.paths_count }}</strong> path{{ item.paths_count|pluralize }}</span>
+                                        <span><strong>{{ item.total_students }}</strong> students</span>
                                     </div>
                                 </div>
                             </div>
@@ -147,7 +151,7 @@
                             </div>
 
                             <div class="upcoming-details">
-                                <h4>St {{ item.station_number }} - {{ item.station_name }}</h4>
+                                <h4>St {{ item.station_number }} - {{ item.station_name }} ({{ item.path_name }})</h4>
                                 <p class="upcoming-info">
                                     {% if item.session and item.session.exam %}{{ item.session.exam.name }}{% else %}Exam{% endif %}
                                 </p>
