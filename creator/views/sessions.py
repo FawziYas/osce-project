@@ -471,7 +471,7 @@ def assign_examiner(request, session_id):
                     errors.append(f'Station {station.name}: Examiner 1 and 2 cannot be the same.')
                     continue
 
-                for examiner_id_str, is_primary in [(e1_val, True), (e2_val, False)]:
+                for examiner_id_str in [e1_val, e2_val]:
                     if not examiner_id_str:
                         continue
                     try:
@@ -494,7 +494,6 @@ def assign_examiner(request, session_id):
                         session=session,
                         station=station,
                         examiner_id=examiner_id,
-                        is_primary=is_primary,
                     )
                     created += 1
 
@@ -539,7 +538,7 @@ def get_path_stations_for_assignment(request, session_id, path_id):
         sid = str(a.station_id)
         if sid not in assignment_map:
             assignment_map[sid] = {'primary': None, 'secondary': None}
-        if a.is_primary:
+        if assignment_map[sid]['primary'] is None:
             assignment_map[sid]['primary'] = a.examiner_id
         else:
             assignment_map[sid]['secondary'] = a.examiner_id

@@ -36,11 +36,6 @@
                         {% endif %}
                     </p>
                     <small class="text-muted">
-                        {% if a.is_primary %}
-                        <span class="badge bg-primary">Primary</span>
-                        {% else %}
-                        <span class="badge bg-secondary">Co-Examiner</span>
-                        {% endif %}
                         {% if a.session %}
                         <span class="badge bg-{% if a.session.status == 'completed' %}success{% elif a.session.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
                             {{ a.session.status|capfirst }}

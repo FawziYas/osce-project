@@ -80,7 +80,6 @@ def _consolidate_assignments(assignments):
             'station_duration': first.station.duration_minutes if first.station else 8,
             'station_max_score': first.station.get_max_score() if first.station else 0,
             'session': first.session,
-            'is_primary': first.is_primary,
             'total_students': total_students,
             'paths_count': len(group),
             'all_assignments': group,

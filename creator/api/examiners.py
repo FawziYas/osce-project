@@ -70,7 +70,6 @@ def get_session_assignments(request, session_id):
         'station_number': a.station.station_number if a.station else None,
         'examiner_id': a.examiner_id,
         'examiner_name': a.examiner.display_name if a.examiner else None,
-        'is_primary': a.is_primary,
     } for a in assignments], safe=False)
 
 
@@ -93,6 +92,5 @@ def create_assignment(request, session_id):
         session_id=session_id,
         station_id=data['station_id'],
         examiner_id=data['examiner_id'],
-        is_primary=data.get('is_primary', True),
     )
     return JsonResponse({'id': str(assignment.id), 'message': 'Examiner assigned'}, status=201)

@@ -79,7 +79,6 @@
                             <th>Session</th>
                             <th>Station</th>
                             <th>Date</th>
-                            <th>Role</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -95,13 +94,6 @@
                                 {{ a.session.session_date|date:"M d, Y" }}
                                 {% else %}
                                 -
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if a.is_primary %}
-                                <span class="badge bg-primary">Primary</span>
-                                {% else %}
-                                <span class="badge bg-secondary">Backup</span>
                                 {% endif %}
                             </td>
                             <td>

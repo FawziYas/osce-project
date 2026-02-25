@@ -367,8 +367,8 @@ class PathAdmin(admin.ModelAdmin):
 
 @admin.register(ExaminerAssignment)
 class ExaminerAssignmentAdmin(admin.ModelAdmin):
-    list_display = ('examiner', 'station', 'session', 'is_primary')
-    list_filter = ('is_primary',)
+    list_display = ('examiner', 'station', 'session')
+    list_filter = ('session',)
 
 
 # ── Library ──────────────────────────────────────────────────────

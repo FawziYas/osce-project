@@ -119,13 +119,6 @@
                                     </div>
                                     <div class="lh-1">
                                         <div class="fw-semibold text-dark">{{ assignment.examiner.full_name }}</div>
-                                        <small class="text-muted" style="font-size: 0.75rem;">
-                                            {% if assignment.is_primary %}
-                                            <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Primary</span>
-                                            {% else %}
-                                            <span class="text-secondary"><i class="bi bi-shield-fill me-1"></i>Backup</span>
-                                            {% endif %}
-                                        </small>
                                     </div>
                                 </div>
                                 {% endfor %}

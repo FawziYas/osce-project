@@ -5,11 +5,7 @@ Each station object has .assigned_primary and .assigned_secondary (examiner IDs 
 {% endcomment %}
 
 {% if stations %}
-<div class="alert alert-info py-2 mb-3 small">
-    <i class="bi bi-info-circle me-1"></i>
-    <strong>Path {{ path.name }}</strong> &mdash; {{ stations|length }} station{{ stations|length|pluralize }}.
-    Examiner 1 is <strong>required</strong> for each station. Examiner 2 is optional.
-</div>
+
 
 <div class="table-responsive">
 <table class="table table-sm table-hover align-middle mb-0">

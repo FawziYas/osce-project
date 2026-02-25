@@ -382,12 +382,10 @@
                 <div class="col-6">
                     <div class="text-muted small">Rotation</div>
                     <strong class="small">{{ session_metrics.rotation_display }}</strong>
-                    {% if session_metrics.rotation_detail %}<div class="text-muted" style="font-size:0.7rem;">{{ session_metrics.rotation_detail }}</div>{% endif %}
                 </div>
                 <div class="col-6">
                     <div class="text-muted small">Stations</div>
                     <strong class="small">{{ session_metrics.station_display }}</strong>
-                    {% if session_metrics.station_detail %}<div class="text-muted" style="font-size:0.7rem;">{{ session_metrics.station_detail }}</div>{% endif %}
                 </div>
                 {% if total_unassigned > 0 and session.status != 'archived' %}
                 <div class="col-12">
@@ -417,7 +415,6 @@
                     <div class="me-2" style="min-width:0;">
                         <div class="fw-bold text-truncate small">{{ a.examiner.display_name|default:"Unknown" }}</div>
                         <div class="text-muted text-truncate" style="font-size:0.75rem;">{{ a.station_name }}</div>
-                        {% if a.is_primary %}<span class="badge bg-primary">Primary</span>{% endif %}
                     </div>
                     <form method="POST" action="{% url 'creator:examiner_unassign' a.id %}" style="display: inline; flex-shrink:0;">
                         {% csrf_token %}
@@ -590,11 +587,9 @@
                 <div class="mb-3">
                     <label for="rotationMinutes" class="form-label d-flex align-items-center gap-2">
                         Minutes Per Station <span class="text-danger">*</span>
-                        <span id="bulk_duration_badge" class="badge bg-info" style="display:none; font-weight:normal; font-size:0.75rem;"></span>
                     </label>
                     <input type="number" class="form-control" id="rotationMinutes" name="rotation_minutes"
                            value="{{ session.exam.station_duration_minutes|default:8 }}" min="1" max="60" required>
-                    <small class="form-text text-muted" id="bulk_duration_help">Inherited from exam ({{ session.exam.station_duration_minutes|default:8 }} min) &mdash; you can change it</small>
                 </div>
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle me-2"></i><strong>What you'll get:</strong> All paths with same settings, ready to add stations or copy from existing paths

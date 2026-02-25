@@ -101,16 +101,6 @@
                                         <span>{{ item.station_max_score|default:0 }} pts</span>
                                     </div>
                                 </div>
-                                {% if item.is_primary %}
-                                <span class="badge-role primary">
-                                    <i class="bi bi-star-fill me-1"></i>Primary Examiner
-                                </span>
-                                {% else %}
-                                <span class="badge-role co-examiner">
-                                    <i class="bi bi-person-check me-1"></i>Co-Examiner
-                                </span>
-                                {% endif %}
-                            </div>
                         </div>
 
                         <a href="{% url 'examiner:station_dashboard' item.assignment.id %}"

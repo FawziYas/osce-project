@@ -133,8 +133,6 @@ class ExaminerAssignment(TimestampMixin):
         related_name='assignments', db_index=True
     )
 
-    is_primary = models.BooleanField(default=True)
-
     class Meta:
         db_table = 'examiner_assignments'
         constraints = [
