@@ -98,7 +98,7 @@
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
-                <tr><th>Session Name</th><th>Date</th><th>Students</th><th>Paths</th><th>Status</th><th style="width: 180px;">Actions</th></tr>
+                <tr><th>Session Name</th><th>Time</th><th>Students</th><th>Paths</th><th>Status</th><th style="width: 180px;">Actions</th></tr>
             </thead>
             <tbody>
                 {% for session in sessions %}
@@ -110,7 +110,7 @@
                         </a>
                     </td>
                     <td>
-                        {% if session.session_date %}{{ session.session_date|date:"D, M d, Y" }}
+                        {% if session.start_time %}{{ session.start_time|time:"H:i" }}
                         {% else %}<span class="text-muted small">Not set</span>{% endif %}
                     </td>
                     <td><span class="badge bg-secondary">{{ session.student_count|default:0 }} students</span></td>

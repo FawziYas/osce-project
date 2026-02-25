@@ -193,13 +193,10 @@ def exam_edit(request, exam_id):
     exam = get_object_or_404(Exam, pk=exam_id)
     courses = Course.objects.filter(active=True).order_by('code')
 
-    # Lock date when any session is in_progress
-    sessions_in_progress = ExamSession.objects.filter(
-        exam=exam, status='in_progress'
+    # Check if any sessions are active or completed (date lock)
+    active_or_completed_sessions = ExamSession.objects.filter(
+        exam=exam, status__in=['in_progress', 'completed']
     ).exists()
-
-    can_override_date = request.user.is_superuser or request.user.has_perm('core.can_change_exam_date')
-    date_field_disabled = sessions_in_progress and not can_override_date
 
     if request.method == 'POST':
         exam.course_id = int(request.POST['course_id'])
@@ -211,11 +208,12 @@ def exam_edit(request, exam_id):
         if request.POST.get('exam_date'):
             new_date = datetime.strptime(request.POST['exam_date'], '%Y-%m-%d').date()
             if exam.exam_date != new_date:
-                if sessions_in_progress and not can_override_date:
+                # Prevent date change if sessions are in progress or completed
+                if active_or_completed_sessions:
                     messages.error(
                         request,
-                        'Cannot change the exam date while sessions are in progress. '
-                        'Only superusers or users with the override permission can do this.'
+                        'Cannot change the exam date while sessions are in progress or completed. '
+                        'Complete or revert all active sessions first.'
                     )
                 else:
                     exam.exam_date = new_date
@@ -235,9 +233,7 @@ def exam_edit(request, exam_id):
     return render(request, 'creator/exams/form.html', {
         'exam': exam,
         'courses': courses,
-        'date_field_disabled': date_field_disabled,
-        'sessions_in_progress': sessions_in_progress,
-        'can_override_date': can_override_date,
+        'date_field_disabled': active_or_completed_sessions,
     })
 
 
