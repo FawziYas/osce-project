@@ -7,6 +7,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/examiner-home.css' %}">
+<link rel="stylesheet" href="{% static 'css/examiner-home-session-layout.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -60,47 +61,44 @@
                 </div>
 
                 {% if assignments %}
-                    {% for item in assignments %}
-                    <div class="station-card">
-                        <div class="station-card-header">
-                            <div class="station-title-section">
-                                <div class="path-badge-large mb-2">
-                                    <i class="bi bi-signpost-split me-1"></i>Path {{ item.path_name }}
-                                </div>
-                                <h3 class="mb-1">
-                                    <i class="bi bi-geo-alt text-primary"></i>
-                                    <span>Station {{ item.station_number }}</span>
-                                </h3>
-                                <p class="station-subtitle text-muted mb-3">{{ item.station_name }}</p>
-                                
-                                <div class="station-details">
-                                    <div class="station-detail-item">
-                                        <i class="bi bi-book"></i>
-                                        <span>{% if item.session and item.session.exam %}{{ item.session.exam.name }}{% else %}Exam{% endif %}</span>
+                    {% regroup assignments by session.name as sessions_list %}
+                    
+                    {% for session_group in sessions_list %}
+                    <div class="session-group mb-4">
+                        <div class="session-header">
+                            <h4 class="session-name">
+                                <i class="bi bi-layers me-2"></i>{{ session_group.grouper }}
+                            </h4>
+                        </div>
+                        <div class="stations-row">
+                            {% for item in session_group.list %}
+                            <div class="station-card-compact">
+                                <div class="station-card-small">
+                                    <div class="path-badge-small">
+                                        <i class="bi bi-signpost-split me-1"></i>Path {{ item.path_name }}
                                     </div>
-                                    <div class="station-detail-item">
-                                        <i class="bi bi-clock"></i>
-                                        <span>
-                                            {% if item.session and item.session.start_time %}{{ item.session.start_time|time:"H:i" }}{% else %}TBD{% endif %}
-                                            {% if item.session and item.session.session_type %}
-                                            - {{ item.session.session_type|capfirst }}
-                                            {% endif %}
-                                        </span>
+                                    <h4 class="station-num">St {{ item.station_number }}</h4>
+                                    <p class="station-name-small">{{ item.station_name }}</p>
+                                    
+                                    <div class="station-info-small">
+                                        <div class="info-item">
+                                            <i class="bi bi-people"></i>
+                                            <span><strong>{{ item.total_students }}</strong></span>
+                                        </div>
+                                        <div class="info-item">
+                                            <i class="bi bi-clock"></i>
+                                            <span>{% if item.session and item.session.start_time %}{{ item.session.start_time|time:"H:i" }}{% else %}TBD{% endif %}</span>
+                                        </div>
                                     </div>
-                                    <div class="station-detail-item">
-                                        <i class="bi bi-people"></i>
-                                        <span><strong>{{ item.total_students }}</strong> students</span>
-                                    </div>
+                                    
+                                    <a href="{% url 'examiner:station_dashboard' item.assignment.id %}"
+                                       class="btn-start-compact">
+                                        <i class="bi bi-play-fill me-1"></i>Mark
+                                    </a>
                                 </div>
                             </div>
-
-                            
-
-                        <a href="{% url 'examiner:station_dashboard' item.assignment.id %}"
-                           class="station-start-button">
-                            <i class="bi bi-play-circle-fill"></i>
-                            <span>Start Marking</span>
-                        </a>
+                            {% endfor %}
+                        </div>
                     </div>
                     {% endfor %}
                 {% else %}
