@@ -15,7 +15,6 @@
         </nav>
         <h1 class="mb-1">Path {{ path.name }}</h1>
         <p class="text-muted mb-0">
-            {% if path.description %}{{ path.description }}{% endif %}
             <span class="badge bg-secondary">{{ path.student_count }} students</span>
         </p>
     </div>
@@ -84,76 +83,78 @@
         {% if stations %}
         <div class="list-group list-group-flush">
             {% for station in stations %}
-            <div class="list-group-item px-0 py-3 border-bottom-1">
-                <div class="row g-3 align-items-center mx-0">
-                    <!-- Left: Station Info -->
-                    <div class="col-lg-4">
-                        <div class="ps-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="badge bg-primary me-2">S{{ station.station_number }}</span>
-                                <h6 class="mb-0 fw-bold text-dark">{{ station.name }}</h6>
-                            </div>
-                            {% if station.scenario %}
-                            <p class="mb-2 small text-muted">{{ station.scenario|truncatechars:100 }}</p>
-                            {% endif %}
-                            <div class="small d-flex flex-wrap gap-1">
-                                <span class="badge bg-light text-dark border">
-                                    <i class="bi bi-clock me-1"></i>{{ station.duration_minutes }}m
-                                </span>
-                                <span class="badge bg-light text-dark border">
-                                    <i class="bi bi-list-check me-1"></i>{{ station.checklist_items.count }} items
-                                </span>
-                                <span class="badge bg-success">
-                                    <i class="bi bi-star-fill me-1"></i>{{ station.get_max_score }} pts
-                                </span>
-                            </div>
+            <div class="list-group-item py-3">
+                <div class="row align-items-center">
+                    <!-- Station Info -->
+                    <div class="col-md-5 border-end">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-primary rounded-pill me-2 fs-6" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">{{ station.station_number }}</span>
+                            <h5 class="mb-0 text-truncate" title="{{ station.name }}">{{ station.name }}</h5>
+                        </div>
+                      
+                        
+                        <div class="d-flex gap-2 flex-wrap">
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi bi-clock me-1"></i>{{ station.duration_minutes }}m
+                            </span>
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi bi-list-check me-1"></i>{{ station.checklist_items.count }}
+                            </span>
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success">
+                                {{ station.get_max_score }} marks
+                            </span>
                         </div>
                     </div>
-                    
-                    <!-- Middle: Assigned Examiners -->
-                    <div class="col-lg-5">
-                        <div class="ps-3">
-                            {% if station.assigned_examiners %}
+
+                    <!-- Examiners (Middle Column) -->
+                    <div class="col-md-5 border-end ps-4">
+                        <small class="text-uppercase text-muted fw-bold d-block mb-2" style="font-size: 0.7rem; letter-spacing: 0.5px;">assigned examiners</small>
+                        
+                        {% if station.assigned_examiners %}
                             <div class="d-flex flex-column gap-2">
                                 {% for assignment in station.assigned_examiners %}
                                 <div class="d-flex align-items-center">
-                                    <span class="badge bg-info text-white d-flex align-items-center py-2 px-3" style="font-size: 0.9rem; min-width: 180px;">
-                                        <i class="bi bi-person-fill me-2"></i>
-                                        <strong>{{ assignment.examiner.full_name|truncatechars:20 }}</strong>
-                                    </span>
-                                    {% if not assignment.is_primary %}
-                                    <span class="badge bg-light text-dark ms-2">Backup</span>
-                                    {% else %}
-                                    <span class="badge bg-success ms-2">Primary</span>
-                                    {% endif %}
+                                    <div class="avatar-circle me-2 bg-light text-primary fw-bold border" style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem;">
+                                        {{ assignment.examiner.full_name|slice:":2"|upper }}
+                                    </div>
+                                    <div class="lh-1">
+                                        <div class="fw-semibold text-dark">{{ assignment.examiner.full_name }}</div>
+                                        <small class="text-muted" style="font-size: 0.75rem;">
+                                            {% if assignment.is_primary %}
+                                            <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Primary</span>
+                                            {% else %}
+                                            <span class="text-secondary"><i class="bi bi-shield-fill me-1"></i>Backup</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
                                 </div>
                                 {% endfor %}
                             </div>
-                            {% else %}
-                            <div class="alert alert-warning d-flex align-items-center mb-0 py-2" style="font-size: 0.9rem;">
-                                <i class="bi bi-exclamation-circle me-2"></i>
-                                <span>No examiners assigned</span>
+                        {% else %}
+                            <div class="text-muted fst-italic small py-2">
+                                <i class="bi bi-person-dash me-1"></i>No examiners assigned
                             </div>
-                            {% endif %}
-                        </div>
+                        {% endif %}
                     </div>
-                    
-                    <!-- Right: Actions -->
-                    <div class="col-lg-3 pe-3">
-                        <div class="btn-group btn-group-sm w-100" role="group">
-                            <a href="{% url 'creator:station_detail' station.id %}" class="btn btn-outline-primary" title="View" data-bs-toggle="tooltip">
-                                <i class="bi bi-eye"></i> View
+
+                    <!-- Actions -->
+                    <div class="col-md-2 text-end">
+                        <div class="d-flex flex-column gap-2 justify-content-end align-items-end">
+                             <a href="{% url 'creator:station_detail' station.id %}" class="btn btn-sm btn-outline-primary w-100 mb-1">
+                                <i class="bi bi-eye me-1"></i>View
                             </a>
-                            <a href="{% url 'creator:station_edit' station.id %}" class="btn btn-outline-secondary" title="Edit" data-bs-toggle="tooltip">
-                                <i class="bi bi-pencil"></i> Edit
-                            </a>
-                            <form action="{% url 'creator:station_delete' station.id %}" method="post" class="d-inline"
-                                  onsubmit="return confirm('Delete station {{ station.name|escapejs }}?');">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-danger" title="Delete" data-bs-toggle="tooltip">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </form>
+                            <div class="btn-group w-100">
+                                <a href="{% url 'creator:station_edit' station.id %}" class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form action="{% url 'creator:station_delete' station.id %}" method="post" class="d-inline border-start"
+                                      onsubmit="return confirm('Delete station {{ station.name|escapejs }}?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger w-100 rounded-0 rounded-end" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>

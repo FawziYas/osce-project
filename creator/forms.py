@@ -166,10 +166,9 @@ class PathForm(forms.ModelForm):
     """Path creation/edit form."""
     class Meta:
         model = Path
-        fields = ['name', 'description', 'rotation_minutes']
+        fields = ['name', 'rotation_minutes']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 100}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'rotation_minutes': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 60}),
         }
 

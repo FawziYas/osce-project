@@ -44,7 +44,6 @@ def create_session_path(request, session_id):
     path = Path.objects.create(
         session=session,
         name=data['path_name'],
-        description=data.get('path_description', ''),
         rotation_minutes=data.get('rotation_minutes', 8),
         is_active=True,
     )
@@ -79,8 +78,6 @@ def update_path(request, path_id):
             return JsonResponse({'error': f"Path '{data['name']}' already exists"}, status=400)
         path.name = data['name']
 
-    if 'description' in data:
-        path.description = data['description']
     if 'rotation_minutes' in data:
         path.rotation_minutes = data['rotation_minutes']
 

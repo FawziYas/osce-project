@@ -22,7 +22,6 @@ class Path(TimestampMixin):
     )
 
     name = models.CharField(max_length=50)
-    description = models.CharField(max_length=500, blank=True, default='')
 
     rotation_minutes = models.IntegerField(default=8)
 
