@@ -20,6 +20,10 @@
             Year {{ course.year_level }} 
             <span class="mx-2">&bull;</span>
             {{ ilos|length }} ILOs
+            {% if course.osce_mark %}
+            <span class="mx-2">&bull;</span>
+            <i class="bi bi-award me-1"></i>OSCE Mark: <strong>{{ course.osce_mark }} pts</strong>
+            {% endif %}
         </p>
     </div>
     <div class="btn-group">

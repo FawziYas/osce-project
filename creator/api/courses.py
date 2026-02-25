@@ -19,6 +19,7 @@ def get_courses(request):
         'code': c.code,
         'name': c.name,
         'year_level': c.year_level,
+        'osce_mark': c.osce_mark,
         'ilo_count': c.ilos.count(),
     } for c in courses], safe=False)
 

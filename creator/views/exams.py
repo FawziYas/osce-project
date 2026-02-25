@@ -83,6 +83,12 @@ def exam_wizard(request):
             messages.error(request, 'Station duration is required')
             return render(request, 'creator/exams/wizard.html', {'courses': courses})
 
+        if request.POST.get('exam_weight'):
+            exam.exam_weight = request.POST['exam_weight']
+        else:
+            messages.error(request, 'Exam weight is required.')
+            return render(request, 'creator/exams/wizard.html', {'courses': courses})
+
         exam.save()
 
         # ---------- Sessions ----------
@@ -224,6 +230,16 @@ def exam_edit(request, exam_id):
 
         if request.POST.get('number_of_stations'):
             exam.number_of_stations = int(request.POST['number_of_stations'])
+
+        if request.POST.get('exam_weight'):
+            exam.exam_weight = request.POST['exam_weight']
+        else:
+            messages.error(request, 'Exam weight is required.')
+            return render(request, 'creator/exams/form.html', {
+                'exam': exam,
+                'courses': courses,
+                'date_field_disabled': active_or_completed_sessions,
+            })
 
         exam.save()
         messages.success(request, f'Exam "{exam.name}" updated.')

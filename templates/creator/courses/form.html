@@ -49,6 +49,17 @@
                 </div>
                 
                 <div class="mb-3">
+                    <label for="osce_mark" class="form-label">OSCE Mark <span class="text-danger">*</span></label>
+                    <div class="input-group" style="max-width: 200px;">
+                        <input type="number" class="form-control" id="osce_mark" name="osce_mark"
+                               value="{% if course %}{{ course.osce_mark|default:'' }}{% endif %}"
+                               min="1" step="1" placeholder="e.g. 50" required>
+                        <span class="input-group-text">pts</span>
+                    </div>
+                    <div class="form-text">Total OSCE mark for this course (entered manually). This will be inherited as the default exam weight when creating exams.</div>
+                </div>
+
+                <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
                     <textarea class="form-control" id="description" name="description" 
                               rows="3" placeholder="Optional course description">{% if course %}{{ course.description }}{% endif %}</textarea>

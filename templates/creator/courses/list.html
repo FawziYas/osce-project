@@ -51,7 +51,11 @@
                 <td><span class="badge bg-secondary">Y{{ course.year_level }}</span></td>
                 <td>{{ course.ilos.count }}</td>
                 <td>
-                    <span class="badge bg-info text-dark">{{ course.get_total_osce_marks }} pts</span>
+                    {% if course.osce_mark %}
+                        <span class="badge bg-success">{{ course.osce_mark }} pts</span>
+                    {% else %}
+                        <span class="text-danger small"><i class="bi bi-exclamation-circle me-1"></i>Not set</span>
+                    {% endif %}
                 </td>
                 <td>
                     <div class="btn-group btn-group-sm">

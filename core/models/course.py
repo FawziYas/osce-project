@@ -14,6 +14,10 @@ class Course(TimestampMixin):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, default='')
     year_level = models.IntegerField(default=1)
+    osce_mark = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Total OSCE mark for this course (entered manually, e.g. 50)',
+    )
 
     class Meta:
         db_table = 'courses'
@@ -40,6 +44,7 @@ class Course(TimestampMixin):
             'description': self.description,
             'year_level': self.year_level,
             'total_osce_marks': self.get_total_osce_marks(),
+            'osce_mark': self.osce_mark,
             'ilo_count': self.ilos.count(),
         }
 

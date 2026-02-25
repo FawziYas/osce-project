@@ -22,6 +22,10 @@
                 <span class="mx-2">&bull;</span>
                 <i class="bi bi-calendar me-1"></i>{{ exam.exam_date|date:"Y-m-d" }}
             {% endif %}
+            {% if exam.exam_weight %}
+                <span class="mx-2">&bull;</span>
+                <i class="bi bi-award me-1"></i>Weight: <strong>{{ exam.exam_weight }} pts</strong>
+            {% endif %}
             {% if exam.session_time %}
                 <span class="mx-2">&bull;</span>
                 <i class="bi bi-clock me-1"></i>

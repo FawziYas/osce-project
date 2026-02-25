@@ -80,7 +80,7 @@
                             <select class="form-select" id="course_id" name="course_id" required>
                                 <option value="">Select a course...</option>
                                 {% for course in courses %}
-                                <option value="{{ course.id }}">{{ course.code }} - {{ course.name }}</option>
+                                <option value="{{ course.id }}" data-osce-mark="{{ course.osce_mark|default:'' }}">{{ course.code }} - {{ course.name }}</option>
                                 {% endfor %}
                             </select>
                             <div class="form-text">The ILOs from this course will be assessed</div>
@@ -105,6 +105,15 @@
                     <div class="form-section">
                         <h6>Exam Configuration</h6>
                         <p class="form-text text-muted small mb-3">Stations will be added separately after exam creation.</p>
+                        <div class="mb-3">
+                            <label for="exam_weight" class="form-label">Exam Weight <span class="text-danger">*</span></label>
+                            <div class="input-group" style="max-width: 220px;">
+                                <input type="number" class="form-control" id="exam_weight" name="exam_weight"
+                                       min="1" step="0.5" placeholder="e.g. 40" required>
+                                <span class="input-group-text">pts</span>
+                            </div>
+                            <div class="form-text">Auto-filled from the selected course's OSCE mark. You can override it — this is the score students' results will be reported out of.</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -155,6 +164,7 @@
                                     <dt>Exam Name:</dt><dd class="ms-3" id="review_exam_name">-</dd>
                                     <dt>Course:</dt><dd class="ms-3" id="review_course">-</dd>
                                     <dt>Exam Date:</dt><dd class="ms-3" id="review_exam_date">-</dd>
+                                    <dt>Exam Weight:</dt><dd class="ms-3" id="review_exam_weight">-</dd>
                                 </dl>
                             </div>
                             <div class="col-md-6">
@@ -224,7 +234,9 @@ function validateStep(step) {
         const name = document.getElementById('exam_name').value.trim();
         const course = document.getElementById('course_id').value;
         const date = document.getElementById('exam_date').value;
+        const weight = document.getElementById('exam_weight').value;
         if (!name || !course || !date) { alert('Please fill in Exam Name, Course, and Date'); return false; }
+        if (!weight || parseFloat(weight) <= 0) { alert('Exam Weight is required'); return false; }
     }
     if (step === 2) {
         const duration = document.getElementById('station_duration_minutes').value;
@@ -265,6 +277,8 @@ function updateReview() {
     const cs = document.getElementById('course_id');
     document.getElementById('review_course').textContent = cs.options[cs.selectedIndex].text || '-';
     document.getElementById('review_exam_date').textContent = document.getElementById('exam_date').value || '-';
+    const w = document.getElementById('exam_weight').value;
+    document.getElementById('review_exam_weight').textContent = w ? w + ' pts' : 'Not set';
     const sc = document.querySelectorAll('.session-input-group').length;
     document.getElementById('review_sessions').textContent = sc + ' session(s)';
     const details = [];
@@ -281,6 +295,21 @@ document.addEventListener('DOMContentLoaded', function() {
         examDateInput.addEventListener('change', function() {
             const d = new Date(this.value + 'T00:00:00Z').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
             document.getElementById('examDateDisplay').textContent = d || '-';
+        });
+    }
+
+    // Auto-fill exam_weight from selected course's osce_mark
+    const courseSelect = document.getElementById('course_id');
+    const weightInput = document.getElementById('exam_weight');
+    if (courseSelect && weightInput) {
+        courseSelect.addEventListener('change', function() {
+            const selected = this.options[this.selectedIndex];
+            const osceMark = selected.dataset.osceMark;
+            if (osceMark) {
+                weightInput.value = osceMark;
+            } else {
+                weightInput.value = '';
+            }
         });
     }
 });

@@ -22,6 +22,11 @@ class Exam(TimestampMixin):
 
     number_of_stations = models.IntegerField(default=4)
     station_duration_minutes = models.IntegerField(default=8)
+    exam_weight = models.DecimalField(
+        max_digits=6, decimal_places=2,
+        null=True, blank=True,
+        help_text='Final grade weight (e.g. 40 means the exam is marked out of 40 regardless of total station marks)'
+    )
 
     # Status: draft, ready, in_progress, completed, archived
     status = models.CharField(max_length=20, default='draft')

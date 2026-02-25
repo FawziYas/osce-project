@@ -24,16 +24,18 @@ def course_list(request):
 def course_create(request):
     """Create a new course."""
     if request.method == 'POST':
+        osce_mark_raw = request.POST.get('osce_mark', '').strip()
         course = Course.objects.create(
             code=request.POST['code'],
             name=request.POST['name'],
             year_level=int(request.POST.get('year_level', 1)),
             description=request.POST.get('description', ''),
+            osce_mark=int(osce_mark_raw) if osce_mark_raw else None,
         )
         messages.success(request, f'Course "{course.code}" created successfully.')
         return redirect('creator:course_detail', course_id=course.id)
 
-    return render(request, 'creator/courses/form.html', {'course': None})
+    return render(request, 'creator/courses/form.html', {'course': None, 'year_range': range(1, 7)})
 
 
 @login_required
@@ -57,11 +59,13 @@ def course_edit(request, course_id):
         course.name = request.POST['name']
         course.year_level = int(request.POST.get('year_level', course.year_level))
         course.description = request.POST.get('description', '')
+        osce_mark_raw = request.POST.get('osce_mark', '').strip()
+        course.osce_mark = int(osce_mark_raw) if osce_mark_raw else None
         course.save()
         messages.success(request, f'Course "{course.code}" updated.')
         return redirect('creator:course_detail', course_id=course.id)
 
-    return render(request, 'creator/courses/form.html', {'course': course})
+    return render(request, 'creator/courses/form.html', {'course': course, 'year_range': range(1, 7)})
 
 
 # =============================================================================

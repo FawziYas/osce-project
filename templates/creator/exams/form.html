@@ -57,8 +57,8 @@
                                {% if date_field_disabled %}disabled{% endif %}>
                         <small class="text-muted">Optional planning date{% if date_field_disabled %}<br><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Locked: Sessions in progress or completed</span>{% endif %}</small>
                     </div>
-                    
-                    <div class="col-md-12">
+
+                    <div class="col-md-8">
                         <label for="department" class="form-label fw-bold">Department <span class="text-danger">*</span></label>
                         <select class="form-select" id="department" name="department" required {% if exam %}disabled{% endif %}>
                             <option value="">Select department...</option>
@@ -71,6 +71,17 @@
                         <input type="hidden" name="department" value="{{ exam.department }}">
                         <small class="text-muted">Department cannot be changed after creation</small>
                         {% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="exam_weight" class="form-label fw-bold">Exam Weight <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="exam_weight" name="exam_weight"
+                                   value="{% if exam and exam.exam_weight %}{{ exam.exam_weight }}{% endif %}"
+                                   min="1" step="0.5" placeholder="e.g. 40" required>
+                            <span class="input-group-text">pts</span>
+                        </div>
+                        <small class="text-muted">Score students' results are reported out of (e.g. 40 if exam is from 40 regardless of total station marks)</small>
                     </div>
                 </div>
               
