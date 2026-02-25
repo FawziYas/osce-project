@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 
-from core.models import Exam, ExamSession, Path, Station, ChecklistItem
+from core.models import Exam, ExamSession, Path, Station, ChecklistItem, ExaminerAssignment
 
 
 @login_required
@@ -19,6 +19,26 @@ def path_detail(request, path_id):
         .prefetch_related('checklist_items') \
         .order_by('station_number')
     exam = path.exam
+    
+    # Get examiner assignments for this path's session
+    session = path.session
+    assignments_by_station = {}
+    if session:
+        assignments = ExaminerAssignment.objects.filter(
+            session=session,
+            station__path=path
+        ).select_related('examiner')
+        
+        # Group by station
+        for assignment in assignments:
+            station_id = assignment.station_id
+            if station_id not in assignments_by_station:
+                assignments_by_station[station_id] = []
+            assignments_by_station[station_id].append(assignment)
+    
+    # Add assignments to each station
+    for station in stations:
+        station.assigned_examiners = assignments_by_station.get(station.id, [])
 
     return render(request, 'creator/paths/detail.html', {
         'path': path,
