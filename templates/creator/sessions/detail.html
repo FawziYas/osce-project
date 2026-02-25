@@ -575,24 +575,27 @@
                         <label class="btn btn-outline-primary" for="pattern_numbers">Path 1, Path 2...</label>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label for="rotationMinutes" class="form-label">Minutes Per Station <span class="text-danger">*</span></label>
-                    <input type="number" class="form-control" id="rotationMinutes" name="rotation_minutes" 
-                           value="{{ session.exam.station_duration_minutes|default:8 }}" min="1" max="60" required>
-                    <small class="form-text text-muted">Duration each student spends at each station</small>
-                </div>
                 {% if paths %}
                 <div class="mb-3">
                     <label for="copyFromPath" class="form-label">Copy Stations &amp; Checklist (Optional)</label>
                     <select class="form-select" id="copyFromPath" name="copy_from_path_id">
-                        <option value="">-- Don't copy --</option>
+                        <option value="" data-minutes="">-- Don't copy --</option>
                         {% for path in paths %}
-                        <option value="{{ path.id }}">Path {{ path.name }} ({{ path.station_count }} station{{ path.station_count|pluralize }})</option>
+                        <option value="{{ path.id }}" data-minutes="{{ path.rotation_minutes }}">Path {{ path.name }} ({{ path.station_count }} station{{ path.station_count|pluralize }}, {{ path.rotation_minutes }} min)</option>
                         {% endfor %}
                     </select>
-                    <small class="form-text text-muted">All new paths will copy stations &amp; checklists from selected path</small>
+                    <small class="form-text text-muted">All new paths will copy stations &amp; checklists from the selected path</small>
                 </div>
                 {% endif %}
+                <div class="mb-3">
+                    <label for="rotationMinutes" class="form-label d-flex align-items-center gap-2">
+                        Minutes Per Station <span class="text-danger">*</span>
+                        <span id="bulk_duration_badge" class="badge bg-info" style="display:none; font-weight:normal; font-size:0.75rem;"></span>
+                    </label>
+                    <input type="number" class="form-control" id="rotationMinutes" name="rotation_minutes"
+                           value="{{ session.exam.station_duration_minutes|default:8 }}" min="1" max="60" required>
+                    <small class="form-text text-muted" id="bulk_duration_help">Inherited from exam ({{ session.exam.station_duration_minutes|default:8 }} min) &mdash; you can change it</small>
+                </div>
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle me-2"></i><strong>What you'll get:</strong> All paths with same settings, ready to add stations or copy from existing paths
                 </div>
@@ -762,6 +765,42 @@ function submitBatchPathForm() {
     if (count < 1 || count > 26) { alert('Enter 1-26'); return; }
     if (confirm(`Create ${count} path(s)?`)) document.getElementById('batchPathForm').submit();
 }
+
+// Lock/unlock duration when copying in bulk path creation modal
+(function () {
+    const modal = document.getElementById('createMultiplePathsModal');
+    if (!modal) return;
+    modal.addEventListener('shown.bs.modal', function () {
+        const copySelect    = document.getElementById('copyFromPath');
+        const durationInput = document.getElementById('rotationMinutes');
+        const badge         = document.getElementById('bulk_duration_badge');
+        const helpText      = document.getElementById('bulk_duration_help');
+        if (!copySelect || !durationInput) return;
+        const examDefault = {{ session.exam.station_duration_minutes|default:8 }};
+
+        function update() {
+            const selected = copySelect.options[copySelect.selectedIndex];
+            const minutes  = selected.getAttribute('data-minutes');
+            if (minutes) {
+                durationInput.value = minutes;
+                durationInput.readOnly = true;
+                durationInput.style.backgroundColor = '#e9ecef';
+                durationInput.style.cursor = 'not-allowed';
+                if (badge) { badge.textContent = 'From: ' + selected.text.split('(')[0].trim(); badge.style.display = 'inline'; }
+                if (helpText) helpText.innerHTML = '<i class="bi bi-lock me-1"></i>Taken from the copied path &mdash; adjust later in <strong>Edit Path</strong>';
+            } else {
+                durationInput.value = examDefault;
+                durationInput.readOnly = false;
+                durationInput.style.backgroundColor = '';
+                durationInput.style.cursor = '';
+                if (badge) badge.style.display = 'none';
+                if (helpText) helpText.innerHTML = 'Inherited from exam (' + examDefault + ' min) &mdash; you can change it';
+            }
+        }
+        copySelect.removeEventListener('change', update);
+        copySelect.addEventListener('change', update);
+    });
+})();
 
 function toggleScorePanel() {
     const body = document.getElementById('score-panel-body');

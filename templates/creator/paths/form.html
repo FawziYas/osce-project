@@ -56,13 +56,11 @@
                     <div class="mb-3">
                         <label for="rotation_minutes" class="form-label d-flex align-items-center gap-2">
                             Minutes Per Station
-                            <span id="duration_source_badge" class="badge bg-info" style="display:none; font-weight:normal; font-size:0.75rem;"></span>
+                           
                         </label>
                         <input type="number" class="form-control" id="rotation_minutes" name="rotation_minutes"
                                value="{% if path %}{{ path.rotation_minutes }}{% else %}{{ default_rotation_minutes }}{% endif %}" min="1" max="60" required>
-                        <div class="form-text" id="duration_help">
-                            {% if not path %}Inherited from exam ({{ default_rotation_minutes }} min) &mdash; you can change it{% else %}Duration each student spends at each station{% endif %}
-                        </div>
+                       
                     </div>
 
                     <!-- Submit -->

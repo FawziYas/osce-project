@@ -165,8 +165,8 @@ def batch_create_paths(request, session_id):
 
         path_count = int(request.POST.get('path_count', 1))
         naming_pattern = request.POST.get('naming_pattern', 'letters')
-        rotation_minutes = int(request.POST.get('rotation_minutes', exam.station_duration_minutes or 8))
         copy_from_path_id = request.POST.get('copy_from_path_id')
+        source_rotation = None
 
         if path_count < 1 or path_count > 50:
             messages.error(request, 'Path count must be between 1 and 50')
@@ -179,8 +179,12 @@ def batch_create_paths(request, session_id):
                 source_stations = list(
                     Station.objects.filter(path=source_path, active=True).order_by('station_number')
                 )
+                # When copying, inherit the source path's rotation_minutes
+                rotation_minutes = source_path.rotation_minutes
             except Path.DoesNotExist:
-                pass
+                rotation_minutes = int(request.POST.get('rotation_minutes') or exam.station_duration_minutes or 8)
+        else:
+            rotation_minutes = int(request.POST.get('rotation_minutes') or exam.station_duration_minutes or 8)
 
         created_paths = []
 
@@ -198,7 +202,6 @@ def batch_create_paths(request, session_id):
             path = Path(
                 session=session,
                 name=cand,
-                description=f'Path {cand}' if naming_pattern == 'letters' else str(cand),
                 rotation_minutes=rotation_minutes,
                 is_active=True,
             )
