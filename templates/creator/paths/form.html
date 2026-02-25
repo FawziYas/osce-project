@@ -32,10 +32,13 @@
 
                     <!-- Rotation Minutes -->
                     <div class="mb-3">
-                        <label for="rotation_minutes" class="form-label">Minutes Per Station</label>
+                        <label for="rotation_minutes" class="form-label">
+                            Minutes Per Station
+                            {% if not path %}<small class="text-muted">(From Exam: {{ default_rotation_minutes }})</small>{% endif %}
+                        </label>
                         <input type="number" class="form-control" id="rotation_minutes" name="rotation_minutes"
                                value="{% if path %}{{ path.rotation_minutes }}{% else %}{{ default_rotation_minutes }}{% endif %}" min="1" max="60">
-                        <div class="form-text">Duration each student spends at each station</div>
+                        <div class="form-text">Duration each student spends at each station (can be changed)</div>
                     </div>
 
                     {% if not path and other_paths %}

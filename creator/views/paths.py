@@ -97,6 +97,7 @@ def create_path(request, session_id):
         'path': None,
         'exam': exam,
         'other_paths': other_paths,
+        'default_rotation_minutes': exam.station_duration_minutes or 8,
     })
 
 

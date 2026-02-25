@@ -14,9 +14,7 @@
             </ol>
         </nav>
         <h1 class="mb-1">Path {{ path.name }}</h1>
-        <p class="text-muted mb-0">
-            <span class="badge bg-secondary">{{ path.student_count }} students</span>
-        </p>
+       
     </div>
     <div class="btn-group flex-wrap">
         <a href="{% url 'creator:station_create' path.id %}" class="btn btn-primary">
@@ -45,6 +43,15 @@
             </div>
         </div>
     </div>
+      <div class="col-6 col-md-3">
+        <div class="card border-0 bg-light">
+            <div class="card-body text-center py-3">
+                <div class="fs-3 fw-bold text-danger-emphasis"> {{ path.student_count }} </div>
+                <div class="small text-muted">Students</div>
+            </div>
+        </div>
+    </div>
+   
     <div class="col-6 col-md-3">
         <div class="card border-0 bg-light">
             <div class="card-body text-center py-3">
@@ -61,14 +68,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card border-0 bg-light">
-            <div class="card-body text-center py-3">
-                <div class="fs-3 fw-bold text-warning">{{ path.rotation_minutes }}</div>
-                <div class="small text-muted">Min/Station</div>
-            </div>
-        </div>
-    </div>
+ 
 </div>
 
 <!-- Stations List -->
