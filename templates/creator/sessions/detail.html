@@ -78,9 +78,15 @@
     <div class="btn-group flex-wrap">
         {% if session.status == 'scheduled' %}
         <button type="button" class="btn btn-success" onclick="activateSession()"><i class="bi bi-play-fill me-1"></i>Activate</button>
+        {% if request.user.is_superuser %}
+        <button type="button" class="btn btn-danger" onclick="hardDeleteSession()"><i class="bi bi-trash me-1"></i>Delete Permanently</button>
+        {% endif %}
         {% elif session.status == 'in_progress' %}
         <button type="button" class="btn btn-warning" onclick="deactivateSession()"><i class="bi bi-pause-fill me-1"></i>Pause</button>
         <button type="button" class="btn btn-secondary" onclick="completeSession()"><i class="bi bi-stop-fill me-1"></i>Complete</button>
+        {% if request.user.is_superuser %}
+        <button type="button" class="btn btn-danger" onclick="hardDeleteSession()"><i class="bi bi-trash me-1"></i>Delete Permanently</button>
+        {% endif %}
         {% elif session.status == 'completed' %}
         {% if user.is_superuser or perms.core.can_revert_session %}
         <button type="button" class="btn btn-outline-primary" onclick="revertToScheduled()" title="Revert session back to scheduled status">
