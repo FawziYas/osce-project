@@ -124,7 +124,6 @@ def session_create(request, exam_id):
                 Path.objects.create(
                     session=session,
                     name=path_name,
-                    description=f'Path {path_name}',
                     rotation_minutes=exam.station_duration_minutes,
                     is_active=True,
                 )
