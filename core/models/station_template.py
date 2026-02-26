@@ -78,13 +78,14 @@ class StationTemplate(TimestampMixin):
         path = Path.objects.get(pk=path_id)
 
         if station_number is None:
-            active_nums = set(
-                Station.objects.filter(
-                    path_id=path_id, active=True, is_deleted=False
-                ).values_list('station_number', flat=True)
+            # Query ALL station numbers for this path (regardless of active/deleted
+            # status) so we don't collide with the unique(path_id, station_number) constraint.
+            used_nums = set(
+                Station.objects.filter(path_id=path_id)
+                .values_list('station_number', flat=True)
             )
             station_number = 1
-            while station_number in active_nums:
+            while station_number in used_nums:
                 station_number += 1
 
         station = Station(
@@ -107,7 +108,7 @@ class StationTemplate(TimestampMixin):
                 description=item_data.get('description', ''),
                 points=float(item_data.get('points', 1)),
                 rubric_type=item_data.get('scoring_type', 'binary'),
-                category=item_data.get('section', ''),
+                category=item_data.get('section') or '',
                 ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
             )
         return station

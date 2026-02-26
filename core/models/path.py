@@ -4,6 +4,7 @@ Path models – rotation tracks (A, B, C) within a session.
 import uuid
 from datetime import datetime, timezone
 from django.db import models
+from django.db.models import Q
 from .mixins import TimestampMixin
 
 
@@ -34,6 +35,7 @@ class Path(TimestampMixin):
         constraints = [
             models.UniqueConstraint(
                 fields=['session', 'name'],
+                condition=Q(is_deleted=False),
                 name='unique_session_path_name_v2'
             ),
         ]
@@ -97,7 +99,6 @@ class Path(TimestampMixin):
             'session_id': str(self.session_id),
             'exam_id': str(self.session.exam_id) if self.session else None,
             'name': self.name,
-            'description': self.description,
             'rotation_minutes': self.rotation_minutes,
             'station_count': self.station_count,
             'student_count': self.student_count,

@@ -60,14 +60,13 @@ urlpatterns = [
     path('sessions/<uuid:session_id>/paths/batch-create/', paths.batch_create_paths, name='batch_create_paths'),
     path('paths/<uuid:path_id>/edit/', paths.edit_path, name='edit_path'),
     path('paths/<uuid:path_id>/delete/', paths.delete_path, name='delete_path'),
-    path('paths/<uuid:path_id>/restore/', paths.restore_path, name='restore_path'),
+
 
     # ── Stations ───────────────────────────────────────────────────────────
     path('paths/<uuid:path_id>/stations/new/', stations.station_create, name='station_create'),
     path('stations/<uuid:station_id>/', stations.station_detail, name='station_detail'),
     path('stations/<uuid:station_id>/edit/', stations.station_edit, name='station_edit'),
     path('stations/<uuid:station_id>/delete/', stations.station_delete, name='station_delete'),
-    path('stations/<uuid:station_id>/restore/', stations.station_restore, name='station_restore'),
 
     # ── Checklist Library ──────────────────────────────────────────────────
     path('library/', library.library_list, name='library_list'),

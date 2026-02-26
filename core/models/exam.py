@@ -228,7 +228,7 @@ class ChecklistItem(TimestampMixin):
 
     item_number = models.IntegerField()
     description = models.TextField()
-    points = models.IntegerField(default=1)
+    points = models.FloatField(default=1)
     category = models.CharField(max_length=50, blank=True, default='')
     is_critical = models.BooleanField(default=False)
 

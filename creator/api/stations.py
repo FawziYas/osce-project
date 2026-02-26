@@ -24,16 +24,9 @@ def delete_station_api(request, station_id):
             status=400,
         )
 
-    station.active = False
-    station.save()
-    return JsonResponse({'message': f"Station '{station.name}' archived"})
+    name = station.name
+    station.delete()
+    return JsonResponse({'message': f"Station '{name}' deleted"})
 
 
-@login_required
-@require_POST
-def restore_station_api(request, station_id):
-    """POST /api/creator/stations/<id>/restore"""
-    station = get_object_or_404(Station, pk=station_id)
-    station.active = True
-    station.save()
-    return JsonResponse({'message': f"Station '{station.name}' restored"})
+

@@ -64,12 +64,20 @@ def login_view(request):
             # ── Single-active-session check ───────────────────────────────
             try:
                 existing = UserSession.objects.get(user=user)
-                if existing.is_session_alive():
-                    # A real open session exists — block this login
+
+                # Same session reconnecting (same browser/PC) — allow through
+                current_session_key = request.session.session_key
+                if current_session_key and current_session_key == existing.session_key:
+                    logger.info(
+                        "User '%s' re-login from same session — allowed.",
+                        user.username,
+                    )
+                elif existing.is_session_alive():
+                    # A real open session exists on a DIFFERENT browser/PC — block
                     logger.warning(
                         "Blocked login for user '%s' from IP %s — "
-                        "active session already exists.",
-                        user.username, ip
+                        "active session already exists (key %s).",
+                        user.username, ip, existing.session_key[:8]
                     )
                     messages.error(
                         request,

@@ -60,7 +60,7 @@ def create_path(request, session_id):
             messages.error(request, 'Path name is required')
             return redirect('creator:create_path', session_id=str(session_id))
 
-        if Path.objects.filter(session=session, name=path_name).exists():
+        if Path.objects.filter(session=session, name=path_name, is_deleted=False).exists():
             messages.error(request, f"Path '{path_name}' already exists")
             return redirect('creator:create_path', session_id=str(session_id))
 
@@ -131,7 +131,7 @@ def edit_path(request, path_id):
 
 @login_required
 def delete_path(request, path_id):
-    """Soft delete a path."""
+    """Hard delete a path and all its stations/checklist items."""
     path = get_object_or_404(Path, pk=path_id)
     session_id = str(path.session_id)
 
@@ -139,18 +139,10 @@ def delete_path(request, path_id):
         messages.error(request, 'Cannot delete paths after session has been activated.')
         return redirect('creator:session_detail', session_id=session_id)
 
-    path.soft_delete()
-    messages.success(request, f"Path '{path.name}' has been deleted.")
+    name = path.name
+    path.delete()
+    messages.success(request, f"Path '{name}' has been permanently deleted.")
     return redirect('creator:session_detail', session_id=session_id)
-
-
-@login_required
-def restore_path(request, path_id):
-    """Restore a soft-deleted path."""
-    path = get_object_or_404(Path, pk=path_id)
-    path.restore()
-    messages.success(request, f"Path '{path.name}' has been restored.")
-    return redirect('creator:path_detail', path_id=str(path.id))
 
 
 @login_required
@@ -196,7 +188,7 @@ def batch_create_paths(request, session_id):
         for cand in candidates:
             if len(created_paths) >= path_count:
                 break
-            if Path.objects.filter(session=session, name=cand).exists():
+            if Path.objects.filter(session=session, name=cand, is_deleted=False).exists():
                 continue
 
             path = Path(

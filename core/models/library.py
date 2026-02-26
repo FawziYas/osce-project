@@ -14,7 +14,7 @@ class ChecklistLibrary(TimestampMixin):
     )
 
     description = models.TextField()
-    suggested_points = models.IntegerField(default=1)
+    suggested_points = models.FloatField(default=1)
     is_critical = models.BooleanField(default=False)
 
     rubric_type = models.CharField(max_length=20, default='binary')

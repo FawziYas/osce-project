@@ -216,21 +216,13 @@ def station_edit(request, station_id):
 
 @login_required
 def station_delete(request, station_id):
-    """Soft delete a station."""
+    """Hard delete a station."""
     station = get_object_or_404(Station, pk=station_id)
     path_id = str(station.path_id) if station.path_id else None
+    name = station.name
 
-    station.soft_delete()
-    messages.success(request, f"Station '{station.name}' has been deleted.")
+    station.delete()
+    messages.success(request, f"Station '{name}' has been deleted.")
     if path_id:
         return redirect('creator:path_detail', path_id=path_id)
     return redirect('creator:exam_list')
-
-
-@login_required
-def station_restore(request, station_id):
-    """Restore a soft-deleted station."""
-    station = get_object_or_404(Station, pk=station_id)
-    station.restore()
-    messages.success(request, f"Station '{station.name}' has been restored.")
-    return redirect('creator:station_detail', station_id=str(station.id))

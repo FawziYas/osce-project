@@ -589,11 +589,6 @@
                 </div>
             </div>
             
-            <!-- Checklist Items Container -->
-            <div id="checklistContainer">
-                <!-- Items will be added here dynamically -->
-            </div>
-            
             <!-- Add Item Button -->
             <div class="d-flex gap-2 mb-3">
                 <button type="button" class="add-item-btn flex-grow-1" onclick="addNewItem()">
@@ -603,6 +598,11 @@
                 <button type="button" class="add-section-btn" onclick="addSection()">
                     <i class="bi bi-folder-plus me-1"></i>Add Section
                 </button>
+            </div>
+            
+            <!-- Checklist Items Container -->
+            <div id="checklistContainer">
+                <!-- Items will be added here dynamically -->
             </div>
             
         </div>
@@ -690,11 +690,12 @@
                         <span class="option-label">Points:</span>
                         <div class="points-quick-select">
                             <span class="points-chip" data-pts="0.5" onclick="setPoints(this, 0.5)">0.5</span>
-                            <span class="points-chip active" data-pts="1" onclick="setPoints(this, 1)">1</span>
+                            <span class="points-chip active" data-pts="0.75" onclick="setPoints(this, 0.75)">0.75</span>
+                            <span class="points-chip" data-pts="1" onclick="setPoints(this, 1)">1</span>
                             <span class="points-chip" data-pts="2" onclick="setPoints(this, 2)">2</span>
                             <span class="points-chip" data-pts="3" onclick="setPoints(this, 3)">3</span>
-                            <input type="number" class="points-custom-input" placeholder="..." 
-                                   min="0" max="20" step="0.5" onchange="setCustomPoints(this)">
+                            <input type="number" class="points-custom-input" placeholder="custom" 
+                                   min="0" max="20" step="0.25" oninput="setCustomPoints(this)" onchange="setCustomPoints(this)">
                         </div>
                     </div>
                     
@@ -853,7 +854,7 @@ function deleteSection(btn) {
     setTimeout(() => { card.remove(); }, 200);
 }
 
-function addNewItem(description = '', points = 1, scale = 'binary', iloId = '', customLabels = null) {
+function addNewItem(description = '', points = 0.75, scale = 'binary', iloId = '', customLabels = null) {
     const container = document.getElementById('checklistContainer');
     const template = document.getElementById('itemTemplate');
     const clone = template.content.cloneNode(true);
@@ -1620,9 +1621,10 @@ if (existingItems && existingItems.length > 0) {
     document.addEventListener('DOMContentLoaded', function() {
         let lastSection = null;
         existingItems.forEach(item => {
-            if (item.category && item.category !== lastSection) {
-                addSection(item.category);
-                lastSection = item.category;
+            const itemSection = item.section || item.category || null;
+            if (itemSection && itemSection !== lastSection) {
+                addSection(itemSection);
+                lastSection = itemSection;
             }
             addNewItem(
                 item.description,

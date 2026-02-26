@@ -19,9 +19,8 @@ urlpatterns = [
     path('exams/<uuid:exam_id>/restore', exams.restore_exam_api, name='restore_exam'),
     path('stations/<uuid:station_id>/items', exams.get_station_items, name='get_station_items'),
 
-    # ── Stations (delete/restore) ────────────────────────────────────────────
+    # ── Stations (delete) ────────────────────────────────────────────────────
     path('stations/<uuid:station_id>', stations.delete_station_api, name='delete_station'),
-    path('stations/<uuid:station_id>/restore', stations.restore_station_api, name='restore_station'),
 
     # ── Sessions ─────────────────────────────────────────────────────────────
     path('sessions/<uuid:session_id>/status', sessions.get_session_status, name='session_status'),

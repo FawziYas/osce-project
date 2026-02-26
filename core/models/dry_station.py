@@ -20,7 +20,7 @@ class DryQuestion(TimestampMixin):
     question_text = models.TextField()
     stem_image = models.CharField(max_length=255, blank=True, default='')
 
-    points = models.IntegerField(default=1)
+    points = models.FloatField(default=1)
 
     # Essay specific
     instructions = models.TextField(blank=True, default='')
