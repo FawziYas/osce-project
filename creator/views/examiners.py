@@ -50,7 +50,7 @@ def examiner_create(request):
     """Create a new examiner."""
     if request.method == 'POST':
         username = request.POST['username'].strip().lower()
-        email = request.POST['email'].strip().lower()
+        email = request.POST.get('email', '').strip().lower()
 
         if Examiner.objects.filter(username=username).exists():
             messages.error(request, f'Username "{username}" already exists.')
@@ -60,7 +60,7 @@ def examiner_create(request):
                 'default_password': default_password,
             })
 
-        if Examiner.objects.filter(email=email).exists():
+        if email and Examiner.objects.filter(email=email).exists():
             messages.error(request, f'Email "{email}" already exists.')
             default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
             return render(request, 'creator/examiners/form.html', {
@@ -110,8 +110,8 @@ def examiner_edit(request, examiner_id):
     examiner = get_object_or_404(Examiner, pk=examiner_id)
 
     if request.method == 'POST':
-        email = request.POST['email'].strip().lower()
-        if Examiner.objects.filter(email=email).exclude(pk=examiner_id).exists():
+        email = request.POST.get('email', '').strip().lower()
+        if email and Examiner.objects.filter(email=email).exclude(pk=examiner_id).exists():
             messages.error(request, f'Email "{email}" is already used by another examiner.')
             return render(request, 'creator/examiners/form.html', {'examiner': examiner})
 
@@ -205,12 +205,22 @@ def examiner_unassign(request, assignment_id):
     examiner_id = assignment.examiner_id
 
     session = ExamSession.objects.filter(pk=assignment.session_id).first()
-    if session and session.actual_start:
+    if session and session.actual_start and not request.user.is_superuser:
         messages.error(request, 'Cannot remove examiner assignments after session has been activated.')
         return redirect('creator:session_detail', session_id=str(session.id))
 
+    session_id = assignment.session_id
     assignment.delete()
     messages.success(request, 'Assignment removed.')
+
+    # Redirect back to where the user came from
+    next_url = request.POST.get('next') or request.GET.get('next', '')
+    if next_url:
+        return redirect(next_url)
+    # If coming from session detail, go back there
+    referer = request.META.get('HTTP_REFERER', '')
+    if session_id and 'session' in referer:
+        return redirect('creator:session_detail', session_id=str(session_id))
     return redirect('creator:examiner_detail', examiner_id=examiner_id)
 
 
@@ -292,7 +302,7 @@ def examiner_bulk_upload(request):
         ws = wb.active
 
         headers = [str(c.value).strip().lower() for c in ws[1] if c.value]
-        required = ['full_name', 'username', 'email']
+        required = ['full_name', 'username']
         for field in required:
             if field not in headers:
                 messages.error(request, f'Missing required column: {field}')
@@ -307,19 +317,19 @@ def examiner_bulk_upload(request):
                 continue
             try:
                 username = str(row[idx['username']]).strip().lower()
-                email = str(row[idx['email']]).strip().lower()
+                email = str(row[idx['email']]).strip().lower() if 'email' in idx and row[idx['email']] else ''
                 full_name = str(row[idx['full_name']]).strip()
                 title = str(row[idx.get('title', -1)]).strip() if 'title' in idx and row[idx['title']] else ''
                 department = str(row[idx.get('department', -1)]).strip() if 'department' in idx and row[idx['department']] else ''
 
-                if not all([username, email, full_name]):
+                if not all([username, full_name]):
                     errors_list.append(f'Row {row_num}: Missing required data')
                     continue
 
                 if Examiner.objects.filter(username=username).exists():
                     errors_list.append(f"Row {row_num}: Username '{username}' already exists")
                     continue
-                if Examiner.objects.filter(email=email).exists():
+                if email and Examiner.objects.filter(email=email).exists():
                     errors_list.append(f"Row {row_num}: Email '{email}' already exists")
                     continue
 

@@ -395,10 +395,10 @@ function renderQuestionCard(item, itemNum) {
                 <div class="d-flex align-items-center gap-2">
                     <span class="question-number-badge">Q${itemNum}</span>
                      <div class="question-text-inline">${item.description}</div>
-                    ${item.ilo_name ? `
+                    ${item.ilo_number != null ? `
                         <div class="ilo-badge">
                             <i class="bi bi-tag-fill"></i>
-                            <span>ILO: ${item.ilo_name}</span>
+                            <span>ILO ${item.ilo_number}</span>
                         </div>` : ''}
 
                     <div class="marks-badge">

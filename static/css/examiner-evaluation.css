@@ -190,30 +190,35 @@
 .section-divider {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin: 24px 0 16px 0; /* Decreased from 40px 0 24px 0 */
+    gap: 0;
+    margin: 28px 0 16px 0;
+    position: relative;
 }
 
 .section-label {
-    font-size: 1rem;
-    font-weight: 800;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #ffffff;
     text-transform: uppercase;
-    color: #111827;
-    background: white;
-    padding: 8px 25px;
-    border-radius: 0.75rem;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    padding: 8px 36px 8px 18px;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
+    box-shadow: 2px 2px 8px rgba(99, 102, 241, 0.3);
     white-space: nowrap;
-    border: 2px solid #d6d8db;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
 }
 
 .section-line {
-    flex: 1;
-    height: 3px;
-    background: #E5E7EB;
-    border-radius: 4px;
+    flex: 3;
+    height: 10px;
+    background: linear-gradient(to right, #6366f1 0%, #a5b4fc 40%, #c7d2fe 70%, transparent 100%);
+    margin-left: 0;
+    opacity: 12;
+    border-radius: 0 100px 100px 0;
 }
 
 .question-card {
@@ -295,10 +300,10 @@
 }
 
 .question-text-inline {
-    font-size: 1.05rem;
-    line-height: 1.4;
+    font-size: clamp(1.05rem, 2.5vw, 1.2rem);
+    line-height: 1.5;
     color: #000000;
-    font-weight: 400;
+    font-weight: 500;
     flex: 1;
 }
 
@@ -307,11 +312,11 @@
 }
 
 .question-text {
-    font-size: 1rem; /* Reduced from 1.15rem */
-    line-height: 1.4;
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    line-height: 1.5;
     color: #000000;
-    font-weight: 400;
-    margin-bottom: 5px; /* Reduced from 8px */
+    font-weight: 500;
+    margin-bottom: 5px;
 }
 
 .question-prompt {

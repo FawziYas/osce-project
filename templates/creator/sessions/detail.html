@@ -4,7 +4,24 @@
 {% block title %}Session - {{ session.name|default:"Session" }}{% endblock %}
 
 {% block extra_css %}
+<!-- Select2 for searchable examiner dropdowns -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
 <style>
+/* ── Select2 inside modal fixes ───────────────────────────────────────── */
+.select2-container--bootstrap-5 .select2-selection--single {
+    height: calc(1.5em + 0.5rem + 2px) !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.875rem !important;
+}
+.select2-container--bootstrap-5 .select2-dropdown {
+    z-index: 1060;
+}
+.select2-results__options {
+    max-height: 220px !important;
+    overflow-y: auto !important;
+}
+
 /* ── Live Student Search ──────────────────────────────────────────────── */
 .student-search-wrapper { position: relative; max-width: 380px; }
 .student-search-icon {
@@ -445,7 +462,8 @@
                     </div>
                     <form method="POST" action="{% url 'creator:examiner_unassign' a.id %}" style="display: inline; flex-shrink:0;">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove?')" {% if session.actual_start %}disabled{% endif %}>
+                        <input type="hidden" name="next" value="{% url 'creator:session_detail' session.id %}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove?')" {% if session.actual_start and not request.user.is_superuser %}disabled{% endif %}>
                             <i class="bi bi-x"></i>
                         </button>
                     </form>
@@ -897,13 +915,24 @@ function unlockScore(scoreId, studentName, examinerName, stationName) {
                 const selects = container.querySelectorAll('.examiner-1-select');
                 submitBtn.disabled = selects.length === 0;
 
-                // Add live validation listeners
-                selects.forEach(sel => {
-                    sel.addEventListener('change', validateBulkForm);
-                });
-                container.querySelectorAll('.examiner-2-select').forEach(sel => {
-                    sel.addEventListener('change', validateBulkForm);
-                });
+                // Initialize Select2 on all examiner dropdowns (searchable + scrollable)
+                if (typeof $ !== 'undefined' && $.fn.select2) {
+                    $(container).find('.examiner-1-select, .examiner-2-select').select2({
+                        theme: 'bootstrap-5',
+                        placeholder: '-- Search examiner --',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#assignExaminerModal'),
+                    }).on('change', function() { validateBulkForm(); });
+                } else {
+                    // Fallback: plain listeners if Select2 not loaded
+                    selects.forEach(sel => {
+                        sel.addEventListener('change', validateBulkForm);
+                    });
+                    container.querySelectorAll('.examiner-2-select').forEach(sel => {
+                        sel.addEventListener('change', validateBulkForm);
+                    });
+                }
             })
             .catch(err => {
                 container.innerHTML = '<div class="alert alert-danger py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>Failed to load stations: ' + err.message + '</div>';
@@ -956,6 +985,10 @@ function unlockScore(scoreId, studentName, examinerName, stationName) {
     const modal = document.getElementById('assignExaminerModal');
     if (modal) {
         modal.addEventListener('hidden.bs.modal', function() {
+            // Destroy Select2 instances before clearing
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                $(container).find('.examiner-1-select, .examiner-2-select').select2('destroy');
+            }
             pathSelect.value = '';
             container.innerHTML = '';
             if (placeholder) {
@@ -1119,6 +1152,9 @@ function togglePathDetails(event) {
 {% endblock %}
 
 {% block extra_js %}
+<!-- jQuery (required for Select2) + Select2 -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <!-- jsPDF 2.5.1 + AutoTable 3.8.2 (served locally) -->
 <script src="{% static 'js/jspdf.umd.min.js' %}"></script>
 <script src="{% static 'js/jspdf.plugin.autotable.min.js' %}"></script>

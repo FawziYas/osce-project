@@ -27,7 +27,7 @@ Each station object has .assigned_primary and .assigned_secondary (examiner IDs 
                         data-station-id="{{ station.id }}">
                     <option value="">-- Select Examiner --</option>
                     {% for e in all_examiners %}
-                    <option value="{{ e.id }}" {% if station.assigned_primary == e.id %}selected{% endif %}>{{ e.display_name }} ({{ e.username }}){% if e.department %} – {{ e.department }}{% endif %}</option>
+                    <option value="{{ e.id }}" {% if station.assigned_primary == e.id %}selected{% endif %}>{{ e.display_name }}</option>
                     {% endfor %}
                 </select>
             </td>
@@ -36,7 +36,7 @@ Each station object has .assigned_primary and .assigned_secondary (examiner IDs 
                         data-station-id="{{ station.id }}">
                     <option value="">-- None --</option>
                     {% for e in all_examiners %}
-                    <option value="{{ e.id }}" {% if station.assigned_secondary == e.id %}selected{% endif %}>{{ e.display_name }} ({{ e.username }}){% if e.department %} – {{ e.department }}{% endif %}</option>
+                    <option value="{{ e.id }}" {% if station.assigned_secondary == e.id %}selected{% endif %}>{{ e.display_name }} </option>
                     {% endfor %}
                 </select>
             </td>

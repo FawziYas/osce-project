@@ -140,6 +140,7 @@
                                 <a href="{% url 'creator:station_edit' station.id %}" class="btn btn-sm btn-outline-secondary" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                {% if not session_started or request.user.is_superuser %}
                                 <form action="{% url 'creator:station_delete' station.id %}" method="post" class="d-inline border-start"
                                       onsubmit="return confirm('Delete station {{ station.name|escapejs }}?');">
                                     {% csrf_token %}
@@ -147,6 +148,11 @@
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 rounded-0 rounded-end disabled" title="Cannot delete – session has started" disabled>
+                                    <i class="bi bi-lock"></i>
+                                </button>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

@@ -42,6 +42,11 @@ class ForcePasswordChangeForm(forms.Form):
             raise forms.ValidationError('Password must contain at least 1 uppercase letter.')
         if not re.search(r'[0-9]', pw):
             raise forms.ValidationError('Password must contain at least 1 number.')
+        # Prevent setting the password back to the default
+        from django.conf import settings
+        default_pw = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+        if pw == default_pw:
+            raise forms.ValidationError('You cannot use the default password. Please choose a different one.')
         return pw
 
     def clean(self):

@@ -55,9 +55,13 @@ class ForcePasswordChangeMiddleware:
     Redirects any authenticated user whose profile has
     must_change_password=True to the force-change-password page.
 
+    For HTML page requests: returns an HTTP 302 redirect.
+    For AJAX / API requests: returns an HTTP 403 JSON response so that
+    API endpoints cannot be used while the password is still the default.
+
     Exempted paths (to avoid redirect loops):
       - The force-change URL itself
-      - /logout/
+      - /logout/ and /examiner/logout/
       - Static / media files
     """
 
@@ -71,10 +75,12 @@ class ForcePasswordChangeMiddleware:
 
             profile = getattr(request.user, 'profile', None)
             if profile is None:
-                # Safety net: create the profile if somehow missing
+                # Safety net: create the profile if somehow missing.
+                # Default to must_change_password=True (secure default) —
+                # only the force-change view or admin can clear this flag.
                 profile, _ = UserProfile.objects.get_or_create(
                     user=request.user,
-                    defaults={'must_change_password': False},
+                    defaults={'must_change_password': True},
                 )
 
             if profile.must_change_password:
@@ -82,9 +88,24 @@ class ForcePasswordChangeMiddleware:
                 exempt = (
                     change_url,
                     reverse('logout'),
+                    '/examiner/logout/',
                     '/static/',
+                    '/media/',
+                    '/favicon.ico',
                 )
                 if not any(request.path.startswith(p) for p in exempt):
+                    # Block API / AJAX requests with a 403 JSON response
+                    # so they can't bypass the password-change requirement
+                    if (request.path.startswith('/api/') or
+                            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+                            'application/json' in request.headers.get('Accept', '')):
+                        from django.http import JsonResponse
+                        return JsonResponse(
+                            {'error': 'Password change required',
+                             'must_change_password': True,
+                             'redirect': change_url},
+                            status=403,
+                        )
                     return redirect(change_url)
 
         return self.get_response(request)

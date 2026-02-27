@@ -40,10 +40,15 @@ def path_detail(request, path_id):
     for station in stations:
         station.assigned_examiners = assignments_by_station.get(station.id, [])
 
+    session_started = ExamSession.objects.filter(
+        exam=exam, actual_start__isnull=False
+    ).exists()
+
     return render(request, 'creator/paths/detail.html', {
         'path': path,
         'stations': stations,
         'exam': exam,
+        'session_started': session_started,
     })
 
 @login_required

@@ -68,6 +68,7 @@ def get_station_checklist(request, station_id):
             'rubric_type': item.rubric_type or 'binary',
             'rubric_levels': None,
             'ilo_name': item.ilo.theme_name if item.ilo else None,
+            'ilo_number': item.ilo.number if item.ilo else None,
         }
 
         # Parse rubric levels

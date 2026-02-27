@@ -52,10 +52,11 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Email <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" name="email" required
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email"
                                value="{{ examiner.email|default:'' }}"
                                placeholder="moh@najah.edu">
+                        <div class="form-text">Optional</div>
                     </div>
 
                     <div class="col-md-6">

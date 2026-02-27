@@ -158,11 +158,21 @@ def admin_gateway_view(request):
 
 # ── Forced password change ────────────────────────────────────────────
 @login_required
+@never_cache
 def force_change_password_view(request):
     """
     Full-screen modal that blocks the user until they set a new password.
     Shown to any user whose profile.must_change_password is True.
+
+    Security: Only processes the form if the flag is actually set.
+    This prevents anyone from accessing this page to change their password
+    without the current-password check used on the profile page.
     """
+    profile = getattr(request.user, 'profile', None)
+    if profile is None or not profile.must_change_password:
+        # Flag not set — redirect to home, don't allow password change here
+        return _redirect_by_role(request.user)
+
     if request.method == 'POST':
         form = ForcePasswordChangeForm(request.POST)
         if form.is_valid():

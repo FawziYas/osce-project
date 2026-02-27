@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Max
 
-from core.models import ILO, Station, ChecklistItem, Path
+from core.models import ILO, Station, ChecklistItem, Path, ExamSession
 
 
 @login_required
@@ -216,10 +216,22 @@ def station_edit(request, station_id):
 
 @login_required
 def station_delete(request, station_id):
-    """Hard delete a station."""
+    """Hard delete a station – blocked if any session has already started, unless superuser."""
     station = get_object_or_404(Station, pk=station_id)
     path_id = str(station.path_id) if station.path_id else None
     name = station.name
+
+    # Block deletion when a session for this exam has already started
+    if not request.user.is_superuser:
+        exam = station.path.exam if station.path else None
+        if exam and ExamSession.objects.filter(exam=exam, actual_start__isnull=False).exists():
+            messages.error(
+                request,
+                f"Cannot delete station \u2018{name}\u2019 \u2014 a session for this exam has already started."
+            )
+            if path_id:
+                return redirect('creator:path_detail', path_id=path_id)
+            return redirect('creator:exam_list')
 
     station.delete()
     messages.success(request, f"Station '{name}' has been deleted.")
