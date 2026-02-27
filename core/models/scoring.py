@@ -107,14 +107,14 @@ class StationScore(models.Model):
             result['final_score'] = round(total / len(scores_list), 2)
             if result['max_score']:
                 result['percentage'] = round(
-                    (result['final_score'] / result['max_score']) * 100, 1
+                    (result['final_score'] / result['max_score']) * 100, 2
                 )
         return result
 
     def calculate_total(self):
-        self.total_score = sum(item.score or 0 for item in self.item_scores.all())
+        self.total_score = round(sum(item.score or 0 for item in self.item_scores.all()), 2)
         if self.max_score and self.max_score > 0:
-            self.percentage = (self.total_score / self.max_score) * 100
+            self.percentage = round((self.total_score / self.max_score) * 100, 2)
         return self.total_score
 
     def check_critical_items(self, critical_item_ids):

@@ -132,9 +132,9 @@ def reports_scoresheets(request, session_id):
             'student': student,
             'stations': student_stations,
             'scores': score_map_all,
-            'total_score': round(total_score, 1),
+            'total_score': round(total_score, 2),
             'max_score': max_possible,
-            'percentage_display': round(percentage, 1),
+            'percentage_display': round(percentage, 2),
             'passed': percentage >= 60,
             'comments_with_examiner': comments_with_examiner,
         })
@@ -216,9 +216,9 @@ def reports_student_scoresheet(request, student_id):
         'student': student,
         'stations': student_stations,
         'scores': score_map_all,
-        'total_score': round(_total, 1),
+        'total_score': round(_total, 2),
         'max_score': max_possible,
-        'percentage_display': round(_pct, 1),
+        'percentage_display': round(_pct, 2),
         'passed': _pct >= 60,
         'comments_with_examiner': comments_with_examiner,
     }]

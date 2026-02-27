@@ -1110,7 +1110,7 @@ function updateSummary() {
     });
     
     document.getElementById('totalItems').textContent = items.length;
-    document.getElementById('totalPoints').textContent = totalPoints % 1 === 0 ? totalPoints : totalPoints.toFixed(1);
+    document.getElementById('totalPoints').textContent = totalPoints % 1 === 0 ? totalPoints : totalPoints.toFixed(2);
     document.getElementById('itemCountBadge').textContent = `${items.length} items`;
 }
 
@@ -1525,7 +1525,7 @@ function previewChecklist() {
             } else {
                 buttonsHtml = '<div class="rubric-buttons">';
                 scaleLabels.forEach((label, i) => {
-                    const score = (i / (scaleLabels.length - 1) * pts).toFixed(1);
+                    const score = (i / (scaleLabels.length - 1) * pts).toFixed(2);
                     const shortLabel = label.replace(/\([^)]+\)/g, '').trim();
                     buttonsHtml += '<button class="rubric-btn" onclick="markItem(' + itemNum + ', ' + score + ', ' + pts + ')">' + shortLabel + '</button>';
                 });
@@ -1603,7 +1603,7 @@ function previewChecklist() {
             current += scores[id];
             marked++;
         }
-        document.getElementById('currentScore').textContent = current % 1 === 0 ? current : current.toFixed(1);
+        document.getElementById('currentScore').textContent = current % 1 === 0 ? current : current.toFixed(2);
         document.getElementById('markedCount').textContent = marked;
         document.getElementById('progressFill').style.width = (marked / totalItems * 100) + '%';
     }

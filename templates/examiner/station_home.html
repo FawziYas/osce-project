@@ -11,39 +11,56 @@
 {% endblock %}
 
 {% block content %}
-<!-- Page Header -->
+<!-- Unified Sticky Home Header -->
 <header class="home-header">
-    <div class="header-branding">
-        <div class="osce-brand">
-            <i class="bi bi-clipboard-check-fill"></i>
-            <span>OSCE Examiner</span>
-        </div>
-        <div class="header-actions">
-            <div class="doctor-badge">
-                {{ request.user.display_name }}
-            </div>
-            <a href="{% url 'profile' %}" class="btn-signout-link" title="My Profile">
-                <i class="bi bi-person-circle"></i>
-                Profile
-            </a>
-            <a href="{% url 'examiner:logout' %}" class="btn-signout-link">
-                <i class="bi bi-box-arrow-right"></i>
-                Sign Out
-            </a>
-        </div>
-    </div>
+    <div class="home-header-inner">
 
-    <div class="home-header-content">
-        <div class="welcome-section">
-            <h1>
-                <i class="bi bi-calendar-check"></i>
-                <span>My Exam Schedule</span>
-            </h1>
-            <p>Welcome to your exam portal</p>
+        <!-- Row 1: Brand | Page Title | Examiner + Actions -->
+        <div class="home-row home-row-top">
+            <div class="home-col-left">
+                <div class="osce-brand">
+                    <i class="bi bi-clipboard-check-fill"></i>
+                    <span class="brand-text">OSCE Examiner</span>
+                </div>
+            </div>
+            <div class="home-col-center">
+                <div class="home-title-block">
+                    <h1 class="home-page-title">
+                        <i class="bi bi-calendar-check"></i>
+                        My Exam Schedule
+                    </h1>
+                </div>
+            </div>
+            <div class="home-col-right">
+                <span class="examiner-name-badge">
+                    <i class="bi bi-person-fill"></i>
+                    <span class="examiner-name-text">{{ request.user.display_name }}</span>
+                </span>
+                <a href="{% url 'profile' %}" class="home-action-btn" title="My Profile">
+                    <i class="bi bi-person-circle"></i>
+                    <span class="action-btn-text">Profile</span>
+                </a>
+                <a href="{% url 'examiner:logout' %}" class="home-action-btn">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="action-btn-text">Sign Out</span>
+                </a>
+            </div>
         </div>
-        <div class="date-badge">
-            <i class="bi bi-calendar3 me-2"></i>{{ today|date:"M d, Y" }}
+
+        <!-- Row 2: Welcome text | (center empty) | Date -->
+        <div class="home-row home-row-bottom">
+            <div class="home-col-left">
+                <p class="home-welcome-text">Welcome to your exam portal</p>
+            </div>
+            <div class="home-col-center"></div>
+            <div class="home-col-right">
+                <div class="home-date-badge">
+                    <i class="bi bi-calendar3"></i>
+                    <span>{{ today|date:"M d, Y" }}</span>
+                </div>
+            </div>
         </div>
+
     </div>
 </header>
 

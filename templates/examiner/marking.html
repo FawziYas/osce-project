@@ -13,12 +13,16 @@
 {% block content %}
 <!-- Sticky Header -->
 <header class="evaluation-header">
+    <!-- Row 1: Back button | Station Name | Spacer -->
     <div class="header-title">
         <a href="{% url 'examiner:station_dashboard' assignment.id %}" class="header-back-btn">
             <i class="bi bi-chevron-left"></i>
-            Back to Dashboard
+            <span class="back-btn-text">Back to Dashboard</span>
         </a>
+        <div class="station-name-large">{{ assignment.station.name }}</div>
+        <div class="header-title-spacer"></div>
     </div>
+    <!-- Row 2: Info labels | Timer -->
     <div class="header-top">
         <div class="header-left">
             <div class="info-labels">
@@ -35,9 +39,6 @@
                     <span class="label-value">{{ request.user.display_name }}</span>
                 </div>
             </div>
-        </div>
-        <div class="header-center">
-            <div class="station-name-large">{{ assignment.station.name }}</div>
         </div>
         <div class="header-right">
             <div class="timer-widget" id="timer-widget">
@@ -103,7 +104,7 @@
             <div></div>
 
             <div class="footer-total">
-                <div class="total-mark" id="footer-total-mark"><span class="student-mark">0.0</span><span class="mark-max">/{{ max_score }}</span></div>
+                <div class="total-mark" id="footer-total-mark"><span class="student-mark">0.00</span><span class="mark-max">/{{ max_score }}</span></div>
                 {% if review_mode %}
                 <div id="locked-footer" style="display:flex; align-items:center; gap:8px; background:#f59e0b22; border:1px solid #f59e0b66; border-radius:10px; padding:8px 16px; color:#f59e0b; font-weight:600; font-size:0.9rem;">
                     <i class="bi bi-lock-fill"></i> Submitted
@@ -392,18 +393,10 @@ function renderQuestionCard(item, itemNum) {
     return `
         <div class="question-card" data-item-id="${item.id}" data-max-points="${item.points}">
             <div class="question-header">
-                <div class="d-flex align-items-center gap-2">
+                <div class="question-header-inner">
                     <span class="question-number-badge">Q${itemNum}</span>
-                     <div class="question-text-inline">${item.description}</div>
-                    ${item.ilo_number != null ? `
-                        <div class="ilo-badge">
-                            <i class="bi bi-tag-fill"></i>
-                            <span>ILO ${item.ilo_number}</span>
-                        </div>` : ''}
-
-                    <div class="marks-badge">
-                        <i class="bi bi-award-fill"></i>
-                        <span>${item.points} pt${item.points !== 1 ? 's' : ''}</span>
+                    <div class="question-body">
+                        <span class="question-text-inline">${item.description}</span>${item.ilo_number != null ? `<span class="ilo-badge"><i class="bi bi-tag-fill"></i> ILO ${item.ilo_number}</span>` : ''}<span class="marks-badge"><i class="bi bi-award-fill"></i> ${item.points} pt${item.points !== 1 ? 's' : ''}</span>
                     </div>
                 </div>
             </div>
@@ -517,14 +510,14 @@ function updateStudentMark() {
     }
 
     const studentMark = document.getElementById('student-mark');
-    if (studentMark) studentMark.textContent = total.toFixed(1);
+    if (studentMark) studentMark.textContent = total.toFixed(2);
     
     const footerTotal = document.getElementById('footer-total-mark');
     if (footerTotal) {
         const max = MARKING_DATA.maxScore || 0;
         const studentSpan = footerTotal.querySelector('.student-mark');
         const maxSpan = footerTotal.querySelector('.mark-max');
-        if (studentSpan) studentSpan.textContent = total.toFixed(1);
+        if (studentSpan) studentSpan.textContent = total.toFixed(2);
         if (maxSpan) maxSpan.textContent = `/${max}`;
     }
 }

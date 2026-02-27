@@ -11,51 +11,65 @@
 
 {% block content %}
 
-<!-- Global Header (branding + sign out) -->
-<header class="global-header">
-    <div class="header-content">
-        <div class="header-left">
-            <div class="osce-brand">
-                <i class="bi bi-clipboard-check-fill"></i>
-                <span>OSCE Examiner</span>
-            </div>
-        </div>
-        <div class="header-right">
-            <div class="doctor-info">
-                {{ request.user.display_name }}
-            </div>
-            <a href="{% url 'examiner:logout' %}" class="btn-signout">
-                <i class="bi bi-box-arrow-right"></i>
-                Sign Out
-            </a>
-        </div>
-    </div>
-</header>
-
-<!-- Dashboard Header -->
+<!-- Unified Sticky Dashboard Header -->
 <header class="dashboard-header">
-    <div class="header-container">
-        <a href="{% url 'examiner:home' %}" class="back-link">
-            <i class="bi bi-arrow-left"></i>
-            <span>Back to My Stations</span>
-        </a>
+    <div class="dash-header-inner">
 
-        <div class="station-info">
-            <div class="station-details">
-                <h1>
-                    <i class="bi bi-geo-alt"></i>
-                    Station {{ assignment.station.station_number }}
-                </h1>
-                <p>{{ assignment.session.exam.name }} | {% if assignment.session.session_date %}{{ assignment.session.session_date|date:"M d, Y" }}{% else %}Today{% endif %}</p>
-            </div>
-            <div class="station-meta">
-                <div class="meta-badge">
-                    <i class="bi bi-clock"></i>
-                    <span>{{ assignment.station.duration_minutes }} min</span>
+        <!-- Row 1: Brand | Station Name | Examiner + Sign Out -->
+        <div class="dash-row dash-row-top">
+            <div class="dash-col-left">
+                <div class="osce-brand">
+                    <i class="bi bi-clipboard-check-fill"></i>
+                    <span class="brand-text">OSCE Examiner</span>
                 </div>
-                <div class="meta-badge">
-                    <i class="bi bi-trophy"></i>
-                    <span>{{ assignment.station.get_max_score }} pts</span>
+            </div>
+            <div class="dash-col-center">
+                <div class="station-title-block">
+                    <span class="station-number-pill">
+                        <i class="bi bi-geo-alt-fill"></i>
+                        Station {{ assignment.station.station_number }}
+                    </span>
+                    <h1 class="station-name-heading">{{ assignment.station.name }}</h1>
+                </div>
+            </div>
+            <div class="dash-col-right">
+                <span class="examiner-name">
+                    <i class="bi bi-person-fill"></i>
+                    <span class="examiner-name-text">{{ request.user.display_name }}</span>
+                </span>
+                <a href="{% url 'examiner:logout' %}" class="btn-signout">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span class="signout-text">Sign Out</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Row 2: Back | Exam info | Meta badges -->
+        <div class="dash-row dash-row-bottom">
+            <div class="dash-col-left">
+                <a href="{% url 'examiner:home' %}" class="back-link">
+                    <i class="bi bi-arrow-left"></i>
+                    <span>My Stations</span>
+                </a>
+            </div>
+            <div class="dash-col-center">
+                <p class="exam-info-line">
+                    <i class="bi bi-mortarboard-fill"></i>
+                    {{ assignment.session.exam.name }}
+                    <span class="exam-date-sep">·</span>
+                    {% if assignment.session.session_date %}{{ assignment.session.session_date|date:"M d, Y" }}{% else %}Today{% endif %}
+                </p>
+            </div>
+            <div class="dash-col-right">
+                <div class="meta-badges-row">
+                    <div class="meta-badge">
+                        <i class="bi bi-clock"></i>
+                        <span>{{ assignment.station.duration_minutes }} min</span>
+                    </div>
+                    <div class="meta-badge">
+                        <i class="bi bi-trophy-fill"></i>
+                        <span>{{ assignment.station.get_max_score }} pts</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -108,7 +122,7 @@
                 <tbody>
                     {% for entry in student_list %}
                     <tr class="{% if entry.is_scored %}completed{% endif %}">
-                        <td>
+                        <td data-label="Student">
                             <div class="student-cell">
                                 {% if entry.student.photo_url %}
                                 <img src="{{ entry.student.photo_url }}" class="student-avatar-sm" alt="{{ entry.student.full_name }}">
@@ -121,12 +135,12 @@
                                 </div>
                             </div>
                         </td>
-                        <td>
+                        <td data-label="Path">
                             {% if entry.student.path %}
                             <span class="path-badge-sm">{{ entry.student.path.name }}</span>
                             {% else %}-{% endif %}
                         </td>
-                        <td>
+                        <td data-label="Status">
                             <div class="status-badges-sm">
                                 {% if entry.is_scored %}
                                 <span class="badge-sm bg-success" title="You Marked"><i class="bi bi-check"></i></span>
@@ -141,15 +155,15 @@
                                 {% endif %}
                             </div>
                         </td>
-                        <td>
+                        <td data-label="Score">
                             <div class="score-cell-sm">
-                                <span class="score-val">{% if entry.my_score is not None %}{{ entry.my_score }}{% else %}-{% endif %}</span>
+                                <span class="score-val">{% if entry.my_score is not None %}{{ entry.my_score|floatformat:2 }}{% else %}-{% endif %}</span>
                                 {% if entry.both_submitted %}
-                                <span class="score-final" title="Final Average">({% if entry.final_score is not None %}{{ entry.final_score }}{% else %}-{% endif %})</span>
+                                <span class="score-final" title="Final Average">({% if entry.final_score is not None %}{{ entry.final_score|floatformat:2 }}{% else %}-{% endif %})</span>
                                 {% endif %}
                             </div>
                         </td>
-                        <td>
+                        <td data-label="Action">
                             {% if entry.is_scored %}
                             <a href="{% url 'examiner:marking_interface' assignment.id entry.student.id %}"
                                class="btn-action-sm secondary">Review</a>

@@ -65,7 +65,7 @@ def average_score_filter(scores_list):
     try:
         total = sum(s.total_score or 0 for s in scores_list)
         avg = total / len(scores_list)
-        return round(avg, 1)
+        return round(avg, 2)
     except (TypeError, AttributeError, ZeroDivisionError):
         return 0
     except (KeyError, TypeError):

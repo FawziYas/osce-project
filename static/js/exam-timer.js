@@ -91,21 +91,21 @@ class ExamTimer {
         const timerWidget = document.querySelector('.timer-widget');
         if (!timerWidget) return;
         
-        // Warning at 5 minutes (300 seconds)
-        if (this.remaining === 300) {
+        // Warning at 1 minute (60 seconds)
+        if (this.remaining === 60) {
             timerWidget.classList.add('warning');
             timerWidget.classList.remove('danger');
             if (this.callbacks.onWarning) {
-                this.callbacks.onWarning('5 minutes remaining');
+                this.callbacks.onWarning('1 minute remaining');
             }
         }
         
-        // Danger at 1 minute (60 seconds)
-        if (this.remaining === 60) {
+        // Danger at 30 seconds
+        if (this.remaining === 30) {
             timerWidget.classList.remove('warning');
             timerWidget.classList.add('danger');
             if (this.callbacks.onWarning) {
-                this.callbacks.onWarning('1 minute remaining');
+                this.callbacks.onWarning('30 seconds remaining');
             }
         }
         

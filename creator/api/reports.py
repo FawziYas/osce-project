@@ -118,9 +118,9 @@ def get_session_summary(request, session_id):
             'full_name': student.full_name,
             'path_name': path.name if path else None,
             'station_scores': student_scores,
-            'total_score': round(total_score, 1),
-            'max_score': round(max_score, 1),
-            'percentage': round(percentage, 1),
+            'total_score': round(total_score, 2),
+            'max_score': round(max_score, 2),
+            'percentage': round(percentage, 2),
             'passed': percentage >= pass_threshold,
         })
 
@@ -134,8 +134,8 @@ def get_session_summary(request, session_id):
             'session_name': session.name,
             'total_students': page_obj.paginator.count,
             'completed_students': completed_students,
-            'average_percentage': round(avg_percentage, 1),
-            'pass_rate': round(pass_rate, 1),
+            'average_percentage': round(avg_percentage, 2),
+            'pass_rate': round(pass_rate, 2),
             'station_headers': station_headers,
             'students': sorted(student_data, key=lambda x: x['full_name']),
             'pagination': {
@@ -193,7 +193,7 @@ def _student_rows(students, station_headers, station_info_map):
                 max_score += st_max
                 final = StationScore.get_final_score(student.id, s_info['id'])
                 if final:
-                    score_val = round(final['final_score'], 1)
+                    score_val = round(final['final_score'], 2)
                     total_score += final['final_score']
                 else:
                     score_val = ''
@@ -201,7 +201,7 @@ def _student_rows(students, station_headers, station_info_map):
 
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
         pass_fail = 'PASS' if percentage >= 60 else 'FAIL'
-        row.extend([round(total_score, 1), round(max_score, 1), round(percentage, 1), pass_fail])
+        row.extend([round(total_score, 2), round(max_score, 2), round(percentage, 2), pass_fail])
         yield row, total_score, max_score, percentage, pass_fail
 
 
@@ -300,7 +300,7 @@ def export_students_xlsx(request, session_id):
                 max_score += st_max
                 final = StationScore.get_final_score(student.id, s_info['id'])
                 if final:
-                    score_val = round(final['final_score'], 1)
+                    score_val = round(final['final_score'], 2)
                     total_score += final['final_score']
                 else:
                     score_val = ''
@@ -320,7 +320,7 @@ def export_students_xlsx(request, session_id):
         
         comments_text = "\n---\n".join(comments_list) if comments_list else ""
         
-        row.extend([round(total_score, 1), round(max_score, 1), round(percentage, 1), pass_fail, comments_text])
+        row.extend([round(total_score, 2), round(max_score, 2), round(percentage, 2), pass_fail, comments_text])
         
         # Write row to worksheet
         for col_idx, value in enumerate(row, 1):
@@ -396,11 +396,11 @@ def export_stations_csv(request, session_id):
             writer.writerow([
                 station.name,
                 path.name if path else '',
-                round(avg_max, 1),
-                round(avg_score, 1),
-                round(avg_pct, 1),
-                round(min(total_scores), 1),
-                round(max(total_scores), 1),
+                round(avg_max, 2),
+                round(avg_score, 2),
+                round(avg_pct, 2),
+                round(min(total_scores), 2),
+                round(max(total_scores), 2),
                 len(total_scores),
             ])
 

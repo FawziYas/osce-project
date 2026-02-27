@@ -272,7 +272,7 @@
                 {% if scores_list|length == 1 %}
                     {% with score=scores_list|first %}
                     <span class="badge {% if score.percentage and score.percentage >= 60 %}bg-success{% else %}bg-danger{% endif %}">
-                        {{ score.total_score|default:0 }} / {{ score.max_score|default:0 }}
+                        {{ score.total_score|default:0|floatformat:2 }} / {{ score.max_score|default:0|floatformat:2 }}
                         ({{ score.percentage_display }}%)
                     </span>
                     {% endwith %}
@@ -294,7 +294,7 @@
     <div class="total-row d-flex justify-content-between">
         <span>TOTAL</span>
         <span>
-            {{ data.total_score }} / {{ data.max_score }}
+            {{ data.total_score|floatformat:2 }} / {{ data.max_score|floatformat:2 }}
             {% if data.max_score > 0 %}
             ({{ data.percentage_display }}%)
             —

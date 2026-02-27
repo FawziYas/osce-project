@@ -407,8 +407,8 @@ function goToPage(page) {
 function updateStats(data) {
     document.getElementById('statStudents').textContent = data.total_students || 0;
     document.getElementById('statCompleted').textContent = data.completed_students || 0;
-    document.getElementById('statAvgScore').textContent = (data.average_percentage || 0).toFixed(1) + '%';
-    document.getElementById('statPassRate').textContent = (data.pass_rate || 0).toFixed(1) + '%';
+    document.getElementById('statAvgScore').textContent = (data.average_percentage || 0).toFixed(2) + '%';
+    document.getElementById('statPassRate').textContent = (data.pass_rate || 0).toFixed(2) + '%';
 }
 
 function updateResultsTable(students, headers = []) {

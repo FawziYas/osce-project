@@ -226,7 +226,7 @@ def station_dashboard(request, assignment_id):
     scored_count = len(scored_student_ids)
     total_count = students.count()
     remaining_count = total_count - scored_count
-    progress_pct = round((scored_count / total_count * 100), 1) if total_count else 0
+    progress_pct = round((scored_count / total_count * 100), 2) if total_count else 0
 
     return render(request, 'examiner/station_dashboard.html', {
         'assignment': assignment,

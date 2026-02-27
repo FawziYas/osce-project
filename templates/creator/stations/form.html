@@ -400,7 +400,7 @@ function updateTotal() {
     document.querySelectorAll('.checklist-item input[type="number"]').forEach(input => {
         total += parseFloat(input.value) || 0;
     });
-    document.getElementById('checklistTotal').textContent = total.toFixed(1);
+    document.getElementById('checklistTotal').textContent = total.toFixed(2);
 }
 
 // Initialize with existing items if editing

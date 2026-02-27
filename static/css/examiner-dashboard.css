@@ -2,111 +2,265 @@
    EXAMINER DASHBOARD - Modern Professional UI Styles
    ============================================================================ */
 
-/* DASHBOARD HEADER - Sticky top section */
+/* ============================================================================
+   UNIFIED STICKY DASHBOARD HEADER
+   ============================================================================ */
+
+/* Hide default navbar */
+.dashboard-page .navbar {
+    display: none !important;
+}
+
 .dashboard-header {
     position: sticky;
     top: 0;
     z-index: 1000;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 20px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    padding: 10px 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     margin: -12px -12px 0 -12px;
 }
 
-/* Hide default navbar on dashboard page (we embed header) */
-.dashboard-page .navbar {
-    display: none !important;
-}
-
-/* Global header (branding + sign out) */
-.global-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 12px 20px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    margin: -12px -12px 12px -12px;
-}
-.global-header .header-content {
+.dash-header-inner {
     max-width: 1200px;
     margin: 0 auto;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 6px;
 }
+
+/* Each row: 3 columns — left | center | right */
+.dash-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 12px;
+}
+
+.dash-col-left  { display: flex; align-items: center; justify-content: flex-start; gap: 10px; }
+.dash-col-center { display: flex; align-items: center; justify-content: center; }
+.dash-col-right  { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+
+/* Row 1 — top bar separator */
+.dash-row-top {
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+}
+
+/* Brand */
 .osce-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #fff;
+}
+.osce-brand i { font-size: 1.2rem; color: #e0e7ff; }
+
+/* Station title block (center of row 1) */
+.station-title-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.station-number-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 2px 12px;
+    font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
-}
-.osce-brand i { font-size: 1.25rem; color: #EDEFF7; }
-.global-header .doctor-info { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.global-header .btn-signout { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(255,255,255,0.12); border-radius: 8px; color: white; text-decoration: none; border: 1px solid rgba(255,255,255,0.06); }
-.global-header .btn-signout:hover { background: rgba(255,255,255,0.18); }
-
-.header-container {
-    max-width: 1200px;
-    margin: 0 auto;
+    letter-spacing: 0.8px;
+    color: #e0e7ff;
 }
 
+.station-name-heading {
+    margin: 0;
+    font-size: clamp(1rem, 3vw, 1.6rem);
+    font-weight: 800;
+    color: #fff;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    line-height: 1.2;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+}
+
+/* Examiner name + sign out */
+.examiner-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+}
+.examiner-name i { font-size: 1rem; color: #c7d2fe; }
+
+.btn-signout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 8px;
+    color: white;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+.btn-signout:hover { background: rgba(255,255,255,0.24); color: white; text-decoration: none; }
+
+/* Row 2 — bottom bar */
+.dash-row-bottom { padding-top: 2px; }
+
+/* Back link */
 .back-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255,255,255,0.85);
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 500;
-    margin-bottom: 12px;
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
+.back-link:hover { color: white; transform: translateX(-3px); }
 
-.back-link:hover {
-    color: white;
-    transform: translateX(-4px);
-}
-
-.station-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 16px;
-}
-
-.station-details h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin: 0 0 8px 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.station-details p {
+/* Exam info line */
+.exam-info-line {
     margin: 0;
-    opacity: 0.9;
-    font-size: 0.95rem;
-}
-
-.station-meta {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.meta-badge {
-    background: rgba(255, 255, 255, 0.25);
-    padding: 8px 14px;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+    text-align: center;
     display: flex;
     align-items: center;
     gap: 6px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.exam-info-line i { font-size: 0.85rem; color: #c7d2fe; flex-shrink: 0; }
+.exam-date-sep { opacity: 0.6; }
+
+/* Meta badges */
+.meta-badges-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.meta-badge {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    color: #fff;
+}
+
+/* ============================================================
+   TABLET  ≤ 768px
+   ============================================================ */
+@media (max-width: 768px) {
+    .dashboard-header {
+        padding: 8px 16px;
+        margin: -12px -12px 0 -12px;
+    }
+
+    .dash-header-inner { gap: 5px; }
+
+    /* Keep 3-col grid but tighten */
+    .dash-row { gap: 8px; }
+
+    .station-name-heading { font-size: clamp(0.95rem, 3.5vw, 1.3rem); }
+
+    .examiner-name-text { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .exam-info-line { font-size: 0.78rem; }
+    .meta-badge { font-size: 0.75rem; padding: 3px 8px; }
+    .back-link { font-size: 0.78rem; }
+    .osce-brand { font-size: 0.85rem; }
+    .btn-signout { padding: 4px 10px; font-size: 0.8rem; }
+}
+
+/* ============================================================
+   PHONE  ≤ 576px  — 2-row layout inside each dash-row
+   ============================================================ */
+@media (max-width: 576px) {
+    .dashboard-header {
+        padding: 6px 12px;
+        margin: -12px -12px 0 -12px;
+    }
+
+    .dash-header-inner { gap: 4px; }
+
+    /* Row 1: brand left | sign-out right | station heading full-width below */
+    .dash-row-top {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+        gap: 4px 8px;
+        padding-bottom: 6px;
+    }
+
+    .dash-row-top .dash-col-left  { grid-column: 1; grid-row: 1; }
+    .dash-row-top .dash-col-right { grid-column: 2; grid-row: 1; justify-content: flex-end; }
+    .dash-row-top .dash-col-center {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: center;
+    }
+
+    .station-number-pill { font-size: 0.65rem; padding: 1px 8px; }
+    .station-name-heading { font-size: clamp(0.85rem, 5vw, 1.1rem); letter-spacing: 0.5px; }
+
+    /* Hide examiner name text on very small, keep icon + signout */
+    .examiner-name-text { display: none; }
+    .examiner-name i { display: none; }
+
+    /* Row 2: back left | badges right (exam info hidden on smallest) */
+    .dash-row-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+        padding-top: 4px;
+    }
+
+    .dash-row-bottom .dash-col-center { display: none; }
+
+    .back-link span { display: none; }          /* icon only */
+    .back-link { font-size: 1rem; }
+
+    .meta-badge { font-size: 0.7rem; padding: 3px 7px; }
+    .meta-badges-row { gap: 4px; }
+
+    .osce-brand { font-size: 0.8rem; gap: 5px; }
+    .osce-brand i { font-size: 1rem; }
+    .brand-text { display: none; }             /* icon only on phone */
+
+    .btn-signout { padding: 4px 8px; font-size: 0.78rem; }
+    .signout-text { display: none; }           /* icon only on ≤576px */
 }
 
 .progress-section {
@@ -206,15 +360,15 @@
 /* STATS GRID */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
     background: white;
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 14px;
+    padding: 14px 12px;
     text-align: center;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     transition: all 0.3s ease;
@@ -242,10 +396,10 @@
 }
 
 .stat-number {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 800;
     line-height: 1;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .stat-card.done .stat-number { color: #059669; }
@@ -253,11 +407,11 @@
 .stat-card.total .stat-number { color: #2563EB; }
 
 .stat-label {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #6B7280;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
 }
 
 /* INFO BANNER */
@@ -394,7 +548,9 @@
 
 .student-name-sm {
     font-weight: 700;
-    color: #111827;
+    font-size: 1rem;
+    color: #0f172a;
+    line-height: 1.3;
 }
 
 .student-id-sm {
@@ -570,74 +726,38 @@
 
 /* RESPONSIVE DESIGN */
 @media (max-width: 768px) {
-    .dashboard-header {
-        padding: 16px;
-        margin: -12px -12px 0 -12px;
-        overflow-x: hidden;
-    }
-    
-    .global-header {
-        margin-left: -12px;
-        margin-right: -12px;
-        overflow-x: hidden;
-    }
-    
-    .station-info {
-        flex-direction: column;
-        gap: 12px;
-    }
-    
-    .station-meta {
-        width: 100%;
-        justify-content: flex-start;
-    }
-    
     .dashboard-content {
         padding: 16px 12px 80px 12px;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 10px;
     }
-    
+
     .stat-card {
         padding: 16px 10px;
     }
-    
+
     .stat-number {
         font-size: 2rem;
     }
-    
+
     .scenario-card {
         padding: 18px;
     }
-    
-    .student-row {
-        gap: 12px;
-    }
-    
-    .student-avatar,
-    .student-avatar-placeholder {
-        width: 48px;
-        height: 48px;
-    }
-    
-    .student-name {
-        font-size: 0.95rem;
-    }
-    
+
     .progress-section {
         flex-wrap: wrap;
     }
-    
+
     /* Students table — wider touch targets */
     .students-table th,
     .students-table td {
         padding: 10px 12px;
         font-size: 0.85rem;
     }
-    
+
     .btn-action-sm {
         min-height: 44px;
         padding: 8px 14px;
@@ -645,64 +765,131 @@
 }
 
 @media (max-width: 576px) {
-    .dashboard-header {
-        padding: 12px;
-    }
-    
-    .station-details h1 {
-        font-size: 1.4rem;
-    }
-    
     .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin-bottom: 12px;
     }
-    
+
+    .stat-card {
+        padding: 10px 8px;
+        border-radius: 10px;
+    }
+
     .stat-number {
-        font-size: 1.6rem;
+        font-size: 1.3rem;
+        margin-bottom: 4px;
     }
-    
+
+    .stat-label {
+        font-size: 0.65rem;
+        letter-spacing: 0;
+    }
+
     .students-header {
         padding: 16px 14px;
         flex-wrap: wrap;
         gap: 8px;
     }
-    
+
     .students-title {
         font-size: 1.05rem;
     }
-    
+
     .score-display {
         flex-direction: column;
         align-items: stretch;
         gap: 8px;
     }
-    
+
     .score-item {
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
     }
-    
+
     /* Students table scrollable on very small screens */
     .students-table-wrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        overflow-x: visible;
     }
-    
-    .students-table th,
+
+    /* Card layout: each row becomes a card */
+    .students-table thead {
+        display: none;
+    }
+
+    .students-table,
+    .students-table tbody,
+    .students-table tr,
     .students-table td {
-        padding: 8px 10px;
-        font-size: 0.8rem;
-        white-space: nowrap;
+        display: block;
+        width: 100%;
     }
-    
-    .global-header .header-content {
-        flex-wrap: wrap;
+
+    .students-table tr {
+        background: #fff;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        padding: 12px 14px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        white-space: normal;
+    }
+
+    .students-table tr.completed {
+        border-color: #86efac;
+        background: #f0fdf4;
+    }
+
+    .students-table td {
+        padding: 4px 0;
+        font-size: 0.9rem;
+        border: none;
+        display: flex;
+        align-items: center;
         gap: 8px;
+        white-space: normal;
     }
-    
-    .osce-brand {
+
+    .students-table td[data-label="Student"] {
+        padding-bottom: 10px;
+        margin-bottom: 6px;
+        border-bottom: 1px solid #F3F4F6;
+    }
+
+    .students-table td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #9CA3AF;
+        min-width: 52px;
+        letter-spacing: 0.5px;
+    }
+
+    .students-table td[data-label="Student"]::before {
+        display: none;
+    }
+
+    .student-name-sm {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .student-avatar-sm,
+    .student-avatar-sm-placeholder {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        flex-shrink: 0;
+    }
+
+    .btn-action-sm {
+        width: 100%;
+        text-align: center;
+        min-height: 40px;
+        padding: 8px 12px;
         font-size: 0.9rem;
     }
 }

@@ -129,14 +129,14 @@ class SessionStudent(models.Model):
 
     @property
     def total_score(self):
-        return sum(
+        return round(sum(
             s.total_score or 0
             for s in self.station_scores.filter(status='submitted')
-        )
+        ), 2)
 
     @property
     def max_possible_score(self):
-        return sum(
+        return round(sum(
             s.max_score or 0
             for s in self.station_scores.filter(status='submitted')
-        )
+        ), 2)
