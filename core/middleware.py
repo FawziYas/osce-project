@@ -140,9 +140,15 @@ class RoleBasedAccessMiddleware:
                     if request.user.is_superuser or role in ('admin', 'coordinator'):
                         return redirect('/creator/')
 
-            # Block examiners from /creator/
-            if request.path.startswith('/creator/'):
+            # Block examiners from /creator/ AND /api/creator/
+            if request.path.startswith('/creator/') or request.path.startswith('/api/creator/'):
                 if not request.user.is_superuser and role not in ('admin', 'coordinator'):
+                    if request.path.startswith('/api/'):
+                        from django.http import JsonResponse
+                        return JsonResponse(
+                            {'error': 'Forbidden: creator role required'},
+                            status=403,
+                        )
                     return redirect('/examiner/home/')
 
         return self.get_response(request)

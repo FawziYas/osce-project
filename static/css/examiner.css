@@ -32,11 +32,17 @@
     --font-size-xl: 20px;
     --font-size-xxl: 24px;
     
-    --color-primary: #0d6efd;
+    --color-primary: #0f766e;
     --color-success: #198754;
     --color-danger: #dc3545;
     --color-warning: #ffc107;
     --color-info: #0dcaf0;
+    
+    /* Override Bootstrap primary for examiner */
+    --bs-primary: #0f766e;
+    --bs-primary-rgb: 15, 118, 110;
+    --bs-link-color: #0f766e;
+    --bs-link-hover-color: #0c4a3e;
     
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
     --shadow-md: 0 4px 6px rgba(0,0,0,0.1);

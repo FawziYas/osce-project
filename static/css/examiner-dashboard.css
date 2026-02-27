@@ -15,7 +15,7 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0c4a3e 0%, #0f766e 60%, #14b8a6 100%);
     color: white;
     padding: 10px 20px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -59,7 +59,7 @@
     letter-spacing: 0.5px;
     color: #fff;
 }
-.osce-brand i { font-size: 1.2rem; color: #e0e7ff; }
+.osce-brand i { font-size: 1.2rem; color: #ccfbf1; }
 
 /* Station title block (center of row 1) */
 .station-title-block {
@@ -81,7 +81,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    color: #e0e7ff;
+    color: #ccfbf1;
 }
 
 .station-name-heading {
@@ -105,7 +105,7 @@
     font-weight: 600;
     color: rgba(255,255,255,0.9);
 }
-.examiner-name i { font-size: 1rem; color: #c7d2fe; }
+.examiner-name i { font-size: 1rem; color: #5eead4; }
 
 .btn-signout {
     display: inline-flex;
@@ -154,7 +154,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.exam-info-line i { font-size: 0.85rem; color: #c7d2fe; flex-shrink: 0; }
+.exam-info-line i { font-size: 0.85rem; color: #5eead4; flex-shrink: 0; }
 .exam-date-sep { opacity: 0.6; }
 
 /* Meta badges */
@@ -315,7 +315,7 @@
     padding: 24px;
     margin-bottom: 24px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    border: 2px solid #e0e7ff;
+    border: 2px solid #ccfbf1;
 }
 
 .scenario-header {
@@ -328,7 +328,7 @@
 .scenario-icon {
     width: 40px;
     height: 40px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -340,7 +340,7 @@
 .scenario-title {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #4c51bf;
+    color: #0f766e;
     margin: 0;
 }
 
@@ -562,8 +562,8 @@
 /* BADGES SM */
 .path-badge-sm {
     display: inline-block;
-    background: #E0E7FF;
-    color: #4338CA;
+    background: #ccfbf1;
+    color: #0c4a3e;
     padding: 2px 8px;
     border-radius: 6px;
     font-size: 0.75rem;
@@ -616,15 +616,15 @@
 }
 
 .btn-action-sm.primary {
-    background: #4f46e5;
+    background: #0d9488;
     color: white;
-    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2);
 }
 
 .btn-action-sm.primary:hover {
-    background: #4338ca;
+    background: #0f766e;
     transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+    box-shadow: 0 4px 6px rgba(13, 148, 136, 0.3);
 }
 
 .btn-action-sm.secondary {
@@ -695,15 +695,15 @@
 
 .action-button.secondary {
     background: white;
-    color: #667eea;
-    border: 2px solid #667eea;
+    color: #0f766e;
+    border: 2px solid #0f766e;
 }
 
 .action-button.secondary:hover {
-    background: #667eea;
+    background: #0f766e;
     color: white;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.3);
 }
 
 /* EMPTY STATE */

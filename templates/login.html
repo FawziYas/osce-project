@@ -7,8 +7,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
+        *,*::before,*::after{box-sizing:border-box;}
+
         body {
-            background: radial-gradient(circle at top right, #1a1a2e, #16213e);
+            background: #f0f5f4;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -16,118 +18,258 @@
             justify-content: center;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             padding: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Medical-themed background pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                linear-gradient(135deg, #0c4a3e 0%, #115e50 25%, #0f766e 50%, #0d9488 75%, #14b8a6 100%);
+            z-index: 0;
+        }
+
+        /* Subtle cross pattern overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            opacity: 0.04;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+            pointer-events: none;
         }
 
         .login-card {
             border: none;
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
-            background: rgba(255, 255, 255, 0.98);
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.25),
+                0 0 0 1px rgba(255,255,255,0.1);
+            background: #fff;
             width: 100%;
             max-width: 420px;
-            animation: fadeIn 0.5s ease-out forwards;
+            animation: cardIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            position: relative;
+            z-index: 1;
         }
 
         .card-header-custom {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: linear-gradient(135deg, #0c4a3e 0%, #0f766e 60%, #14b8a6 100%);
             color: white;
-            padding: 3rem 1rem 2.5rem;
+            padding: 2.5rem 1.5rem 2rem;
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
 
-        .card-header-custom i {
-            font-size: 3.5rem;
+        /* Decorative pulse line at top */
+        .card-header-custom::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #5eead4, #2dd4bf, #14b8a6, #2dd4bf, #5eead4);
+        }
+
+        /* Medical cross watermark */
+        .card-header-custom::after {
+            content: '+';
+            position: absolute;
+            right: -10px;
+            top: -10px;
+            font-size: 8rem;
+            font-weight: 900;
+            opacity: 0.06;
+            color: #fff;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .card-header-custom .icon-wrap {
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.25);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             margin-bottom: 1rem;
-            display: block;
-            color: #0dcaf0;
-            filter: drop-shadow(0 0 10px rgba(13, 202, 240, 0.5));
+            backdrop-filter: blur(4px);
+        }
+
+        .card-header-custom .icon-wrap i {
+            font-size: 1.8rem;
+            color: #fff;
         }
 
         .card-header-custom h4 {
-            font-weight: 800;
+            font-weight: 700;
             letter-spacing: 2px;
             text-transform: uppercase;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.3rem;
+            font-size: 1.15rem;
         }
 
         .card-header-custom p {
-            font-size: 0.875rem;
-            opacity: 0.65;
+            font-size: 0.8rem;
+            opacity: 0.6;
             margin-bottom: 0;
             letter-spacing: 0.5px;
+            font-weight: 400;
+        }
+
+        /* Heartbeat line divider */
+        .pulse-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin: -1px 0 0;
+            background: #fff;
+            position: relative;
+            z-index: 2;
+        }
+        .pulse-divider svg {
+            width: 120px;
+            height: 24px;
+            margin-top: -12px;
+        }
+        .pulse-divider svg path {
+            fill: none;
+            stroke: #14b8a6;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         .form-control {
             border-radius: 0 10px 10px 0;
-            padding: 0.8rem 1rem;
-            border: 1px solid #e0e0e0;
-            background-color: #fdfdfd;
-            transition: all 0.3s ease;
+            padding: 0.85rem 1rem;
+            border: 1.5px solid #d1d5db;
+            background-color: #f9fafb;
+            font-size: 0.95rem;
+            transition: all 0.25s ease;
         }
 
         .form-control:focus {
             background-color: #fff;
-            box-shadow: 0 0 0 4px rgba(13, 202, 240, 0.15);
-            border-color: #0dcaf0;
+            box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+            border-color: #14b8a6;
+        }
+
+        .form-control::placeholder {
+            color: #9ca3af;
         }
 
         .input-group-text {
             border-radius: 10px 0 0 10px;
-            background-color: #f8f9fa;
-            border-color: #e0e0e0;
-            color: #16213e;
-            width: 45px;
+            background-color: #f0fdfa;
+            border: 1.5px solid #d1d5db;
+            border-right: none;
+            color: #0f766e;
+            width: 48px;
             justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .input-group:focus-within .input-group-text {
+            border-color: #14b8a6;
+            color: #0d9488;
+            background-color: #ccfbf1;
         }
 
         .btn-login {
             border-radius: 10px;
             padding: 0.9rem;
             font-weight: 700;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
-            font-size: 0.9rem;
-            background: linear-gradient(135deg, #0dcaf0 0%, #0aa9c0 100%);
+            font-size: 0.88rem;
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
             border: none;
-            color: #1a1a2e;
-            box-shadow: 0 4px 15px rgba(13, 202, 240, 0.3);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(15, 118, 110, 0.3);
             transition: all 0.3s ease;
         }
 
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(13, 202, 240, 0.4);
-            background: linear-gradient(135deg, #0ed2f7 0%, #0bb8d2 100%);
-            color: #1a1a2e;
+            box-shadow: 0 8px 25px rgba(15, 118, 110, 0.4);
+            background: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%);
+            color: #fff;
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(15, 118, 110, 0.25);
         }
 
         .login-footer {
-            padding: 1.5rem;
+            padding: 1.15rem;
             text-align: center;
-            background: #fcfcfc;
-            border-top: 1px solid #f1f3f5;
+            background: #f0fdfa;
+            border-top: 1px solid #e6f7f4;
+        }
+        .login-footer .med-icon {
+            color: #14b8a6;
+            font-size: 0.7rem;
+            vertical-align: middle;
         }
 
         .alert {
             border-radius: 10px;
-            font-size: 0.875rem;
+            font-size: 0.85rem;
+            border: none;
+        }
+        .alert-danger  { background: #fef2f2; color: #991b1b; }
+        .alert-success { background: #f0fdf4; color: #166534; }
+        .alert-warning { background: #fffbeb; color: #92400e; }
+        .alert-info    { background: #f0fdfa; color: #115e59; }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to   { opacity: 1; transform: translateY(0); }
+        /* Password visibility toggle */
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px;
+            z-index: 5;
+            transition: color 0.2s;
         }
+        .password-toggle:hover { color: #0d9488; }
+        .password-wrap { position: relative; }
 
         @media (max-width: 480px) {
             .card-header-custom {
                 padding: 2rem 1rem 1.5rem;
             }
-            .card-header-custom i {
-                font-size: 2.5rem;
+            .card-header-custom .icon-wrap {
+                width: 56px;
+                height: 56px;
+            }
+            .card-header-custom .icon-wrap i {
+                font-size: 1.5rem;
             }
             .card-header-custom h4 {
-                font-size: 1.1rem;
+                font-size: 1.05rem;
                 letter-spacing: 1px;
             }
             .btn-login {
@@ -139,7 +281,7 @@
                 font-size: 1rem;
             }
             .login-card {
-                border-radius: 14px;
+                border-radius: 16px;
             }
         }
     </style>
@@ -148,16 +290,26 @@
 
 <div class="login-card">
     <div class="card-header-custom">
-        <i class="bi bi-shield-lock"></i>
+        <div class="icon-wrap">
+            <i class="bi bi-heart-pulse"></i>
+        </div>
         <h4>OSCE Portal</h4>
-        <p>Clinical Examination Management</p>
+        <p>Clinical Examination Management System</p>
     </div>
 
-    <div class="card-body p-4 p-md-5">
+    <!-- Heartbeat line divider -->
+    <div class="pulse-divider">
+        <svg viewBox="0 0 120 24">
+            <path d="M0,12 L30,12 L38,12 L42,4 L48,20 L54,4 L58,12 L62,12 L90,12 L120,12"/>
+        </svg>
+    </div>
+
+    <div class="card-body px-4 pb-4 pt-3 p-md-5">
 
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                    <i class="bi bi-{% if message.tags == 'error' or message.tags == 'danger' %}exclamation-circle{% elif message.tags == 'success' %}check-circle{% else %}info-circle{% endif %} me-2"></i>
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
@@ -168,11 +320,11 @@
             {% csrf_token %}
 
             <div class="mb-4">
-                <label for="username" class="form-label small fw-bold text-muted text-uppercase">Username</label>
+                <label for="username" class="form-label small fw-semibold text-uppercase" style="font-size:0.72rem;letter-spacing:0.06em;color:#6b7280;">Username</label>
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-person"></i></span>
                     <input type="text"
-                           class="form-control form-control-lg"
+                           class="form-control"
                            id="username"
                            name="username"
                            placeholder="Enter your username"
@@ -183,19 +335,22 @@
             </div>
 
             <div class="mb-4">
-                <label for="password" class="form-label small fw-bold text-muted text-uppercase">Password</label>
-                <div class="input-group">
+                <label for="password" class="form-label small fw-semibold text-uppercase" style="font-size:0.72rem;letter-spacing:0.06em;color:#6b7280;">Password</label>
+                <div class="input-group password-wrap">
                     <span class="input-group-text"><i class="bi bi-key"></i></span>
                     <input type="password"
-                           class="form-control form-control-lg"
+                           class="form-control"
                            id="password"
                            name="password"
                            placeholder="••••••••"
                            autocomplete="current-password"
                            required>
+                    <button type="button" class="password-toggle" tabindex="-1" aria-label="Toggle password visibility">
+                        <i class="bi bi-eye"></i>
+                    </button>
                 </div>
-                <div id="capslock-warning" style="display:none; color: #dc3545; font-size: 0.85rem; margin-top: 0.5rem;">
-                    ⚠ Caps Lock is on
+                <div id="capslock-warning" style="display:none; color: #dc3545; font-size: 0.82rem; margin-top: 0.5rem;">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Caps Lock is on
                 </div>
             </div>
 
@@ -206,8 +361,10 @@
     </div>
 
     <div class="login-footer">
-        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.68rem; letter-spacing: 1px;">
+        <small class="text-uppercase fw-bold" style="font-size: 0.66rem; letter-spacing: 1.2px; color: #6b7280;">
+            <i class="bi bi-plus-lg med-icon"></i>
             Secure Access &bull; Faculty of Medicine
+            <i class="bi bi-plus-lg med-icon"></i>
         </small>
     </div>
 </div>
@@ -218,22 +375,23 @@
     const passwordField = document.getElementById('password');
     const capsLockWarning = document.getElementById('capslock-warning');
 
-    passwordField.addEventListener('keypress', function(event) {
-        const capsLockOn = event.getModifierState('CapsLock');
-        if (capsLockOn) {
-            capsLockWarning.style.display = 'block';
-        } else {
-            capsLockWarning.style.display = 'none';
-        }
+    ['keypress','keyup'].forEach(evt => {
+        passwordField.addEventListener(evt, function(e) {
+            capsLockWarning.style.display = e.getModifierState('CapsLock') ? 'block' : 'none';
+        });
     });
 
-    passwordField.addEventListener('keyup', function(event) {
-        const capsLockOn = event.getModifierState('CapsLock');
-        if (capsLockOn) {
-            capsLockWarning.style.display = 'block';
+    // Password visibility toggle
+    document.querySelector('.password-toggle').addEventListener('click', function() {
+        const icon = this.querySelector('i');
+        if (passwordField.type === 'password') {
+            passwordField.type = 'text';
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
         } else {
-            capsLockWarning.style.display = 'none';
+            passwordField.type = 'password';
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
         }
+        passwordField.focus();
     });
 </script>
 </body>

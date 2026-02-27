@@ -23,12 +23,28 @@ def utc_timestamp():
     return TimestampMixin.utc_timestamp()
 
 
+def _parse_json_body(request):
+    """Safely parse JSON request body. Returns (data, error_response)."""
+    try:
+        return json.loads(request.body), None
+    except (json.JSONDecodeError, ValueError):
+        return None, JsonResponse({'error': 'Invalid JSON body'}, status=400)
+
+
 # ── Student endpoints ──────────────────────────────────────────────
 
 @login_required
 @require_GET
 def get_session_students(request, session_id):
     """Get all students for a session (for offline caching)."""
+    # S3: Verify examiner has an assignment in this session
+    has_assignment = ExaminerAssignment.objects.filter(
+        session_id=session_id,
+        examiner=request.user,
+    ).exists()
+    if not has_assignment and not request.user.is_staff:
+        return JsonResponse({'error': 'Not assigned to this session'}, status=403)
+
     students = SessionStudent.objects.filter(
         session_id=session_id,
     ).order_by('rotation_group', 'sequence_number')
@@ -124,10 +140,28 @@ def get_station_checklist(request, station_id):
 @require_POST
 def start_marking(request):
     """Start a marking session for a student at a station."""
-    data = json.loads(request.body)
+    data, err = _parse_json_body(request)
+    if err:
+        return err
+
     session_student_id = data.get('session_student_id')
     station_id = data.get('station_id')
     client_id = data.get('client_id', str(uuid.uuid4()))
+
+    # S3: Verify examiner is assigned to this station in the session
+    student = get_object_or_404(SessionStudent, pk=session_student_id)
+    has_assignment = ExaminerAssignment.objects.filter(
+        session_id=student.session_id,
+        station_id=station_id,
+        examiner=request.user,
+    ).exists()
+    if not has_assignment and not request.user.is_staff:
+        return JsonResponse({'error': 'Not assigned to this station'}, status=403)
+
+    # S7: Verify session is active
+    session = student.session
+    if hasattr(session, 'status') and session.status not in ('in_progress', 'active'):
+        return JsonResponse({'error': 'Session is not active'}, status=400)
 
     existing = StationScore.objects.filter(
         session_student_id=session_student_id,
@@ -175,11 +209,12 @@ def start_marking(request):
 
 
 @login_required
-@csrf_exempt
 @require_POST
 def mark_item(request, station_score_id):
     """Mark a single checklist item (auto-save on each tap)."""
-    data = json.loads(request.body)
+    data, err = _parse_json_body(request)
+    if err:
+        return err
 
     score = get_object_or_404(StationScore, pk=station_score_id)
 
@@ -223,11 +258,12 @@ def mark_item(request, station_score_id):
 
 
 @login_required
-@csrf_exempt
 @require_POST
 def submit_score(request, station_score_id):
     """Submit final score for a station."""
-    data = json.loads(request.body)
+    data, err = _parse_json_body(request)
+    if err:
+        return err
 
     score = get_object_or_404(StationScore, pk=station_score_id)
 
@@ -326,17 +362,46 @@ def undo_submit(request, station_score_id):
 @require_POST
 def sync_offline_data(request):
     """Sync offline data from client to server with conflict resolution."""
-    data = json.loads(request.body)
+    data, err = _parse_json_body(request)
+    if err:
+        return err
 
     synced = []
     conflicts = []
+    errors = []
+
+    # S3: Pre-fetch all examiner assignments for validation
+    user_assignment_keys = set(
+        ExaminerAssignment.objects.filter(examiner=request.user)
+        .values_list('session_id', 'station_id')
+    )
 
     for record in data.get('scores', []):
         local_uuid = record.get('local_uuid')
 
+        # S3: Verify examiner is assigned (check via session_student → session)
+        session_student_id = record.get('session_student_id')
+        station_id = record.get('station_id')
+        if session_student_id and station_id and not request.user.is_staff:
+            try:
+                student = SessionStudent.objects.get(pk=session_student_id)
+                if (str(student.session_id), str(station_id)) not in {
+                    (str(s), str(st)) for s, st in user_assignment_keys
+                }:
+                    errors.append({'local_uuid': local_uuid, 'error': 'Not assigned'})
+                    continue
+            except SessionStudent.DoesNotExist:
+                errors.append({'local_uuid': local_uuid, 'error': 'Student not found'})
+                continue
+
         existing = StationScore.objects.filter(local_uuid=local_uuid).first()
 
         if existing:
+            # Verify ownership
+            if existing.examiner_id != request.user.id:
+                errors.append({'local_uuid': local_uuid, 'error': 'Unauthorized'})
+                continue
+
             if record.get('local_timestamp', 0) > (existing.local_timestamp or 0):
                 existing.total_score = record.get('total_score')
                 existing.comments = record.get('comments')
@@ -369,12 +434,13 @@ def sync_offline_data(request):
             synced.append(local_uuid)
 
     log_action(request, 'SYNC', 'StationScore', '',
-               f'Synced {len(synced)} scores, {len(conflicts)} conflicts')
+               f'Synced {len(synced)} scores, {len(conflicts)} conflicts, {len(errors)} rejected')
 
     return JsonResponse({
         'synced_count': len(synced),
         'synced_uuids': synced,
         'conflicts': conflicts,
+        'errors': errors,
         'server_time': utc_timestamp(),
     })
 

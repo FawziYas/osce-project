@@ -49,7 +49,10 @@ def get_library(request):
 @require_POST
 def create_library_item(request):
     """POST /api/creator/library"""
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     if not data.get('ilo_id') or not data.get('description'):
         return JsonResponse({'error': 'Missing required fields'}, status=400)
 

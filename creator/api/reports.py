@@ -83,6 +83,10 @@ def get_session_summary(request, session_id):
     pass_threshold = 60
 
     student_data = []
+    # P3: Pre-fetch all paths to avoid N+1 per student
+    path_ids = set(s.path_id for s in students if s.path_id)
+    path_map = {p.id: p for p in Path.objects.filter(pk__in=path_ids)} if path_ids else {}
+
     for student in students:
         student_scores = {}
         total_score = 0
@@ -110,7 +114,7 @@ def get_session_summary(request, session_id):
             if percentage >= pass_threshold:
                 passed_count += 1
 
-        path = Path.objects.filter(pk=student.path_id).first() if student.path_id else None
+        path = path_map.get(student.path_id) if student.path_id else None
 
         student_data.append({
             'id': str(student.id),
@@ -177,9 +181,13 @@ def _build_station_info(session_id):
 
 def _student_rows(students, station_headers, station_info_map):
     """Yield (row_list, total_score, max_score, percentage, pass_fail) for each student."""
+    # P3: Pre-fetch paths
+    path_ids = set(s.path_id for s in students if s.path_id)
+    path_map = {p.id: p for p in Path.objects.filter(pk__in=path_ids)} if path_ids else {}
+
     for student in students:
         row = [student.student_number, student.full_name]
-        path = Path.objects.filter(pk=student.path_id).first() if student.path_id else None
+        path = path_map.get(student.path_id) if student.path_id else None
         row.append(path.name if path else '')
 
         total_score = 0
@@ -274,6 +282,14 @@ def export_students_xlsx(request, session_id):
         cell.alignment = header_alignment
 
     row_num = 5
+    # P3: Pre-fetch paths and stations to avoid N+1
+    path_ids = set(s.path_id for s in students if s.path_id)
+    path_map = {p.id: p for p in Path.objects.filter(pk__in=path_ids)} if path_ids else {}
+    station_id_set = set()
+    for info in station_info_map.values():
+        station_id_set.add(info['id'])
+    station_obj_map = {s.id: s for s in Station.objects.filter(pk__in=station_id_set)} if station_id_set else {}
+
     for student in students:
         # Get all scores for this student
         # Only count submitted scores, ignore abandoned/in-progress evaluations
@@ -286,7 +302,7 @@ def export_students_xlsx(request, session_id):
         
         # Build row with station scores
         row = [student.student_number, student.full_name]
-        path = Path.objects.filter(pk=student.path_id).first() if student.path_id else None
+        path = path_map.get(student.path_id) if student.path_id else None
         row.append(path.name if path else '')
 
         total_score = 0
@@ -314,7 +330,7 @@ def export_students_xlsx(request, session_id):
         for score in scores_qs:
             if score.comments and score.comments.strip():
                 examiner_name = score.examiner.full_name if score.examiner else "Unknown Examiner"
-                station_obj = Station.objects.filter(pk=score.station_id).first()
+                station_obj = station_obj_map.get(score.station_id)
                 station_name = station_obj.name if station_obj else "Unknown Station"
                 comments_list.append(f"{examiner_name} ({station_name}):\n{score.comments}")
         
@@ -372,10 +388,10 @@ def export_students_xlsx(request, session_id):
 def export_stations_csv(request, session_id):
     """GET /api/creator/reports/session/<id>/stations/csv"""
     session = get_object_or_404(ExamSession, pk=session_id)
-    paths = Path.objects.filter(session_id=session_id)
-    stations = []
-    for p in paths:
-        stations.extend(Station.objects.filter(path=p, active=True))
+    # P5: Prefetch paths and stations in one query
+    stations = Station.objects.filter(
+        path__session_id=session_id, active=True
+    ).select_related('path')
 
     output = StringIO()
     writer = csv.writer(output)
@@ -392,10 +408,9 @@ def export_stations_csv(request, session_id):
             avg_score = sum(total_scores) / len(total_scores)
             avg_max = sum(max_scores) / len(max_scores) if max_scores else 0
             avg_pct = (avg_score / avg_max * 100) if avg_max > 0 else 0
-            path = Path.objects.filter(pk=station.path_id).first()
             writer.writerow([
                 station.name,
-                path.name if path else '',
+                station.path.name if station.path else '',
                 round(avg_max, 2),
                 round(avg_score, 2),
                 round(avg_pct, 2),
@@ -414,7 +429,31 @@ def export_stations_csv(request, session_id):
 def export_raw_csv(request, session_id):
     """GET /api/creator/reports/session/<id>/raw/csv"""
     session = get_object_or_404(ExamSession, pk=session_id)
-    students = SessionStudent.objects.filter(session=session)
+
+    # P1: Eliminate N+1 queries — prefetch everything in a single query chain
+    item_scores = ItemScore.objects.filter(
+        station_score__session_student__session=session
+    ).select_related(
+        'station_score__session_student',
+        'station_score__examiner',
+        'station_score__station',
+        'checklist_item',
+    ).order_by(
+        'station_score__session_student__student_number',
+        'station_score__station__station_number',
+        'checklist_item__item_number',
+    )
+
+    # Pre-fetch path names for all students in one query
+    path_map = {}
+    student_path_ids = set(
+        SessionStudent.objects.filter(session=session)
+        .exclude(path_id__isnull=True)
+        .values_list('path_id', flat=True)
+    )
+    if student_path_ids:
+        for p in Path.objects.filter(pk__in=student_path_ids):
+            path_map[p.id] = p.name
 
     output = StringIO()
     writer = csv.writer(output)
@@ -423,27 +462,20 @@ def export_raw_csv(request, session_id):
         'Item', 'Score', 'Max Score', 'Examiner', 'Timestamp',
     ])
 
-    for student in students:
-        station_scores = StationScore.objects.filter(session_student=student)
-        for ss in station_scores:
-            station = Station.objects.filter(pk=ss.station_id).first()
-            examiner = Examiner.objects.filter(pk=ss.examiner_id).first()
-            path = Path.objects.filter(pk=student.path_id).first() if student.path_id else None
-            item_scores = ItemScore.objects.filter(station_score=ss)
-
-            for iscore in item_scores:
-                item = ChecklistItem.objects.filter(pk=iscore.checklist_item_id).first()
-                writer.writerow([
-                    student.student_number,
-                    student.full_name,
-                    path.name if path else '',
-                    station.name if station else '',
-                    item.description if item else '',
-                    iscore.score or 0,
-                    iscore.max_score or 0,
-                    examiner.full_name if examiner else '',
-                    iscore.scored_at or '',
-                ])
+    for iscore in item_scores:
+        ss = iscore.station_score
+        student = ss.session_student
+        writer.writerow([
+            student.student_number,
+            student.full_name,
+            path_map.get(student.path_id, ''),
+            ss.station.name if ss.station else '',
+            iscore.checklist_item.description if iscore.checklist_item else '',
+            iscore.score or 0,
+            iscore.max_points or 0,       # S8: was iscore.max_score (wrong field)
+            ss.examiner.full_name if ss.examiner else '',
+            iscore.marked_at or '',        # S8: was iscore.scored_at (wrong field)
+        ])
 
     filename = _safe_filename(f"{session.name}_raw_{session_id}.csv")
     response = HttpResponse(output.getvalue(), content_type='text/csv')

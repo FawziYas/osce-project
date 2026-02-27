@@ -3,6 +3,7 @@ Creator API – Exam endpoints.
 """
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
@@ -23,13 +24,18 @@ def get_exams(request):
         qs = qs.filter(is_deleted=False)
 
     exams = qs.order_by('-created_at')
+    # P2: Use annotate to eliminate N+1 count queries
+    exams = exams.annotate(
+        _station_count=Count('stations', distinct=True),
+        _session_count=Count('sessions', distinct=True),
+    )
     return JsonResponse([{
         'id': str(e.id),
         'name': e.name,
         'course_code': e.course.code if e.course else None,
         'status': e.status,
-        'station_count': e.stations.count(),
-        'session_count': e.sessions.count(),
+        'station_count': e._station_count,
+        'session_count': e._session_count,
         'exam_date': e.exam_date.isoformat() if e.exam_date else None,
         'is_deleted': e.is_deleted,
     } for e in exams], safe=False)
@@ -39,7 +45,12 @@ def get_exams(request):
 @require_GET
 def get_exam_stations(request, exam_id):
     """GET /api/creator/exams/<id>/stations"""
-    stations = Station.objects.filter(exam_id=exam_id).order_by('station_number')
+    # P2: Use annotate to eliminate N+1 per station
+    stations = Station.objects.filter(
+        exam_id=exam_id
+    ).annotate(
+        _item_count=Count('checklist_items'),
+    ).order_by('station_number')
     return JsonResponse([{
         'id': str(s.id),
         'station_number': s.station_number,
@@ -47,7 +58,7 @@ def get_exam_stations(request, exam_id):
         'scenario': (s.scenario[:100] + '...') if s.scenario and len(s.scenario) > 100 else s.scenario,
         'duration_minutes': s.duration_minutes,
         'max_score': s.get_max_score(),
-        'item_count': s.checklist_items.count(),
+        'item_count': s._item_count,
     } for s in stations], safe=False)
 
 

@@ -162,7 +162,7 @@
 /* CASE SCENARIO CARD */
 .case-card {
     background: #fff;
-    border: 2px solid #e0e7ff;
+    border: 2px solid #ccfbf1;
     border-radius: 16px;
     padding: 16px; /* Decreased from 20px */
     margin: 12px 0; /* Decreased from 20px */
@@ -172,7 +172,7 @@
 .case-title {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #4c51bf;
+    color: #0f766e;
     margin: 0 0 12px 0;
     display: flex;
     align-items: center;
@@ -211,17 +211,17 @@
     color: #ffffff;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    background: linear-gradient(135deg, #0d9488, #0f766e);
     padding: 8px 36px 8px 18px;
     clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
-    box-shadow: 2px 2px 8px rgba(99, 102, 241, 0.3);
+    box-shadow: 2px 2px 8px rgba(13, 148, 136, 0.3);
     white-space: nowrap;
 }
 
 .section-line {
     flex: 3;
     height: 10px;
-    background: linear-gradient(to right, #6366f1 0%, #a5b4fc 40%, #c7d2fe 70%, transparent 100%);
+    background: linear-gradient(to right, #0d9488 0%, #5eead4 40%, #99f6e4 70%, transparent 100%);
     margin-left: 0;
     opacity: 12;
     border-radius: 0 100px 100px 0;
@@ -419,8 +419,8 @@
 }
 
 .eval-btn.active {
-    border-color: #4F46E5;
-    background: #4F46E5;
+    border-color: #0d9488;
+    background: #0d9488;
     color: white;
 }
 
@@ -488,8 +488,8 @@
 
 .feedback-textarea:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
 }
 
 /* BOTTOM ACTIONS */
@@ -576,7 +576,7 @@
 
 .loading-spinner {
     border: 4px solid #E5E7EB;
-    border-top: 4px solid #667eea;
+    border-top: 4px solid #0f766e;
     border-radius: 50%;
     width: 48px;
     height: 48px;
@@ -981,7 +981,7 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0c4a3e 0%, #0f766e 60%, #14b8a6 100%);
     color: white;
     padding: 10px 20px 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);

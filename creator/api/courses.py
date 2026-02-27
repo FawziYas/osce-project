@@ -2,6 +2,7 @@
 Creator API – Course & ILO endpoints.
 """
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET
@@ -13,14 +14,17 @@ from core.models import Course, ILO, ChecklistLibrary
 @require_GET
 def get_courses(request):
     """GET /api/creator/courses"""
-    courses = Course.objects.order_by('code')
+    # P4: Use annotate to eliminate N+1 count per course
+    courses = Course.objects.annotate(
+        _ilo_count=Count('ilos'),
+    ).order_by('code')
     return JsonResponse([{
         'id': c.id,
         'code': c.code,
         'name': c.name,
         'year_level': c.year_level,
         'osce_mark': c.osce_mark,
-        'ilo_count': c.ilos.count(),
+        'ilo_count': c._ilo_count,
     } for c in courses], safe=False)
 
 
@@ -28,9 +32,12 @@ def get_courses(request):
 @require_GET
 def get_course_ilos(request, course_id):
     """GET /api/creator/courses/<id>/ilos"""
+    # P4: Use annotate to eliminate N+1 count per ILO
     ilos = ILO.objects.filter(
         course_id=course_id
-    ).select_related('theme').order_by('number')
+    ).select_related('theme').annotate(
+        _library_count=Count('library_items'),
+    ).order_by('number')
 
     return JsonResponse([{
         'id': ilo.id,
@@ -41,7 +48,7 @@ def get_course_ilos(request, course_id):
         'theme_color': ilo.theme_color,
         'theme_icon': ilo.theme_icon,
         'osce_marks': ilo.osce_marks,
-        'library_count': ilo.library_items.count(),
+        'library_count': ilo._library_count,
     } for ilo in ilos], safe=False)
 
 

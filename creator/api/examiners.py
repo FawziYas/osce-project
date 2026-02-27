@@ -3,6 +3,7 @@ Creator API – Examiner endpoints.
 """
 import json
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -30,7 +31,10 @@ def get_examiners(request):
 @require_POST
 def create_examiner_api(request):
     """POST /api/creator/examiners"""
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     if not data.get('username') or not data.get('full_name'):
         return JsonResponse({'error': 'Missing required fields'}, status=400)
 
@@ -45,7 +49,7 @@ def create_examiner_api(request):
         department=data.get('department', ''),
         is_active=True,
     )
-    examiner.set_password(data.get('password', data['username']))
+    examiner.set_password(data.get('password') or getattr(settings, 'DEFAULT_USER_PASSWORD', 'ChangeMe@123'))
     examiner.save()
 
     return JsonResponse({
@@ -77,7 +81,10 @@ def get_session_assignments(request, session_id):
 @require_POST
 def create_assignment(request, session_id):
     """POST /api/creator/sessions/<id>/assignments"""
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     if not data.get('station_id') or not data.get('examiner_id'):
         return JsonResponse({'error': 'Missing station_id or examiner_id'}, status=400)
 

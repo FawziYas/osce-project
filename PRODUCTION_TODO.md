@@ -901,3 +901,114 @@ python manage.py check --deploy
 ```
 
 This reports all security issues before you go live.
+
+---
+
+## 🗑️ Cleanup — Delete Unused & Unnecessary Files Before Production
+
+These files exist in the repo for development purposes only and must be removed (or excluded from the production deploy) before going live.
+
+### One-off Scripts at Project Root (safe to delete)
+
+These scripts were used once during development/migration and serve no ongoing purpose:
+
+| File | Why it can be deleted |
+|------|-----------------------|
+| `check_db_schema.py` | One-off DB inspection script — no longer needed |
+| `check_soft_deleted_stations.py` | One-off debugging helper — no longer needed |
+| `delete_soft_deleted_station.py` | One-off data-fix script — already applied, no longer needed |
+| `restore_from_flask.py` | Flask → Django migration script — migration is complete |
+
+```bash
+# Run from project root
+del check_db_schema.py
+del check_soft_deleted_stations.py
+del delete_soft_deleted_station.py
+del restore_from_flask.py
+```
+
+---
+
+### Demo / Seed Data Script (do NOT run in production)
+
+| File | Action |
+|------|--------|
+| `scripts/seed_demo_data.py` | Keep the file for reference, but **never run it in production** — it inserts fake Arabic students, exams, and checklist items into whatever database is configured. Add a production guard at the top if keeping it. |
+
+---
+
+### Development Database — Never Deploy to Production
+
+| File | Why |
+|------|-----|
+| `db.sqlite3` | This is the **local development SQLite database** (contains demo data, test exams, dev users). It must not be copied to the production server. Production uses PostgreSQL. Make sure `db.sqlite3` is listed in `.gitignore` and never committed or uploaded. |
+
+Verify it is ignored:
+```bash
+git check-ignore -v db.sqlite3
+# Should output: .gitignore:...  db.sqlite3
+```
+
+---
+
+### Log Files — Rotate Before Production Launch
+
+Log files in `logs/` accumulate dev-session noise and should be cleared (not deleted — the folder must stay):
+
+| File | Action |
+|------|--------|
+| `logs/audit.log` (~40 KB of dev activity) | Clear contents before production launch |
+| `logs/auth.log` (~2.5 KB of dev logins) | Clear contents before production launch |
+
+```bash
+# Clear log contents but keep the files (Django needs them to exist)
+echo $null > logs\audit.log
+echo $null > logs\auth.log
+```
+
+Set up log rotation in production so they don't grow unbounded:
+- Use `logging.handlers.RotatingFileHandler` in `settings.py` (max 10 MB, keep 5 backups)
+- Or let the OS handle it via `logrotate` (Linux) / Task Scheduler (Windows Server)
+
+---
+
+### Duplicate Documentation Files (optional cleanup)
+
+| File | Note |
+|------|------|
+| `SECURITY_PERFORMANCE_AUDIT.md` | Appears to duplicate content from both `SECURITY_AUDIT_REPORT.md` and `PERFORMANCE_OPTIMIZATION_REPORT.md`. Review and delete if redundant. |
+
+---
+
+### Local Virtual Environment — Never Deploy
+
+| Path | Action |
+|------|--------|
+| `venv/` | Local Python virtual environment. Must not be uploaded to any server. Production uses its own environment created from `requirements.txt`. Confirm `venv/` is in `.gitignore`. |
+
+---
+
+### Dev-only Requirements — Do Not Install in Production
+
+| File | Action |
+|------|--------|
+| `requirements-dev.txt` | Contains dev tools (e.g. `ipython`, `django-debug-toolbar`). Production `pip install` should only use `requirements.txt`. |
+
+```bash
+# Production install — dev deps excluded
+pip install -r requirements.txt
+```
+
+---
+
+### Quick Pre-Deploy Cleanup Checklist
+
+- [ ] Deleted `check_db_schema.py`
+- [ ] Deleted `check_soft_deleted_stations.py`
+- [ ] Deleted `delete_soft_deleted_station.py`
+- [ ] Deleted `restore_from_flask.py`
+- [ ] Confirmed `db.sqlite3` is in `.gitignore` and NOT committed
+- [ ] Cleared `logs/audit.log` and `logs/auth.log`
+- [ ] Confirmed `venv/` is excluded from deployment
+- [ ] Production install uses `requirements.txt` only (not `requirements-dev.txt`)
+- [ ] `scripts/seed_demo_data.py` has NOT been run against the production database

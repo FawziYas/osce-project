@@ -30,7 +30,10 @@ def get_session_paths(request, session_id):
 def create_session_path(request, session_id):
     """POST /api/creator/sessions/<id>/paths"""
     session = get_object_or_404(ExamSession, pk=session_id)
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
 
     if not data.get('path_name'):
         return JsonResponse({'error': 'path_name is required'}, status=400)
@@ -69,7 +72,10 @@ def update_path(request, path_id):
         return JsonResponse({'error': 'PUT required'}, status=405)
 
     path = get_object_or_404(Path, pk=path_id)
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
 
     if data.get('name'):
         if Path.objects.filter(
@@ -128,7 +134,10 @@ def get_path_stations(request, path_id):
 def add_station_to_path(request, path_id):
     """POST /api/creator/paths/<id>/stations – add a station to this path."""
     path = get_object_or_404(Path, pk=path_id)
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
 
     station_id = data.get('station_id')
     if not station_id:
@@ -193,7 +202,10 @@ def remove_station_from_path(request, path_id, station_id):
 @require_POST
 def reorder_path_stations(request, path_id):
     """POST /api/creator/paths/<id>/stations/reorder"""
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     if not data.get('station_order'):
         return JsonResponse({'error': 'station_order array required'}, status=400)
 

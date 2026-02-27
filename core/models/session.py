@@ -31,7 +31,7 @@ class ExamSession(models.Model):
     number_of_paths = models.IntegerField()
 
     # Status: scheduled, in_progress, completed, cancelled
-    status = models.CharField(max_length=20, default='scheduled')
+    status = models.CharField(max_length=20, default='scheduled', db_index=True)
 
     actual_start = models.IntegerField(null=True, blank=True)
     actual_end = models.IntegerField(null=True, blank=True)
@@ -100,7 +100,7 @@ class SessionStudent(models.Model):
     sequence_number = models.IntegerField(null=True, blank=True)
 
     # Status: registered, checked_in, in_progress, completed, absent
-    status = models.CharField(max_length=20, default='registered')
+    status = models.CharField(max_length=20, default='registered', db_index=True)
     checked_in_at = models.IntegerField(null=True, blank=True)
     completed_at = models.IntegerField(null=True, blank=True)
 

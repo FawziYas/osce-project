@@ -123,7 +123,7 @@
         <button
             type="button"
             id="btn-download-report"
-            class="btn btn-outline-info disabled"
+            class="btn btn-outline-info "
             title="Generate a comprehensive PDF report for this session"
             data-session-id="{{ session.id }}"
             data-session-name="{{ session.name }}"
@@ -1155,10 +1155,7 @@ function togglePathDetails(event) {
 <!-- jQuery (required for Select2) + Select2 -->
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<!-- jsPDF 2.5.1 + AutoTable 3.8.2 (served locally) -->
-<script src="{% static 'js/jspdf.umd.min.js' %}"></script>
-<script src="{% static 'js/jspdf.plugin.autotable.min.js' %}"></script>
-<!-- Session Report PDF generator -->
+<!-- Session Report generator (HTML print edition — Arabic rendered natively by browser) -->
 <script src="{% static 'js/session-report-pdf.js' %}"></script>
 <script>
 (function () {

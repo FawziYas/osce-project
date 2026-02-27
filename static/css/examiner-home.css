@@ -14,7 +14,7 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0c4a3e 0%, #0f766e 60%, #14b8a6 100%);
     color: white;
     padding: 10px 24px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -61,7 +61,7 @@
     letter-spacing: 0.5px;
     color: #fff;
 }
-.osce-brand i { font-size: 1.2rem; color: #e0e7ff; }
+.osce-brand i { font-size: 1.2rem; color: #ccfbf1; }
 
 /* Page title (center row 1) */
 .home-title-block { display: flex; align-items: center; justify-content: center; }
@@ -78,7 +78,7 @@
     line-height: 1.2;
     text-shadow: 1px 1px 4px rgba(0,0,0,0.25);
 }
-.home-page-title i { font-size: 1.1em; color: #c7d2fe; }
+.home-page-title i { font-size: 1.1em; color: #5eead4; }
 
 /* Examiner badge */
 .examiner-name-badge {
@@ -89,7 +89,7 @@
     font-weight: 600;
     color: rgba(255,255,255,0.9);
 }
-.examiner-name-badge i { font-size: 1rem; color: #c7d2fe; }
+.examiner-name-badge i { font-size: 1rem; color: #5eead4; }
 
 /* Action buttons (Profile / Sign Out) */
 .home-action-btn {
@@ -243,7 +243,7 @@
 }
 
 .station-title-section h3 i {
-    color: #667eea;
+    color: #0f766e;
 }
 
 .station-subtitle {
@@ -329,7 +329,7 @@
 .station-start-button {
     width: 100%;
     padding: 18px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #4338ca 100%);
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
     color: white;
     border: none;
     border-radius: 14px;
@@ -342,12 +342,12 @@
     justify-content: center;
     gap: 10px;
     text-decoration: none;
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 16px rgba(15, 118, 110, 0.3);
 }
 
 .station-start-button:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 8px 24px rgba(15, 118, 110, 0.4);
     color: white;
 }
 

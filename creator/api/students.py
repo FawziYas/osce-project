@@ -16,7 +16,10 @@ from core.models import ExamSession, SessionStudent, Path, StationScore
 def update_student_path_assignment(request, student_id):
     """POST /api/creator/students/<id>/path"""
     student = get_object_or_404(SessionStudent, pk=student_id)
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     path_id = data.get('path_id')
     student.path_id = path_id if path_id else None
     student.save()
@@ -90,7 +93,9 @@ def redistribute_students(request, session_id):
 
     for i, student in enumerate(students):
         student.path_id = paths[i % len(paths)].id
-        student.save()
+
+    # P7: Bulk update instead of save() per student
+    SessionStudent.objects.bulk_update(students, ['path_id'])
 
     return JsonResponse({
         'success': True,
@@ -105,7 +110,10 @@ def assign_student_to_path(request, session_id, student_id):
     student = get_object_or_404(
         SessionStudent, pk=student_id, session_id=session_id
     )
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
     if not data.get('path_id'):
         return JsonResponse({'error': 'path_id is required'}, status=400)
 
