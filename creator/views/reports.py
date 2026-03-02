@@ -339,8 +339,6 @@ def export_ilo_scores_xlsx(request, session_id):
     # Styles
     header_font = Font(bold=True, color='FFFFFF', size=11)
     header_fill = PatternFill(start_color='1A1A2E', end_color='1A1A2E', fill_type='solid')
-    sub_header_fill = PatternFill(start_color='4A6FA5', end_color='4A6FA5', fill_type='solid')
-    sub_header_font = Font(bold=True, color='FFFFFF', size=10)
     border = Border(
         left=Side(style='thin'), right=Side(style='thin'),
         top=Side(style='thin'), bottom=Side(style='thin'),
@@ -349,7 +347,8 @@ def export_ilo_scores_xlsx(request, session_id):
     left_align = Alignment(horizontal='left', vertical='center')
 
     # ── Row 1: Title ────────────────────────────────────────────────────
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=3 + len(ilos) * 2 + 1)
+    total_cols = 3 + len(ilos) + 1  # fixed + 1 col per ILO + Total
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=total_cols)
     title_cell = ws.cell(row=1, column=1,
                          value=f'{exam.name} — {session.name} — ILO Score Report')
     title_cell.font = Font(bold=True, size=14, color='1A1A2E')
@@ -357,7 +356,7 @@ def export_ilo_scores_xlsx(request, session_id):
     ws.row_dimensions[1].height = 30
 
     # ── Row 2: Course info ──────────────────────────────────────────────
-    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=3 + len(ilos) * 2 + 1)
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=total_cols)
     info_cell = ws.cell(row=2, column=1,
                         value=f'Course: {course.code} — {course.name}  |  Students: {len(students)}')
     info_cell.font = Font(size=10, color='666666')
@@ -366,7 +365,7 @@ def export_ilo_scores_xlsx(request, session_id):
     # ── Row 3: Empty spacer ─────────────────────────────────────────────
     start_row = 4
 
-    # ── Row 4: Header — fixed columns ──────────────────────────────────
+    # ── Row 4: Header ───────────────────────────────────────────────────
     fixed_headers = ['#', 'Student Number', 'Student Name']
     for ci, hdr in enumerate(fixed_headers, 1):
         cell = ws.cell(row=start_row, column=ci, value=hdr)
@@ -375,81 +374,27 @@ def export_ilo_scores_xlsx(request, session_id):
         cell.alignment = center
         cell.border = border
 
-    # ILO columns: pairs of (Score, Max) for each ILO
+    # One column per ILO
     col = len(fixed_headers) + 1
     for ilo in ilos:
-        # Merge header for the ILO pair
-        ws.merge_cells(start_row=start_row, start_column=col,
-                       end_row=start_row, end_column=col + 1)
-        cell = ws.cell(row=start_row, column=col,
-                       value=f'ILO #{ilo.number}')
+        cell = ws.cell(row=start_row, column=col, value=f'ILO #{ilo.number}')
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = center
         cell.border = border
-        # Also style the merged cell's right side
-        ws.cell(row=start_row, column=col + 1).fill = header_fill
-        ws.cell(row=start_row, column=col + 1).border = border
-        col += 2
+        col += 1
 
-    # Total column pair
-    ws.merge_cells(start_row=start_row, start_column=col,
-                   end_row=start_row, end_column=col + 1)
-    total_hdr = ws.cell(row=start_row, column=col, value='TOTAL')
+    # Total column
+    total_col = col
+    total_hdr = ws.cell(row=start_row, column=total_col, value='TOTAL')
     total_hdr.font = header_font
     total_hdr.fill = PatternFill(start_color='198754', end_color='198754', fill_type='solid')
     total_hdr.alignment = center
     total_hdr.border = border
-    ws.cell(row=start_row, column=col + 1).fill = PatternFill(
-        start_color='198754', end_color='198754', fill_type='solid')
-    ws.cell(row=start_row, column=col + 1).border = border
-
-    # Percentage column
-    pct_col = col + 2
-    pct_cell = ws.cell(row=start_row, column=pct_col, value='%')
-    pct_cell.font = header_font
-    pct_cell.fill = PatternFill(start_color='0D6EFD', end_color='0D6EFD', fill_type='solid')
-    pct_cell.alignment = center
-    pct_cell.border = border
-
-    # ── Row 5: Sub-header (Score / Max under each ILO) ──────────────────
-    sub_row = start_row + 1
-    for ci in range(1, len(fixed_headers) + 1):
-        cell = ws.cell(row=sub_row, column=ci, value='')
-        cell.fill = sub_header_fill
-        cell.border = border
-
-    col = len(fixed_headers) + 1
-    for _ilo in ilos:
-        ws.cell(row=sub_row, column=col, value='Score').font = sub_header_font
-        ws.cell(row=sub_row, column=col).fill = sub_header_fill
-        ws.cell(row=sub_row, column=col).alignment = center
-        ws.cell(row=sub_row, column=col).border = border
-        ws.cell(row=sub_row, column=col + 1, value='Max').font = sub_header_font
-        ws.cell(row=sub_row, column=col + 1).fill = sub_header_fill
-        ws.cell(row=sub_row, column=col + 1).alignment = center
-        ws.cell(row=sub_row, column=col + 1).border = border
-        col += 2
-
-    # Total sub-header
-    ws.cell(row=sub_row, column=col, value='Score').font = sub_header_font
-    ws.cell(row=sub_row, column=col).fill = sub_header_fill
-    ws.cell(row=sub_row, column=col).alignment = center
-    ws.cell(row=sub_row, column=col).border = border
-    ws.cell(row=sub_row, column=col + 1, value='Max').font = sub_header_font
-    ws.cell(row=sub_row, column=col + 1).fill = sub_header_fill
-    ws.cell(row=sub_row, column=col + 1).alignment = center
-    ws.cell(row=sub_row, column=col + 1).border = border
-
-    # % sub-header
-    ws.cell(row=sub_row, column=pct_col, value='').fill = sub_header_fill
-    ws.cell(row=sub_row, column=pct_col).border = border
 
     # ── Data rows ───────────────────────────────────────────────────────
-    data_start = sub_row + 1
+    data_start = start_row + 1
     even_fill = PatternFill(start_color='F8F9FA', end_color='F8F9FA', fill_type='solid')
-    pass_fill = PatternFill(start_color='D1E7DD', end_color='D1E7DD', fill_type='solid')
-    fail_fill = PatternFill(start_color='F8D7DA', end_color='F8D7DA', fill_type='solid')
 
     for idx, student in enumerate(students):
         row_num = data_start + idx
@@ -465,51 +410,29 @@ def export_ilo_scores_xlsx(request, session_id):
             if row_fill:
                 ws.cell(row=row_num, column=ci).fill = row_fill
 
-        # ILO columns
+        # ILO score columns
         col = len(fixed_headers) + 1
         grand_earned = 0
-        grand_possible = 0
 
         for ilo in ilos:
             s = scores.get(student.id, {}).get(ilo.id, {'earned': 0, 'possible': 0})
             earned = s['earned']
-            possible = s['possible']
             grand_earned += earned
-            grand_possible += possible
 
             earned_cell = ws.cell(row=row_num, column=col, value=earned if earned else '')
             earned_cell.alignment = center
             earned_cell.border = border
             if row_fill:
                 earned_cell.fill = row_fill
-
-            max_cell = ws.cell(row=row_num, column=col + 1, value=possible if possible else '')
-            max_cell.alignment = center
-            max_cell.border = border
-            max_cell.font = Font(color='999999', size=10)
-            if row_fill:
-                max_cell.fill = row_fill
-
-            col += 2
+            col += 1
 
         # Total
-        total_earned_cell = ws.cell(row=row_num, column=col, value=round(grand_earned, 2))
-        total_earned_cell.font = Font(bold=True)
-        total_earned_cell.alignment = center
-        total_earned_cell.border = border
-
-        total_possible_cell = ws.cell(row=row_num, column=col + 1, value=round(grand_possible, 2))
-        total_possible_cell.alignment = center
-        total_possible_cell.border = border
-        total_possible_cell.font = Font(color='999999')
-
-        # Percentage
-        pct_val = round((grand_earned / grand_possible * 100), 1) if grand_possible > 0 else 0
-        pct_data_cell = ws.cell(row=row_num, column=pct_col, value=f'{pct_val}%')
-        pct_data_cell.alignment = center
-        pct_data_cell.border = border
-        pct_data_cell.font = Font(bold=True)
-        pct_data_cell.fill = pass_fill if pct_val >= 60 else fail_fill
+        total_cell = ws.cell(row=row_num, column=total_col, value=round(grand_earned, 2))
+        total_cell.font = Font(bold=True)
+        total_cell.alignment = center
+        total_cell.border = border
+        if row_fill:
+            total_cell.fill = row_fill
 
     # ── ILO description row at the bottom ───────────────────────────────
     desc_row = data_start + len(students) + 1
@@ -523,8 +446,8 @@ def export_ilo_scores_xlsx(request, session_id):
     ws.column_dimensions['A'].width = 5
     ws.column_dimensions['B'].width = 18
     ws.column_dimensions['C'].width = 28
-    for ci in range(len(fixed_headers) + 1, pct_col + 1):
-        ws.column_dimensions[get_column_letter(ci)].width = 9
+    for ci in range(len(fixed_headers) + 1, total_col + 1):
+        ws.column_dimensions[get_column_letter(ci)].width = 10
 
     # ── Freeze panes ────────────────────────────────────────────────────
     ws.freeze_panes = f'D{data_start}'
