@@ -12,6 +12,7 @@ from core.models.mixins import TimestampMixin
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
+from creator.api.sessions import _sync_exam_status
 
 from core.models import (
     Exam, ExamSession, SessionStudent, Path, Station, ChecklistItem,
@@ -118,6 +119,8 @@ def session_create(request, exam_id):
         )
         session.save()
 
+        _sync_exam_status(exam)  # exam becomes 'ready' once it has a scheduled session
+
         if not Path.objects.filter(session=session, is_deleted=False).exists():
             for path_num in range(number_of_paths):
                 path_name = generate_path_name(path_num)
@@ -182,6 +185,7 @@ def session_delete(request, session_id):
 
     session.status = 'cancelled'
     session.save()
+    _sync_exam_status(session.exam)  # recalculate exam status after session cancelled
 
     messages.success(request, f"Session '{session_name}' has been cancelled.")
     return redirect('creator:exam_detail', exam_id=exam_id)

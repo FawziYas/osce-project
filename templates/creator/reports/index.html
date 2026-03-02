@@ -1,5 +1,5 @@
 {% extends 'creator/base_creator.html' %}
-
+{% load osce_filters %}
 {% block title %}Reports & Outputs - OSCE Creator{% endblock %}
 
 {% block content %}
@@ -28,7 +28,7 @@
                             {% for session in sessions %}
                             <option value="{{ session.id }}" {% if selected_session and selected_session.id == session.id %}selected{% endif %}>
                                 {{ session.name }} ({{ session.session_date|date:"Y-m-d" }})
-                                - {{ session.status|title }}
+                                - {{ session.status|status_label }}
                             </option>
                             {% endfor %}
                         </select>

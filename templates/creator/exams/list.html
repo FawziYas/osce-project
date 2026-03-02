@@ -1,5 +1,5 @@
 {% extends 'creator/base_creator.html' %}
-
+{% load osce_filters %}
 {% block title %}Exams - OSCE Creator{% endblock %}
 
 {% block content %}
@@ -33,7 +33,7 @@
     <table class="table table-hover mb-0">
         <thead>
             <tr>
-                <th>Name</th><th>Course</th><th>Department</th><th>Exam Date</th><th>Stations</th><th>Status</th><th>Actions</th>
+                <th>Name</th><th>Course</th><th>Stations</th><th>Exam Date</th><th>Status</th><th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -45,9 +45,7 @@
                         <span class="badge bg-primary me-1">{{ exam.course.short_code|default:exam.course.code }}</span>
                     {% else %}<span class="text-muted">-</span>{% endif %}
                 </td>
-                <td>
-                    {% if exam.department %}<span class="badge bg-success">{{ exam.department }}</span>{% else %}<span class="text-muted">-</span>{% endif %}
-                </td>
+                   <td><span class="badge bg-info text-dark">{{ exam.stations.count }} stations</span></td>
                 <td>
                     {% if exam.exam_date %}{{ exam.exam_date|date:"Y-m-d" }}{% else %}<span class="text-muted">Not set</span>{% endif %}
                     {% if exam.session_time %}
@@ -57,8 +55,8 @@
                         </small>
                     {% endif %}
                 </td>
-                <td><span class="badge bg-info text-dark">{{ exam.stations.count }} stations</span></td>
-                <td><span class="badge badge-{{ exam.status }}">{{ exam.status|title }}</span></td>
+             
+                <td><span class="badge badge-{{ exam.status }}">{{ exam.status|status_label }}</span></td>
                 <td>
                     <div class="btn-group btn-group-sm">
                         <a href="{% url 'creator:exam_detail' exam.id %}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>

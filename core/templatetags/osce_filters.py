@@ -52,6 +52,30 @@ def get_item_filter(dictionary, key):
         return None
 
 
+@register.filter(name='status_label')
+def status_label_filter(value):
+    """
+    Convert a status slug into a human-readable label.
+
+    Replaces underscores with spaces and title-cases each word so that
+    values like 'in_progress' render as 'In Progress' instead of 'In_Progress'.
+
+    Usage: {{ exam.status|status_label }}  {{ session.status|status_label }}
+    """
+    LABELS = {
+        'draft':       'Draft',
+        'ready':       'Ready',
+        'scheduled':   'Scheduled',
+        'in_progress': 'In Progress',
+        'completed':   'Completed',
+        'archived':    'Archived',
+        'cancelled':   'Cancelled',
+    }
+    if not value:
+        return ''
+    return LABELS.get(str(value), str(value).replace('_', ' ').title())
+
+
 @register.filter(name='average_score')
 def average_score_filter(scores_list):
     """

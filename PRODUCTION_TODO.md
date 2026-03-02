@@ -78,35 +78,31 @@ These 5 changes are **non-negotiable** before going live:
 
 ---
 
-## � 500 Concurrent Examiners — High-Performance Production Setup
+## 🚀 1000 Concurrent Examiners — High-Performance Production Setup on Azure
 
-**Target:** 500 examiners scoring simultaneously with < 200ms response time.
+**Target:** 1000 examiners scoring simultaneously with < 200ms response time.
+**Platform:** Microsoft Azure (covered by $100/mo university credit)
 
 ### Architecture Overview
 
 ```
-                    ┌─────────────┐
-                    │  Cloudflare  │  ← CDN + DDoS protection + SSL
-                    │    (Free)    │
-                    └──────┬──────┘
-                           │
-                    ┌──────┴──────┐
-                    │   Railway    │  ← Auto-scaling web service
-                    │  (Gunicorn)  │
-                    │  8 workers   │
-                    └──┬───┬───┬──┘
+                    ┌──────────────────┐
+                    │  Azure Front Door │  ← CDN + DDoS + WAF + SSL
+                    │    (Optional)     │
+                    └────────┬─────────┘
+                             │
+                    ┌────────┴─────────────┐
+                    │  Azure App Service    │  ← B2 plan, autoscale 1-3
+                    │  (Gunicorn 8 workers) │
+                    └──┬───┬───┬───────────┘
                        │   │   │
               ┌────────┘   │   └────────┐
               ▼            ▼            ▼
         ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │ PgBouncer│ │  Redis   │ │  Static  │
-        │(Pooling) │ │ (Cache)  │ │  (CDN)   │
-        └────┬─────┘ └──────────┘ └──────────┘
-             │
-        ┌────┴─────┐
-        │PostgreSQL │  ← Managed DB (Railway or Neon)
-        │  Primary  │
-        └──────────┘
+        │PostgreSQL│ │ Azure    │ │WhiteNoise│
+        │ Flexible │ │ Redis    │ │ Static   │
+        │ Server   │ │ Cache C0 │ │ Files    │
+        └──────────┘ └──────────┘ └──────────┘
 ```
 
 ### Step-by-Step Setup Checklist
@@ -134,9 +130,9 @@ These 5 changes are **non-negotiable** before going live:
 
 - [ ] **Install and configure PgBouncer**
 
-  Without pooling, 500 examiners = 500 DB connections → PostgreSQL max is 100 by default → **crash**.
+  Without pooling, 1000 examiners = 1000 DB connections → PostgreSQL max is 100 by default → **crash**.
 
-  **On Railway:** Add PgBouncer plugin (click "+ New" → search "PgBouncer")
+  **On Azure:** PostgreSQL Flexible Server has built-in PgBouncer — enable it in Azure Portal → Server Parameters → `pgbouncer.enabled` = `true`.
 
   **In Django `settings.py`:**
   ```python
@@ -161,13 +157,13 @@ These 5 changes are **non-negotiable** before going live:
   |---------|-------|-----|
   | `CONN_MAX_AGE = 600` | Reuse connections for 10 min | Avoids opening/closing DB connection per request |
   | `CONN_HEALTH_CHECKS = True` | Verify connection is alive | Prevents "connection closed" errors |
-  | PgBouncer pool size | 25 connections | 25 persistent connections shared across 500 users |
+  | PgBouncer pool size | 25 connections | 25 persistent connections shared across 1000 users |
 
 #### 3. Redis Cache — Eliminate Repetitive Database Queries
 
 - [ ] **Add Redis for caching**
 
-  **On Railway:** Click "+ New" → "Database" → "Redis"
+  **On Azure:** Create Azure Cache for Redis (Basic C0, 250MB) → copy connection string from Access keys blade
 
   **Install packages:**
   ```bash
@@ -259,16 +255,19 @@ These 5 changes are **non-negotiable** before going live:
 
   Run: `python manage.py makemigrations && python manage.py migrate`
 
-#### 5. Static Files — CDN (Cloudflare)
+#### 5. Static Files — WhiteNoise + Azure CDN (Optional)
 
-- [ ] **Serve static files via Cloudflare CDN (Free)**
+- [ ] **Serve static files via WhiteNoise (included in App Service)**
 
-  1. Register domain on [cloudflare.com](https://cloudflare.com) (free plan)
-  2. Point DNS to Railway/Render
-  3. Enable caching for `/static/` → CSS, JS, images served from edge servers worldwide
-  4. Examiners' browsers load static files from nearest Cloudflare server, not your Django app
+  WhiteNoise serves static files directly from Gunicorn with compression and caching headers.
+  For extra performance, optionally add Azure CDN or Azure Front Door.
 
-  **Result:** Django only handles API/scoring requests, not serving CSS/JS files → **50% less server load**
+  1. WhiteNoise is already in `requirements.txt`
+  2. Add WhiteNoise middleware to `settings.py` (after SecurityMiddleware)
+  3. Run `python manage.py collectstatic`
+  4. (Optional) Add Azure Front Door for CDN + WAF — free tier available
+
+  **Result:** Django serves compressed, cached static files efficiently → **50% less bandwidth**
 
   **In Django `settings.py`:**
   ```python
@@ -280,9 +279,9 @@ These 5 changes are **non-negotiable** before going live:
 
 - [ ] **Batch score writes**
 
-  During exam, the #1 bottleneck is score submission — 500 examiners submitting scores every 8 minutes (per station rotation).
+  During exam, the #1 bottleneck is score submission — 1000 examiners submitting scores every 8 minutes (per station rotation).
 
-  **Current:** Each checklist item = 1 DB write → 10 items × 500 examiners = 5000 writes in 30 seconds
+  **Current:** Each checklist item = 1 DB write → 10 items × 1000 examiners = 10000 writes in 30 seconds
 
   **Optimized:** Use `bulk_create` / `bulk_update`:
   ```python
@@ -339,41 +338,44 @@ These 5 changes are **non-negotiable** before going live:
 
 ---
 
-### 500 Examiners — Final Cost Breakdown
+### 1000 Examiners — Final Cost Breakdown (Azure)
 
-| Component | Service | Monthly Cost |
-|-----------|---------|-------------|
-| Web Server | Railway (Pro plan, 8 workers) | $20 |
-| PostgreSQL | Railway managed PostgreSQL | Included |
-| Connection Pooling | PgBouncer on Railway | $5 |
-| Redis Cache | Railway Redis or RedisCloud | $10 |
-| CDN + SSL | Cloudflare (free plan) | $0 |
+| Component | Azure Service | Monthly Cost |
+|-----------|--------------|-------------|
+| Web Server | App Service B2 (2 vCPU, 3.5GB RAM) | ~$54 |
+| PostgreSQL | Flexible Server Burstable B1ms | ~$25 |
+| Connection Pooling | Built-in PgBouncer (Flexible Server) | $0 (included) |
+| Redis Cache | Azure Cache for Redis Basic C0 | ~$13 |
+| SSL | App Service Managed Certificate | $0 |
 | Error Monitoring | Sentry (free tier) | $0 |
-| Uptime Monitoring | UptimeRobot (free) | $0 |
-| **Total** | | **~$35/month** |
+| Uptime Monitoring | Azure Monitor (free tier) | $0 |
+| **Total** | | **~$92/month** |
+| **Your university credit** | | **$100/month** |
+| **Out of pocket** | | **$0** |
 
-### Expected Performance at 500 Concurrent Examiners
+### Expected Performance at 1000 Concurrent Examiners
 
-| Metric | Without Optimization | With Full Setup |
-|--------|---------------------|-----------------|
+| Metric | Without Optimization | With Azure Full Setup |
+|--------|---------------------|-----------------------|
 | Score submission | 800ms | **< 150ms** |
 | Exam detail page | 500ms | **< 100ms** (cached) |
 | Login | 300ms | **< 200ms** |
 | Report generation | 5s | **< 2s** |
-| Max concurrent users | ~100 (then crash) | **500+ stable** |
-| DB connections used | 500 (exhausted) | **25 via PgBouncer** |
+| Max concurrent users | ~100 (then crash) | **1000+ stable** |
+| DB connections used | 1000 (exhausted) | **25 via PgBouncer** |
+| Autoscale | Not available | **1-3 instances auto** |
 
 ### Implementation Priority Order
 
 | Priority | Task | Impact | Effort |
 |----------|------|--------|--------|
-| 🔴 P0 | PostgreSQL + PgBouncer | Without this, 100+ users = crash | 1 hour |
+| 🔴 P0 | Azure PostgreSQL + PgBouncer | Without this, 100+ users = crash | 1 hour |
 | 🔴 P0 | Gunicorn 8 workers + threads | Without this, 1 request at a time | 5 min |
-| 🟡 P1 | Redis cache for exam data | 50% fewer DB queries | 2 hours |
+| 🟡 P1 | Azure Redis cache for exam data | 50% fewer DB queries | 2 hours |
 | 🟡 P1 | Database indexes | 5x faster scoring queries | 30 min |
 | 🟡 P1 | Bulk score writes | 10x faster score submission | 1 hour |
-| 🟢 P2 | Cloudflare CDN | 50% less server load (static files) | 30 min |
-| 🟢 P2 | Sentry monitoring | Know about errors before users report | 15 min |
+| 🟢 P2 | WhiteNoise + Azure CDN | 50% less server load (static files) | 30 min |
+| 🟢 P2 | Sentry + Azure Monitor | Know about errors before users report | 15 min |
 
 ---
 

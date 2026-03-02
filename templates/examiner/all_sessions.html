@@ -1,5 +1,5 @@
 {% extends 'examiner/base_examiner.html' %}
-
+{% load osce_filters %}
 {% block title %}All Sessions - OSCE Examiner{% endblock %}
 
 {% block body_class %}examiner-body{% endblock %}
@@ -38,7 +38,7 @@
                     <small class="text-muted">
                         {% if a.session %}
                         <span class="badge bg-{% if a.session.status == 'completed' %}success{% elif a.session.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
-                            {{ a.session.status|capfirst }}
+                            {{ a.session.status|status_label }}
                         </span>
                         {% endif %}
                     </small>

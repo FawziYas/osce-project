@@ -1,5 +1,5 @@
 {% extends 'creator/base_creator.html' %}
-
+{% load osce_filters %}
 {% block title %}{% if exam %}Edit Exam{% else %}New Exam{% endif %} - OSCE Creator{% endblock %}
 
 {% block content %}
@@ -86,18 +86,12 @@
                 </div>
               
                 {% if exam %}
-                <!-- Status (edit only) -->
+                <!-- Status: read-only — automatically derived from session statuses -->
                 <div class="mb-4">
                     <label class="form-label fw-bold">Status</label>
-                    <div class="btn-group w-100" role="group">
-                        {% for status_val in status_choices %}
-                        <input type="radio" class="btn-check" name="status" id="status_{{ status_val }}" 
-                               value="{{ status_val }}" {% if exam.status == status_val %}checked{% endif %}>
-                        <label class="btn btn-outline-{% if status_val == 'draft' %}secondary{% elif status_val == 'ready' %}primary{% elif status_val == 'active' %}success{% else %}info{% endif %}" 
-                               for="status_{{ status_val }}">
-                            {{ status_val|title }}
-                        </label>
-                        {% endfor %}
+                    <div>
+                        <span class="badge badge-{{ exam.status }} fs-6 px-3 py-2">{{ exam.status|status_label }}</span>
+                        <small class="text-muted ms-2">Automatically updated based on session activity</small>
                     </div>
                 </div>
                 {% endif %}

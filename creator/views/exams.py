@@ -208,7 +208,7 @@ def exam_edit(request, exam_id):
         exam.name = request.POST['name']
         exam.description = request.POST.get('description', exam.description)
         exam.department = request.POST.get('department', exam.department)
-        exam.status = request.POST.get('status', exam.status)
+        # Status is auto-derived from sessions — do NOT accept manual override from the form
 
         if request.POST.get('exam_date'):
             new_date = datetime.strptime(request.POST['exam_date'], '%Y-%m-%d').date()

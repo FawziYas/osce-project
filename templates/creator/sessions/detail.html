@@ -1,5 +1,5 @@
 {% extends 'creator/base_creator.html' %}
-{% load static %}
+{% load static osce_filters %}
 
 {% block title %}Session - {{ session.name|default:"Session" }}{% endblock %}
 
@@ -90,7 +90,7 @@
             <i class="bi bi-calendar me-1"></i>
             {% if session.session_date %}{{ session.session_date|date:"Y-m-d" }}{% else %}Date not set{% endif %}
             <span class="mx-2">&bull;</span>
-            <span class="badge badge-{{ session.status }}">{{ session.status|title }}</span>
+            <span class="badge badge-{{ session.status }}">{{ session.status|status_label }}</span>
         </p>
     </div>
     <div class="btn-group flex-wrap">

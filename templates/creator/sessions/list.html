@@ -1,5 +1,5 @@
 {% extends 'creator/base_creator.html' %}
-
+{% load osce_filters %}
 {% block title %}Sessions - {{ exam.name }}{% endblock %}
 
 {% block content %}
@@ -53,7 +53,7 @@
                 </td>
                 <td><span class="badge bg-secondary">{{ session.student_count|default:0 }} students</span></td>
                 <td>{{ session.rotation_minutes }} min</td>
-                <td><span class="badge badge-{{ session.status }}">{{ session.status|title }}</span></td>
+                <td><span class="badge badge-{{ session.status }}">{{ session.status|status_label }}</span></td>
                 <td>
                     <div class="btn-group btn-group-sm">
                         <a href="{% url 'creator:session_detail' session.id %}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>

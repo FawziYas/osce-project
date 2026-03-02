@@ -247,7 +247,9 @@ body {
 .badge-scheduled    { background: #0d6efd; color: #fff; }
 .badge-active       { background: #198754; }
 .badge-in_progress  { background: #fd7e14; color: #fff; }
-.badge-completed    { background: #6c757d; }
+.badge-completed    { background: #198754; color: #fff; }
+.badge-archived     { background: #6c757d; color: #fff; }
+.badge-cancelled    { background: #dc3545; color: #fff; }
 
 /* ── Page Header ────────────────────────────────────────────────────── */
 .page-header {

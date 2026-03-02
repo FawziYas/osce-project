@@ -16,6 +16,43 @@ from core.models.mixins import TimestampMixin
 audit_logger = logging.getLogger('osce.audit')
 
 
+def _sync_exam_status(exam):
+    """
+    Recalculate and save the exam status based on the current statuses of
+    all its sessions.  Called after every session status change.
+
+    Rules (in priority order):
+      1. Any session is in_progress  → exam = in_progress
+      2. All active sessions are completed (≥1 exists) → exam = completed
+      3. Any session is scheduled    → exam = ready
+      4. No active sessions          → exam = draft (or leave draft)
+
+    Never changes an archived exam.
+    """
+    if exam.status == 'archived':
+        return
+
+    sessions = ExamSession.objects.filter(exam=exam)
+    active = sessions.exclude(status__in=['archived', 'cancelled'])
+
+    statuses = set(active.values_list('status', flat=True))
+
+    if 'in_progress' in statuses:
+        new_status = 'in_progress'
+    elif statuses and statuses <= {'completed'}:
+        # All active sessions are completed
+        new_status = 'completed'
+    elif 'scheduled' in statuses:
+        new_status = 'ready'
+    else:
+        # No active sessions at all
+        new_status = 'draft'
+
+    if exam.status != new_status:
+        exam.status = new_status
+        exam.save(update_fields=['status'])
+
+
 @login_required
 @require_GET
 def get_session_status(request, session_id):
@@ -70,6 +107,7 @@ def activate_session(request, session_id):
     session.status = 'in_progress'
     session.actual_start = TimestampMixin.utc_timestamp()
     session.save()
+    _sync_exam_status(session.exam)
 
     resp = {
         'message': 'Session activated',
@@ -94,6 +132,7 @@ def deactivate_session(request, session_id):
 
     session.status = 'scheduled'
     session.save()
+    _sync_exam_status(session.exam)
     return JsonResponse({'message': 'Session deactivated', 'status': 'scheduled'})
 
 
@@ -104,6 +143,7 @@ def complete_session(request, session_id):
     session = get_object_or_404(ExamSession, pk=session_id)
     session.status = 'completed'
     session.save()
+    _sync_exam_status(session.exam)
     return JsonResponse({'message': 'Session completed', 'status': 'completed'})
 
 
@@ -134,6 +174,7 @@ def delete_session_api(request, session_id):
 
     session.status = 'archived'
     session.save()
+    _sync_exam_status(session.exam)
     return JsonResponse({'message': f"Session '{session.name}' archived"})
 
 
@@ -185,6 +226,7 @@ def restore_session_api(request, session_id):
 
     session.status = 'completed'
     session.save()
+    _sync_exam_status(session.exam)
     return JsonResponse({'message': f"Session '{session.name}' restored"})
 
 
@@ -215,6 +257,7 @@ def revert_session_to_scheduled(request, session_id):
 
     session.status = 'scheduled'
     session.save(update_fields=['status', 'updated_at'])
+    _sync_exam_status(session.exam)
 
     # Extract client IP
     x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
