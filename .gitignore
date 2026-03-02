@@ -49,6 +49,12 @@ db.sqlite3
 # Instance folder
 /instance
 
+# Logs (keep the folder, ignore log files)
+logs/*.log
+
+# Production artifacts
+/backups/
+
 # Test/tmp
 *.tmp
 test_*.txt

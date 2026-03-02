@@ -260,9 +260,87 @@ body {
     font-weight: 600;
     margin-bottom: 0;
 }
+/* ── Breadcrumb — Modern Card Style ─────────────────────────────────── */
+.page-header .breadcrumb-wrapper {
+    background: white;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.85rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    display: inline-flex;
+    max-width: 100%;
+}
 .page-header .breadcrumb {
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
+    margin-bottom: 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    --bs-breadcrumb-divider: '';          /* hide default / */
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+
+/* Custom chevron separator */
+.page-header .breadcrumb-item + .breadcrumb-item::before {
+    content: '\F285';                     /* bi-chevron-right */
+    font-family: 'bootstrap-icons';
+    font-size: 0.6rem;
+    color: #b0b8c1;
+    padding: 0 0.45rem;
+    vertical-align: middle;
+}
+
+/* Link items */
+.page-header .breadcrumb-item a {
+    color: #4a6fa5;
+    text-decoration: none;
+    transition: color 0.15s ease, background 0.15s ease;
+    padding: 0.15rem 0.35rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+}
+.page-header .breadcrumb-item a:hover {
+    color: #0d6efd;
+    background: rgba(13,110,253,0.08);
+}
+
+/* Home icon on first item */
+.page-header .breadcrumb-item:first-child a .bi {
+    font-size: 0.85rem;
+    vertical-align: -1px;
+}
+
+/* Active (current page) item */
+.page-header .breadcrumb-item.active {
+    color: #1a1a2e;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+/* Mobile: truncate breadcrumbs */
+@media (max-width: 575.98px) {
+    .page-header .breadcrumb-wrapper {
+        padding: 0.35rem 0.6rem;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .page-header .breadcrumb-wrapper::-webkit-scrollbar {
+        display: none;
+    }
+    .page-header .breadcrumb {
+        font-size: 0.75rem;
+    }
+    .page-header .breadcrumb-item.active {
+        max-width: 120px;
+    }
+    .page-header .breadcrumb-item a {
+        padding: 0.1rem 0.2rem;
+    }
 }
 
 @media (max-width: 575.98px) {

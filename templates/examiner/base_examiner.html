@@ -10,7 +10,9 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
 
     <title>{% block title %}OSCE Examiner{% endblock %}</title>
-    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
+    <link rel="apple-touch-icon" href="{% static 'favicon.svg' %}">
+    <meta name="application-name" content="OSCE Examiner">
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="{% static 'manifest.json' %}">
@@ -35,7 +37,7 @@
     <nav class="navbar navbar-dark sticky-top" style="background: linear-gradient(135deg, #0c4a3e 0%, #0f766e 60%, #14b8a6 100%);">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'examiner:home' %}">
-                <i class="bi bi-clipboard-check me-2"></i>
+                <i class="bi bi-heart-pulse me-2"></i>
                 <span class="d-none d-sm-inline">OSCE Examiner</span>
             </a>
 

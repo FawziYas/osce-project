@@ -16,15 +16,6 @@
 
 {% block content %}
 <div class="page-header">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
-            <li class="breadcrumb-item active">Bulk Add Stations</li>
-        </ol>
-    </nav>
     <h1>
         <i class="bi bi-grid-1x2 me-2"></i>Add Stations to All Paths
         <small class="text-muted">{{ session.name }}</small>

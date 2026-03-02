@@ -5,13 +5,6 @@
 {% block content %}
 <div class="page-header d-flex flex-wrap justify-content-between align-items-start gap-2">
     <div>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'creator:course_list' %}">Courses</a></li>
-                <li class="breadcrumb-item active">{{ course.code }}</li>
-            </ol>
-        </nav>
         <h1>
             <span class="badge bg-secondary me-2">{{ course.code }}</span>
             {{ course.name }}

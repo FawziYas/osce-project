@@ -4,14 +4,6 @@
 
 {% block content %}
 <div class="page-header">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
-            <li class="breadcrumb-item active">{% if session %}Edit Session{% else %}New Session{% endif %}</li>
-        </ol>
-    </nav>
     <h1><i class="bi {% if session %}bi-pencil{% else %}bi-calendar-plus{% endif %} me-2"></i>{% if session %}Edit Exam Session{% else %}Schedule Exam Session{% endif %}</h1>
 </div>
 
@@ -27,7 +19,7 @@
                            placeholder="Session name will be suggested based on type">
                     <div class="form-text">
                         <i class="bi bi-lightbulb me-1"></i>
-                        Suggested: <strong id="session-name-preview">[Session Type] - [Course Code] - [Date]</strong>
+                        Suggested: <strong id="session-name-preview">[Session Type] - {{ exam.course.code|default:"EXAM" }} - [Date]</strong>
                         <button type="button" class="btn btn-link btn-sm p-0 ms-2" onclick="useSuggestedName()">Use Suggested</button>
                     </div>
                 </div>
@@ -100,14 +92,7 @@
 function updateSessionNamePreview() {
     const sessionType = document.getElementById('session_type').value;
     const typeNames = {'morning': 'Morning Session', 'afternoon': 'Afternoon Session', 'all_day': 'All Day Session'};
-    const courseCode = '{{ course_code|default:"EXAM" }}';
-    {% if exam.exam_date %}
-    const examDate = new Date('{{ exam.exam_date|date:"Y-m-d" }}T00:00:00Z');
-    const formattedDate = new Intl.DateTimeFormat('en-US', {year:'numeric',month:'short',day:'2-digit'}).format(examDate);
-    const previewName = `${typeNames[sessionType] || 'Session'} - ${courseCode} - ${formattedDate}`;
-    {% else %}
-    const previewName = `${typeNames[sessionType] || 'Session'} - ${courseCode} - [Date Not Set]`;
-    {% endif %}
+    const previewName = typeNames[sessionType] || 'Session';
     document.getElementById('session-name-preview').textContent = previewName;
 }
 

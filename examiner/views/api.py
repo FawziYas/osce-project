@@ -226,25 +226,16 @@ def mark_item(request, station_score_id):
     notes = data.get('notes', '')
     max_points = data.get('max_points', 1)
 
-    existing = ItemScore.objects.filter(
+    _item, _created = ItemScore.objects.update_or_create(
         station_score_id=station_score_id,
         checklist_item_id=checklist_item_id,
-    ).first()
-
-    if existing:
-        existing.score = item_score_val
-        existing.notes = notes
-        existing.marked_at = utc_timestamp()
-        existing.save()
-    else:
-        ItemScore.objects.create(
-            station_score_id=station_score_id,
-            checklist_item_id=checklist_item_id,
-            score=item_score_val,
-            max_points=max_points,
-            notes=notes,
-            marked_at=utc_timestamp(),
-        )
+        defaults={
+            'score': item_score_val,
+            'notes': notes,
+            'max_points': max_points,
+            'marked_at': utc_timestamp(),
+        },
+    )
 
     score.calculate_total()
     score.updated_at = utc_timestamp()

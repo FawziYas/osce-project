@@ -108,5 +108,6 @@ urlpatterns = [
     # ── Reports ────────────────────────────────────────────────────────────
     path('reports/', reports.reports_index, name='reports_index'),
     path('reports/session/<uuid:session_id>/scoresheets/', reports.reports_scoresheets, name='reports_scoresheets'),
+    path('reports/session/<uuid:session_id>/export-ilo-xlsx/', reports.export_ilo_scores_xlsx, name='export_ilo_scores_xlsx'),
     path('reports/student/<uuid:student_id>/scoresheet/', reports.reports_student_scoresheet, name='reports_student_scoresheet'),
 ]

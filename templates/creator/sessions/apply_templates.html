@@ -4,15 +4,6 @@
 
 {% block content %}
 <div class="page-header">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' session.exam.id %}">{{ session.exam.name }}</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
-            <li class="breadcrumb-item active">Apply Templates</li>
-        </ol>
-    </nav>
     <h1><i class="bi bi-diagram-3 me-2"></i>Apply Station Templates <small class="text-muted">{{ session.name }}</small></h1>
 </div>
 

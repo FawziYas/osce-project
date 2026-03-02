@@ -4,13 +4,6 @@
 
 {% block content %}
 <div class="page-header">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:course_list' %}">Courses</a></li>
-            <li class="breadcrumb-item active">{% if course %}Edit{% else %}New{% endif %}</li>
-        </ol>
-    </nav>
     <h1>
         <i class="bi bi-{% if course %}pencil{% else %}plus-lg{% endif %} me-2"></i>
         {% if course %}Edit Course{% else %}New Course{% endif %}

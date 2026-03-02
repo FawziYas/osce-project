@@ -10,11 +10,12 @@ if (-not (Test-Path $VenvPath)) {
     exit 1
 }
 
-# Get local IP address
-$LocalIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.InterfaceAlias -like "*Ethernet*" -or $_.InterfaceAlias -like "*WiFi*"} | Select-Object -First 1).IPAddress
-if (-not $LocalIP) {
-    $LocalIP = "localhost"
-}
+# Get local IP dynamically by detecting which interface routes outbound traffic
+$LocalIP = try {
+    $socket = [System.Net.Sockets.UdpClient]::new()
+    $socket.Connect("8.8.8.8", 80)
+    $socket.Client.LocalEndPoint.Address.ToString()
+} catch { "localhost" } finally { if ($socket) { $socket.Close() } }
 
 # Activate virtual environment
 & $VenvPath

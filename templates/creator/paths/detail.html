@@ -5,14 +5,6 @@
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
     <div>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-1">
-                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' path.session.exam_id %}">{{ path.session.exam.name|default:"Exam" }}</a></li>
-                <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' path.session_id %}">{{ path.session.name }}</a></li>
-                <li class="breadcrumb-item active">Path {{ path.name }}</li>
-            </ol>
-        </nav>
         <h1 class="mb-1">Path {{ path.name }}</h1>
        
     </div>

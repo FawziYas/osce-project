@@ -171,7 +171,7 @@ def session_edit(request, session_id):
         session.notes = request.POST.get('notes', '')
         session.save()
         messages.success(request, f'Session "{session.name}" updated.')
-        return redirect('creator:session_detail', session_id=str(session.id))
+        return redirect('creator:exam_detail', exam_id=str(exam.id))
 
     return render(request, 'creator/sessions/form.html', {'exam': exam, 'session': session})
 

@@ -5,9 +5,15 @@
     "start_url": "/examiner/",
     "display": "standalone",
     "orientation": "any",
-    "background_color": "#ffffff",
-    "theme_color": "#0d6efd",
+    "background_color": "#0f766e",
+    "theme_color": "#0f766e",
     "icons": [
+        {
+            "src": "/static/favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
         {
             "src": "/examiner/static/icons/icon-72.png",
             "sizes": "72x72",
