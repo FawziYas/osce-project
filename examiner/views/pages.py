@@ -85,41 +85,28 @@ def home(request):
     """Examiner home – today's stations, recent and upcoming sessions."""
     today = datetime.now().date()
 
-    # Today's assignments
+    # Running Stations — only in_progress sessions (activated right now)
     today_raw = list(
         ExaminerAssignment.objects.filter(
             examiner=request.user,
-            session__session_date=today,
-            session__status__in=['scheduled', 'in_progress'],
+            session__status='in_progress',
         ).select_related('station', 'session', 'station__path')
     )
     today_assignments = _build_assignment_cards(today_raw)
 
-    # Recent (last 7 days)
-    week_ago = today - timedelta(days=7)
-    recent_raw = list(
-        ExaminerAssignment.objects.filter(
-            examiner=request.user,
-            session__session_date__gte=week_ago,
-            session__session_date__lt=today,
-            session__status='completed',
-        ).select_related('station', 'session', 'station__path')
-    )
-    recent_assignments = _build_assignment_cards(recent_raw)
-
-    # Upcoming
+    # Upcoming — scheduled sessions: today (not yet activated) + future dates
     upcoming_raw = list(
         ExaminerAssignment.objects.filter(
             examiner=request.user,
-            session__session_date__gt=today,
-            session__status__in=['scheduled'],
+            session__session_date__gte=today,
+            session__status='scheduled',
         ).select_related('station', 'session', 'station__path')
+        .order_by('session__session_date')
     )
     upcoming_assignments = _build_assignment_cards(upcoming_raw)
 
     return render(request, 'examiner/station_home.html', {
         'assignments': today_assignments,
-        'recent_assignments': recent_assignments,
         'upcoming_assignments': upcoming_assignments,
         'today': today,
     })

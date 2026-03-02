@@ -386,6 +386,14 @@
     flex-shrink: 0;
 }
 
+.date-box-today {
+    background: linear-gradient(135deg, #0c4a3e 0%, #0f766e 60%, #14b8a6 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
 .date-day {
     font-size: 2rem;
     font-weight: 800;
