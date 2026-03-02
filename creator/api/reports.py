@@ -32,129 +32,135 @@ def get_session_summary(request, session_id):
     """GET /api/creator/reports/session/<id>/summary - with pagination and search"""
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
     
-    session = get_object_or_404(ExamSession, pk=session_id)
-    
-    # Get all students and apply search filter
-    search_query = request.GET.get('search', '').strip()
-    students_qs = SessionStudent.objects.filter(session=session).order_by('full_name')
-    
-    if search_query:
-        students_qs = students_qs.filter(
-            full_name__icontains=search_query
-        ) | SessionStudent.objects.filter(
-            session=session, student_number__icontains=search_query
-        ).order_by('full_name')
-        students_qs = students_qs.order_by('full_name').distinct()
-    
-    # Pagination: 20 students per page
-    page_num = request.GET.get('page', 1)
-    paginator = Paginator(students_qs, per_page=20)
     try:
-        page_obj = paginator.page(page_num)
-    except (PageNotAnInteger, EmptyPage):
-        page_obj = paginator.page(1)
-    
-    students = list(page_obj.object_list)
+        session = get_object_or_404(ExamSession, pk=session_id)
+        
+        # Get all students and apply search filter
+        search_query = request.GET.get('search', '').strip()
+        students_qs = SessionStudent.objects.filter(session=session).order_by('full_name')
+        
+        if search_query:
+            students_qs = students_qs.filter(
+                full_name__icontains=search_query
+            ) | SessionStudent.objects.filter(
+                session=session, student_number__icontains=search_query
+            ).order_by('full_name')
+            students_qs = students_qs.order_by('full_name').distinct()
+        
+        # Pagination: 20 students per page
+        page_num = request.GET.get('page', 1)
+        paginator = Paginator(students_qs, per_page=20)
+        try:
+            page_obj = paginator.page(page_num)
+        except (PageNotAnInteger, EmptyPage):
+            page_obj = paginator.page(1)
+        
+        students = list(page_obj.object_list)
 
-    # Unique station numbers across all paths
-    paths = list(Path.objects.filter(session=session))
-    station_headers = []
-    seen_nums = set()
-    for p in paths:
-        for s in p.stations.filter(active=True, is_deleted=False):
-            if s.station_number not in seen_nums:
-                station_headers.append({'number': s.station_number, 'name': s.name})
-                seen_nums.add(s.station_number)
-    station_headers.sort(key=lambda x: x['number'])
+        # Unique station numbers across all paths
+        paths = list(Path.objects.filter(session=session))
+        station_headers = []
+        seen_nums = set()
+        for p in paths:
+            for s in p.stations.filter(active=True, is_deleted=False):
+                if s.station_number not in seen_nums:
+                    station_headers.append({'number': s.station_number, 'name': s.name})
+                    seen_nums.add(s.station_number)
+        station_headers.sort(key=lambda x: x['number'])
 
-    # Pre-calculate station info
-    station_info_map = {}
-    for p in paths:
-        for s in p.stations.filter(active=True, is_deleted=False):
-            station_info_map[(p.id, s.station_number)] = {
-                'id': s.id,
-                'max_score': s.get_max_score(),
-            }
+        # Pre-calculate station info
+        station_info_map = {}
+        for p in paths:
+            for s in p.stations.filter(active=True, is_deleted=False):
+                station_info_map[(p.id, s.station_number)] = {
+                    'id': s.id,
+                    'max_score': s.get_max_score(),
+                }
 
-    total_students = len(students)
-    completed_students = 0
-    total_percentage = 0
-    passed_count = 0
-    pass_threshold = 60
+        total_students = len(students)
+        completed_students = 0
+        total_percentage = 0
+        passed_count = 0
+        pass_threshold = 60
 
-    student_data = []
-    # P3: Pre-fetch all paths to avoid N+1 per student
-    path_ids = set(s.path_id for s in students if s.path_id)
-    path_map = {p.id: p for p in Path.objects.filter(pk__in=path_ids)} if path_ids else {}
+        student_data = []
+        # P3: Pre-fetch all paths to avoid N+1 per student
+        path_ids = set(s.path_id for s in students if s.path_id)
+        path_map = {p.id: p for p in Path.objects.filter(pk__in=path_ids)} if path_ids else {}
 
-    for student in students:
-        student_scores = {}
-        total_score = 0
-        max_score = 0
+        for student in students:
+            student_scores = {}
+            total_score = 0
+            max_score = 0
 
-        for header in station_headers:
-            s_info = station_info_map.get((student.path_id, header['number']))
-            if s_info:
-                st_max = s_info['max_score']
-                max_score += st_max
-                final = StationScore.get_final_score(student.id, s_info['id'])
-                if final:
-                    student_scores[header['number']] = final['final_score']
-                    total_score += final['final_score']
+            for header in station_headers:
+                s_info = station_info_map.get((student.path_id, header['number']))
+                if s_info:
+                    st_max = s_info['max_score']
+                    max_score += st_max
+                    final = StationScore.get_final_score(student.id, s_info['id'])
+                    if final:
+                        student_scores[header['number']] = final['final_score']
+                        total_score += final['final_score']
+                    else:
+                        student_scores[header['number']] = None
                 else:
                     student_scores[header['number']] = None
-            else:
-                student_scores[header['number']] = None
 
-        percentage = (total_score / max_score * 100) if max_score > 0 else 0
+            percentage = (total_score / max_score * 100) if max_score > 0 else 0
 
-        if total_score > 0 or max_score > 0:
-            completed_students += 1
-            total_percentage += percentage
-            if percentage >= pass_threshold:
-                passed_count += 1
+            if total_score > 0 or max_score > 0:
+                completed_students += 1
+                total_percentage += percentage
+                if percentage >= pass_threshold:
+                    passed_count += 1
 
-        path = path_map.get(student.path_id) if student.path_id else None
+            path = path_map.get(student.path_id) if student.path_id else None
 
-        student_data.append({
-            'id': str(student.id),
-            'student_number': student.student_number,
-            'full_name': student.full_name,
-            'path_name': path.name if path else None,
-            'station_scores': student_scores,
-            'total_score': round(total_score, 2),
-            'max_score': round(max_score, 2),
-            'percentage': round(percentage, 2),
-            'passed': percentage >= pass_threshold,
-        })
+            student_data.append({
+                'id': str(student.id),
+                'student_number': student.student_number,
+                'full_name': student.full_name,
+                'path_name': path.name if path else None,
+                'station_scores': student_scores,
+                'total_score': round(total_score, 2),
+                'max_score': round(max_score, 2),
+                'percentage': round(percentage, 2),
+                'passed': percentage >= pass_threshold,
+            })
 
-    avg_percentage = (total_percentage / completed_students) if completed_students > 0 else 0
-    pass_rate = (passed_count / completed_students * 100) if completed_students > 0 else 0
+        avg_percentage = (total_percentage / completed_students) if completed_students > 0 else 0
+        pass_rate = (passed_count / completed_students * 100) if completed_students > 0 else 0
 
-    return JsonResponse({
-        'success': True,
-        'data': {
-            'session_id': str(session_id),
-            'session_name': session.name,
-            'total_students': page_obj.paginator.count,
-            'completed_students': completed_students,
-            'average_percentage': round(avg_percentage, 2),
-            'pass_rate': round(pass_rate, 2),
-            'station_headers': station_headers,
-            'students': sorted(student_data, key=lambda x: x['full_name']),
-            'pagination': {
-                'current_page': page_obj.number,
-                'total_pages': page_obj.paginator.num_pages,
-                'total_count': page_obj.paginator.count,
-                'per_page': 20,
-                'has_previous': page_obj.has_previous(),
-                'has_next': page_obj.has_next(),
-                'previous_page_number': page_obj.previous_page_number() if page_obj.has_previous() else None,
-                'next_page_number': page_obj.next_page_number() if page_obj.has_next() else None,
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'session_id': str(session_id),
+                'session_name': session.name,
+                'total_students': page_obj.paginator.count,
+                'completed_students': completed_students,
+                'average_percentage': round(avg_percentage, 2),
+                'pass_rate': round(pass_rate, 2),
+                'station_headers': station_headers,
+                'students': sorted(student_data, key=lambda x: x['full_name']),
+                'pagination': {
+                    'current_page': page_obj.number,
+                    'total_pages': page_obj.paginator.num_pages,
+                    'total_count': page_obj.paginator.count,
+                    'per_page': 20,
+                    'has_previous': page_obj.has_previous(),
+                    'has_next': page_obj.has_next(),
+                    'previous_page_number': page_obj.previous_page_number() if page_obj.has_previous() else None,
+                    'next_page_number': page_obj.next_page_number() if page_obj.has_next() else None,
+                },
+                'search_query': search_query,
             },
-            'search_query': search_query,
-        },
-    })
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
