@@ -1,12 +1,30 @@
-Django>=5.0,<6.0
-django-environ>=0.11.0
-django-axes>=6.4.0
-whitenoise>=6.5
-gunicorn>=21.0
-psycopg2-binary>=2.9
+# Core
+Django==5.2.11
+asgiref==3.11.1
+sqlparse==0.5.5
 
-# Excel, PDF, Arabic support (from Flask app)
-openpyxl>=3.1.0
-reportlab>=4.0
-arabic-reshaper>=3.0.0
-python-bidi>=0.4.2
+# Config & Security
+django-environ==0.13.0
+django-axes==8.3.1
+packaging==26.0
+
+# Static files & Server
+whitenoise==6.11.0
+gunicorn==25.1.0
+
+# Database
+psycopg2-binary==2.9.11
+
+# Excel, PDF, Arabic support
+openpyxl==3.1.5
+et_xmlfile==2.0.0
+reportlab==4.4.10
+arabic-reshaper==3.0.0
+python-bidi==0.6.7
+charset-normalizer==3.4.4
+
+# Images
+pillow==12.1.1
+
+# Timezone
+tzdata==2025.3
