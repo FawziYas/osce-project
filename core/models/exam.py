@@ -236,8 +236,6 @@ class ChecklistItem(TimestampMixin):
     rubric_type = models.CharField(max_length=20, default='binary')
     rubric_levels = models.JSONField(null=True, blank=True)
 
-    # Interaction type
-    interaction_type = models.CharField(max_length=20, default='passive')
     expected_response = models.TextField(blank=True, default='')
 
     class Meta:
@@ -269,6 +267,5 @@ class ChecklistItem(TimestampMixin):
             'is_critical': self.is_critical,
             'rubric_type': self.rubric_type,
             'rubric_levels': self.rubric_levels,
-            'interaction_type': self.interaction_type,
             'expected_response': self.expected_response,
         }

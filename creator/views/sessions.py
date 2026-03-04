@@ -19,6 +19,7 @@ from core.models import (
     Examiner, ExaminerAssignment, StationScore,
 )
 from core.utils.naming import generate_path_name
+from creator.dept_access import can_access_exam, can_access_session
 
 
 @login_required
@@ -57,6 +58,9 @@ def live_student_search(request, session_id):
 def session_list(request, exam_id):
     """List sessions for an exam with search."""
     exam = get_object_or_404(Exam, pk=exam_id)
+    if not can_access_exam(request.user, exam):
+        messages.error(request, 'You do not have permission to view this exam\'s sessions.')
+        return redirect('creator:exam_list')
     search_query = request.GET.get('search', '').strip()
     sessions_qs = ExamSession.objects.filter(exam=exam).order_by('-session_date')
     
@@ -79,6 +83,9 @@ def session_list(request, exam_id):
 def session_create(request, exam_id):
     """Create a new exam session."""
     exam = get_object_or_404(Exam, pk=exam_id)
+    if not can_access_exam(request.user, exam):
+        messages.error(request, 'You do not have permission to create sessions for this exam.')
+        return redirect('creator:exam_list')
 
     if not exam.exam_date:
         messages.warning(request, 'Please set an exam date before creating sessions.')
@@ -143,6 +150,9 @@ def session_edit(request, session_id):
     """Edit a session."""
     session = get_object_or_404(ExamSession, pk=session_id)
     exam = session.exam
+    if not can_access_session(request.user, session):
+        messages.error(request, 'You do not have permission to edit this session.')
+        return redirect('creator:exam_list')
 
     if not exam.exam_date:
         messages.warning(request, 'Please set an exam date first.')
@@ -180,6 +190,9 @@ def session_edit(request, session_id):
 def session_delete(request, session_id):
     """Cancel a session."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not can_access_session(request.user, session):
+        messages.error(request, 'You do not have permission to cancel this session.')
+        return redirect('creator:exam_list')
     exam_id = str(session.exam_id)
     session_name = session.name
 
@@ -197,7 +210,10 @@ def session_detail(request, session_id):
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
     
     session = get_object_or_404(ExamSession, pk=session_id)
-    
+    if not can_access_session(request.user, session):
+        messages.error(request, 'You do not have permission to view this session.')
+        return redirect('creator:exam_list')
+
     # Search and pagination for students
     search_query = request.GET.get('search', '').strip()
     students_qs = SessionStudent.objects.filter(session=session).order_by('student_number')

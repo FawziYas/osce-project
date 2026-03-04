@@ -1,0 +1,52 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Edit Department - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-building-gear me-2"></i>Edit Department</h1>
+    <p class="text-muted mb-0">{{ dept.name }}</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-3">
+
+                    <div class="col-12">
+                        <label class="form-label">Department Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required
+                               value="{{ dept.name }}"
+                               placeholder="e.g. Medicine">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3">{{ dept.description }}</textarea>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Status</label>
+                        <div class="form-check form-switch pt-1">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                   {% if dept.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">Active</label>
+                        </div>
+                        <small class="text-muted">Inactive departments are hidden from coordinator assignment dropdowns.</small>
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Save Changes
+                        </button>
+                        <a href="{% url 'creator:department_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

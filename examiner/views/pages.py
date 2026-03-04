@@ -85,11 +85,12 @@ def home(request):
     """Examiner home – today's stations, recent and upcoming sessions."""
     today = datetime.now().date()
 
-    # Running Stations — only in_progress sessions (activated right now)
+    # Running Stations — only in_progress sessions for today
     today_raw = list(
         ExaminerAssignment.objects.filter(
             examiner=request.user,
             session__status='in_progress',
+            session__session_date=today,
         ).select_related('station', 'session', 'station__path')
     )
     today_assignments = _build_assignment_cards(today_raw)

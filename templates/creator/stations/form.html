@@ -72,7 +72,7 @@
             <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
             {% if path %}
             <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' path.session.exam_id %}">{{ exam.name }}</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' path.session_id %}">{{ path.session.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' path.session_id %}">Session</a></li>
             <li class="breadcrumb-item"><a href="{% url 'creator:path_detail' path.id %}">Path {{ path.name }}</a></li>
             {% else %}
             <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
@@ -283,7 +283,7 @@ function selectILO(element, iloId) {
                         <div>${item.description}</div>
                         <div class="item-meta mt-1">
                             <span class="badge bg-light text-dark">${item.points} pt${item.points > 1 ? 's' : ''}</span>
-                            ${item.interaction_type === 'active' ? '<span class="active-badge">ACTIVE</span>' : ''}
+
                         </div>
                     </div>
                     <button type="button" class="btn btn-sm btn-success ms-2" onclick="addToChecklist(this.parentElement.parentElement, ${JSON.stringify(item).replace(/"/g, '&quot;')})">
@@ -320,11 +320,6 @@ function addToChecklist(element, item) {
                        style="width: 70px; min-width: 60px;" min="0" step="0.5" value="${item.points}"
                        onchange="updateTotal()">
                 <span class="text-muted">pts</span>
-                <select class="form-select form-select-sm" style="width: 110px; min-width: 90px;"
-                        name="interaction_item_${item.ilo_id}_${item.id || 'new_' + itemCounter}">
-                    <option value="passive" ${item.interaction_type !== 'active' ? 'selected' : ''}>Passive</option>
-                    <option value="active" ${item.interaction_type === 'active' ? 'selected' : ''}>Active</option>
-                </select>
             </div>
         </div>
         <div class="item-actions">
@@ -356,7 +351,6 @@ function addCustomItem() {
         description: description,
         ilo_id: selectedILO,
         points: 1,
-        interaction_type: 'passive',
         theme_color: themeColor
     };
 

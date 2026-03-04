@@ -31,14 +31,28 @@
                 </div>
                 
                 <div class="mb-3">
-                    <label for="year_level" class="form-label">Year Level</label>
-                    <select class="form-select" id="year_level" name="year_level">
+                    <label for="year_level" class="form-label">Year Level <span class="text-danger">*</span></label>
+                    <select class="form-select" id="year_level" name="year_level" required>
                         {% for year in year_range %}
                         <option value="{{ year }}" {% if course and course.year_level == year %}selected{% endif %}>
                             Year {{ year }}
                         </option>
                         {% endfor %}
                     </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
+                    <select class="form-select" id="department" name="department" required>
+                        <option value="">— Select a department —</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}"
+                            {% if course and course.department_id == dept.id %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Link this course to a department (required).</div>
                 </div>
                 
                 <div class="mb-3">

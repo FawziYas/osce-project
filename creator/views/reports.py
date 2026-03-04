@@ -12,6 +12,7 @@ from core.models import (
     Course, Exam, ExamSession, SessionStudent, Station, ChecklistItem,
     StationScore, ItemScore, ILO,
 )
+from creator.dept_access import filter_sessions_by_dept, can_access_session
 
 
 @login_required
@@ -21,7 +22,10 @@ def reports_index(request):
     sessions_qs = ExamSession.objects.filter(
         exam__is_deleted=False,
     ).select_related('exam', 'exam__course')
-    
+
+    # Department scoping for coordinators
+    sessions_qs = filter_sessions_by_dept(sessions_qs, request.user)
+
     # Permission-based filtering
     # Only superusers can see all sessions (scheduled, in_progress, completed)
     # Coordinator and Admin can see only completed sessions
@@ -47,6 +51,10 @@ def reports_scoresheets(request, session_id):
     """Print-ready score sheets for a session with pagination, search, and print_all mode."""
     session = get_object_or_404(ExamSession, pk=session_id)
     
+    # Department access check
+    if not can_access_session(request.user, session):
+        return HttpResponseForbidden("You do not have permission to view this session.")
+
     # Access control: non-superusers can only view completed sessions
     if not request.user.is_superuser and session.status != 'completed':
         return HttpResponseForbidden(

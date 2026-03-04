@@ -61,7 +61,6 @@ def get_ilo_library(request, ilo_id):
         'id': item.id,
         'description': item.description,
         'is_critical': item.is_critical,
-        'interaction_type': item.interaction_type,
         'expected_response': item.expected_response,
         'points': item.suggested_points,
         'usage_count': item.usage_count or 0,

@@ -62,15 +62,23 @@
             {% if user.is_authenticated %}
             <div class="user-info">
                 <div><i class="bi bi-person-circle me-1"></i> <span class="user-name">{{ user.display_name|default:user.username }}</span></div>
-                {% if user.is_superuser %}
-                <small class="d-block mt-1" style="color:#e879f9;"><i class="bi bi-stars me-1"></i>Superuser</small>
-                {% elif user.role == 'admin' %}
-                <small class="d-block mt-1" style="color:#f0c040;"><i class="bi bi-shield-fill me-1"></i>Admin</small>
-                {% elif user.role == 'coordinator' %}
-                <small class="d-block mt-1" style="color:#0dcaf0;"><i class="bi bi-people-fill me-1"></i>Coordinator</small>
-                {% else %}
-                <small class="text-muted d-block mt-1">Examiner</small>
-                {% endif %}
+                <small class="d-block mt-1">
+                    {% if user.is_superuser %}
+                    <span style="color:#e879f9;"><i class="bi bi-stars me-1"></i>Superuser</span>
+                    {% elif user.role == 'admin' %}
+                    <span style="color:#f0c040;"><i class="bi bi-shield-fill me-1"></i>Admin</span>
+                    {% elif user.role == 'coordinator' %}
+                    <span style="color:#0dcaf0;"><i class="bi bi-people-fill me-1"></i>
+                        {% if user.coordinator_position == 'head' %}Head
+                        {% elif user.coordinator_position == 'rta' %}RTA
+                        {% elif user.coordinator_position == 'organizer' %}Organizer
+                        {% else %}Coordinator{% endif %}
+                    </span>
+                    {% else %}
+                    <span class="text-muted">Examiner</span>
+                    {% endif %}
+                    {% if user.coordinator_department %}<br><i class="bi bi-building me-1"></i>{{ user.coordinator_department.name }}{% endif %}
+                </small>
             </div>
             {% endif %}
             
@@ -105,6 +113,12 @@
                     <a class="nav-link {% if '/creator/coordinators' in request.path %}active{% endif %}" 
                        href="{% url 'creator:coordinator_list' %}">
                         <i class="bi bi-people-fill"></i> Coordinators
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if '/creator/departments' in request.path %}active{% endif %}" 
+                       href="{% url 'creator:department_list' %}">
+                        <i class="bi bi-building"></i> Departments
                     </a>
                 </li>
                 {% endif %}

@@ -18,7 +18,6 @@ class ChecklistLibrary(TimestampMixin):
     is_critical = models.BooleanField(default=False)
 
     rubric_type = models.CharField(max_length=20, default='binary')
-    interaction_type = models.CharField(max_length=20, default='passive')
     expected_response = models.TextField(blank=True, default='')
 
     usage_count = models.IntegerField(default=0)
@@ -45,7 +44,6 @@ class ChecklistLibrary(TimestampMixin):
             'suggested_points': self.suggested_points,
             'is_critical': self.is_critical,
             'rubric_type': self.rubric_type,
-            'interaction_type': self.interaction_type,
             'expected_response': self.expected_response,
             'usage_count': self.usage_count or 0,
             'active': self.active,

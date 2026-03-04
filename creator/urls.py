@@ -94,11 +94,16 @@ urlpatterns = [
     path('examiners/<int:examiner_id>/restore/', examiners.examiner_restore, name='examiner_restore'),
     path('examiners/<int:examiner_id>/permanent-delete/', examiners.examiner_permanent_delete, name='examiner_permanent_delete'),
     path('assignments/<uuid:assignment_id>/delete/', examiners.examiner_unassign, name='examiner_unassign'),
-    # ── Coordinators ───────────────────────────────────────────
+    # ── Coordinators ──────────────────────────────────────────────────────
     path('coordinators/', examiners.coordinator_list, name='coordinator_list'),
     path('coordinators/new/', examiners.coordinator_create, name='coordinator_create'),
     path('coordinators/<int:coordinator_id>/edit/', examiners.coordinator_edit, name='coordinator_edit'),
     path('coordinators/<int:coordinator_id>/delete/', examiners.coordinator_delete, name='coordinator_delete'),
+    # ── Departments ────────────────────────────────────────────────────────
+    path('departments/', examiners.department_list, name='department_list'),
+    path('departments/new/', examiners.department_create, name='department_create'),
+    path('departments/<int:department_id>/edit/', examiners.department_edit, name='department_edit'),
+    path('departments/<int:department_id>/delete/', examiners.department_delete, name='department_delete'),
     # ── Students ───────────────────────────────────────────────────────────
     path('students/', students.student_list, name='student_list'),
     path('sessions/<uuid:session_id>/students/add/', students.add_students, name='add_students'),

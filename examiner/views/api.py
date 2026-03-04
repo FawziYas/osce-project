@@ -79,7 +79,6 @@ def get_station_checklist(request, station_id):
             'description': item.description,
             'points': item.points,
             'category': item.category or 'General',
-            'interaction_type': item.interaction_type,
             'expected_response': item.expected_response,
             'rubric_type': item.rubric_type or 'binary',
             'rubric_levels': None,

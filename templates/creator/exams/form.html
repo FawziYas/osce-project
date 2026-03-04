@@ -44,7 +44,6 @@
                         </select>
                         {% if exam %}
                         <input type="hidden" name="course_id" value="{{ exam.course_id }}">
-                        <small class="text-muted">Course cannot be changed after creation</small>
                         {% else %}
                         <small class="text-muted">Checklist items will be linked to this course's ILOs</small>
                         {% endif %}
@@ -55,21 +54,19 @@
                         <input type="date" class="form-control" id="exam_date" name="exam_date"
                                value="{% if exam and exam.exam_date %}{{ exam.exam_date|date:'Y-m-d' }}{% endif %}"
                                {% if date_field_disabled %}disabled{% endif %}>
-                        <small class="text-muted">Optional planning date{% if date_field_disabled %}<br><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Locked: Sessions in progress or completed</span>{% endif %}</small>
+                        <small class="text-muted">{% if date_field_disabled %}<br><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Locked: Sessions in progress or completed</span>{% endif %}</small>
                     </div>
 
                     <div class="col-md-8">
                         <label for="department" class="form-label fw-bold">Department <span class="text-danger">*</span></label>
                         <select class="form-select" id="department" name="department" required {% if exam %}disabled{% endif %}>
                             <option value="">Select department...</option>
-                            <option value="Internal Medicine" {% if exam and exam.department == 'Internal Medicine' %}selected{% endif %}>Internal Medicine</option>
-                            <option value="Pediatrics" {% if exam and exam.department == 'Pediatrics' %}selected{% endif %}>Pediatrics</option>
-                            <option value="General Surgery" {% if exam and exam.department == 'General Surgery' %}selected{% endif %}>General Surgery</option>
-                            <option value="Obstetrics and Gynecology" {% if exam and exam.department == 'Obstetrics and Gynecology' %}selected{% endif %}>Obstetrics and Gynecology</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.name }}" {% if exam and exam.department == dept.name %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
                         </select>
                         {% if exam %}
                         <input type="hidden" name="department" value="{{ exam.department }}">
-                        <small class="text-muted">Department cannot be changed after creation</small>
                         {% endif %}
                     </div>
 
@@ -81,7 +78,6 @@
                                    min="1" step="0.5" placeholder="e.g. 40" required>
                             <span class="input-group-text">pts</span>
                         </div>
-                        <small class="text-muted">Score students' results are reported out of (e.g. 40 if exam is from 40 regardless of total station marks)</small>
                     </div>
                 </div>
               
@@ -91,7 +87,6 @@
                     <label class="form-label fw-bold">Status</label>
                     <div>
                         <span class="badge badge-{{ exam.status }} fs-6 px-3 py-2">{{ exam.status|status_label }}</span>
-                        <small class="text-muted ms-2">Automatically updated based on session activity</small>
                     </div>
                 </div>
                 {% endif %}

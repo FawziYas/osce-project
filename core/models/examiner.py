@@ -47,6 +47,15 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
         (ROLE_ADMIN,       'Admin'),
     ]
 
+    POSITION_HEAD      = 'head'
+    POSITION_RTA       = 'rta'
+    POSITION_ORGANIZER = 'organizer'
+    POSITION_CHOICES = [
+        (POSITION_HEAD,      'Head'),
+        (POSITION_RTA,       'RTA'),
+        (POSITION_ORGANIZER, 'Organizer'),
+    ]
+
     id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=80, unique=True)
     email = models.EmailField(max_length=120, blank=True, default='')
@@ -55,6 +64,20 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
     # Display on marking screen
     title = models.CharField(max_length=20, blank=True, default='')  # Dr., Prof.
     department = models.CharField(max_length=100, blank=True, default='')
+
+    # Coordinator-specific: department assignment and position
+    coordinator_department = models.ForeignKey(
+        'core.Department',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='coordinators',
+        db_index=True,
+    )
+    coordinator_position = models.CharField(
+        max_length=10,
+        choices=POSITION_CHOICES,
+        blank=True, default='',
+    )
 
     # Role-based access control
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_EXAMINER)

@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 
-from core.models import Examiner, ExaminerAssignment, ExamSession
+from core.models import Examiner, ExaminerAssignment, ExamSession, Department
 
 
 @login_required
@@ -362,7 +362,8 @@ def examiner_bulk_upload(request):
     return redirect('creator:examiner_list')
 
 
-# ── Coordinator management (staff/superuser only) ──────────────────
+# ── Coordinator management (admin/superuser only) ─────────────────────────────
+
 
 @login_required
 def coordinator_list(request):
@@ -372,59 +373,99 @@ def coordinator_list(request):
         return redirect('creator:dashboard')
 
     search_query = request.GET.get('search', '').strip()
-    coordinators_qs = Examiner.objects.filter(role='coordinator').order_by('full_name')
-    
+    dept_filter = request.GET.get('department', '').strip()
+
+    coordinators_qs = Examiner.objects.filter(role='coordinator').select_related(
+        'coordinator_department'
+    ).order_by('coordinator_department__name', 'full_name')
+
     if search_query:
+        from django.db.models import Q
         coordinators_qs = coordinators_qs.filter(
-            full_name__icontains=search_query
-        ) | Examiner.objects.filter(
-            role='coordinator', username__icontains=search_query
-        ) | Examiner.objects.filter(
-            role='coordinator', email__icontains=search_query
+            Q(full_name__icontains=search_query) |
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query)
         )
-        coordinators_qs = coordinators_qs.order_by('full_name').distinct()
-    
+    if dept_filter:
+        coordinators_qs = coordinators_qs.filter(coordinator_department_id=dept_filter)
+
+    departments = Department.objects.filter(is_active=True).order_by('name')
+
     return render(request, 'creator/coordinators/list.html', {
         'coordinators': coordinators_qs,
         'search_query': search_query,
+        'departments': departments,
+        'dept_filter': dept_filter,
     })
 
 
 @login_required
 def coordinator_create(request):
-    """Create a new coordinator. Admin/superuser only."""
+    """Create a new coordinator with department and position. Admin/superuser only."""
     if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
         messages.error(request, 'You do not have permission to add coordinators.')
         return redirect('creator:dashboard')
 
     default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    departments = Department.objects.filter(is_active=True).order_by('name')
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip().lower()
         email = request.POST.get('email', '').strip().lower()
         full_name = request.POST.get('full_name', '').strip()
+        dept_id = request.POST.get('coordinator_department', '').strip()
+        position = request.POST.get('coordinator_position', '').strip()
 
+        errors = []
+        if not username:
+            errors.append('Username is required.')
+        if not full_name:
+            errors.append('Full name is required.')
+        if not dept_id:
+            errors.append('Department is required.')
+        if position not in ('head', 'rta', 'organizer'):
+            errors.append('Position must be Head, RTA, or Organizer.')
         if Examiner.objects.filter(username=username).exists():
-            messages.error(request, f'Username "{username}" already exists.')
+            errors.append(f'Username "{username}" already exists.')
+        if email and Examiner.objects.filter(email=email).exists():
+            errors.append(f'Email "{email}" already exists.')
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
             return render(request, 'creator/coordinators/form.html', {
                 'default_password': default_password,
+                'departments': departments,
+                'post': request.POST,
             })
 
-        if Examiner.objects.filter(email=email).exists():
-            messages.error(request, f'Email "{email}" already exists.')
+        dept = get_object_or_404(Department, pk=dept_id)
+
+        # Enforce single Head per department
+        if position == 'head' and Examiner.objects.filter(
+            coordinator_department=dept, coordinator_position='head',
+            role='coordinator', is_deleted=False
+        ).exists():
+            messages.error(
+                request,
+                f'Department "{dept.name}" already has a Head coordinator. '
+                'Choose a different department or use the RTA position.'
+            )
             return render(request, 'creator/coordinators/form.html', {
                 'default_password': default_password,
+                'departments': departments,
+                'post': request.POST,
             })
 
         coordinator = Examiner(
             username=username,
-            email=email,
+            email=email or '',
             full_name=full_name,
             role='coordinator',
+            coordinator_department=dept,
+            coordinator_position=position,
             is_active=True,
         )
-        # Password is set automatically to DEFAULT_USER_PASSWORD by the
-        # post_save signal.  User will be forced to change it on first login.
         coordinator.save()
 
         messages.success(request, f'Coordinator "{full_name}" created successfully.')
@@ -432,46 +473,83 @@ def coordinator_create(request):
 
     return render(request, 'creator/coordinators/form.html', {
         'default_password': default_password,
+        'departments': departments,
+        'post': {},
     })
 
 
 @login_required
 def coordinator_edit(request, coordinator_id):
-    """Edit coordinator details. Admin/superuser only."""
+    """Edit coordinator details including department and position. Admin/superuser only."""
     if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
         messages.error(request, 'You do not have permission to edit coordinators.')
         return redirect('creator:coordinator_list')
-    
+
     coordinator = get_object_or_404(Examiner, pk=coordinator_id, role='coordinator')
-    
+    departments = Department.objects.filter(is_active=True).order_by('name')
+
     if request.method == 'POST':
         full_name = request.POST.get('full_name', '').strip()
         email = request.POST.get('email', '').strip().lower()
         is_active = request.POST.get('is_active') == 'on'
-        
+        dept_id = request.POST.get('coordinator_department', '').strip()
+        position = request.POST.get('coordinator_position', '').strip()
+
+        errors = []
         if not full_name:
-            messages.error(request, 'Full name is required.')
-            return render(request, 'creator/coordinators/edit.html', {'coordinator': coordinator})
-        
-        # Check if email is already used by another coordinator
-        if email != coordinator.email and Examiner.objects.filter(email=email, role='coordinator').exclude(id=coordinator_id).exists():
-            messages.error(request, f'Email "{email}" is already used by another coordinator.')
-            return render(request, 'creator/coordinators/edit.html', {'coordinator': coordinator})
-        
+            errors.append('Full name is required.')
+        if not dept_id:
+            errors.append('Department is required.')
+        if position not in ('head', 'rta', 'organizer'):
+            errors.append('Position must be Head, RTA, or Organizer.')
+        if email and email != coordinator.email and Examiner.objects.filter(
+            email=email
+        ).exclude(id=coordinator_id).exists():
+            errors.append(f'Email "{email}" is already used by another user.')
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+            return render(request, 'creator/coordinators/edit.html', {
+                'coordinator': coordinator,
+                'departments': departments,
+            })
+
+        dept = get_object_or_404(Department, pk=dept_id)
+
+        # Enforce single Head per department (excluding self)
+        if position == 'head' and Examiner.objects.filter(
+            coordinator_department=dept, coordinator_position='head',
+            role='coordinator', is_deleted=False
+        ).exclude(pk=coordinator_id).exists():
+            messages.error(
+                request,
+                f'Department "{dept.name}" already has a Head coordinator.'
+            )
+            return render(request, 'creator/coordinators/edit.html', {
+                'coordinator': coordinator,
+                'departments': departments,
+            })
+
         coordinator.full_name = full_name
-        coordinator.email = email
+        coordinator.email = email or ''
         coordinator.is_active = is_active
+        coordinator.coordinator_department = dept
+        coordinator.coordinator_position = position
         coordinator.save()
-        
+
         messages.success(request, f'Coordinator "{full_name}" updated successfully.')
         return redirect('creator:coordinator_list')
-    
-    return render(request, 'creator/coordinators/edit.html', {'coordinator': coordinator})
+
+    return render(request, 'creator/coordinators/edit.html', {
+        'coordinator': coordinator,
+        'departments': departments,
+    })
 
 
 @login_required
 def coordinator_delete(request, coordinator_id):
-    """Delete a coordinator. Superuser only."""
+    """Permanently delete a coordinator. Superuser only."""
     if not request.user.is_superuser:
         messages.error(request, 'Only superusers can delete coordinators.')
         return redirect('creator:coordinator_list')
@@ -485,3 +563,108 @@ def coordinator_delete(request, coordinator_id):
     coordinator.delete()
     messages.success(request, f'Coordinator "{full_name}" deleted successfully.')
     return redirect('creator:coordinator_list')
+
+
+# ── Department management (admin/superuser only) ───────────────────────────────
+
+
+@login_required
+def department_list(request):
+    """List all departments."""
+    if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
+        messages.error(request, 'You do not have permission to manage departments.')
+        return redirect('creator:dashboard')
+
+    departments = Department.objects.order_by('name')
+    for dept in departments:
+        dept.head_count      = dept.coordinators.filter(coordinator_position='head',      is_deleted=False).count()
+        dept.rta_count       = dept.coordinators.filter(coordinator_position='rta',       is_deleted=False).count()
+        dept.organizer_count = dept.coordinators.filter(coordinator_position='organizer', is_deleted=False).count()
+
+    return render(request, 'creator/departments/list.html', {
+        'departments': departments,
+    })
+
+
+@login_required
+def department_create(request):
+    """Create a new department."""
+    if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
+        messages.error(request, 'You do not have permission to add departments.')
+        return redirect('creator:dashboard')
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+
+        if not name:
+            messages.error(request, 'Department name is required.')
+            return render(request, 'creator/departments/form.html', {'post': request.POST})
+
+        if Department.objects.filter(name__iexact=name).exists():
+            messages.error(request, f'A department named "{name}" already exists.')
+            return render(request, 'creator/departments/form.html', {'post': request.POST})
+
+        dept = Department.objects.create(name=name, description=description)
+        messages.success(request, f'Department "{dept.name}" created.')
+        return redirect('creator:department_list')
+
+    return render(request, 'creator/departments/form.html', {'post': {}})
+
+
+@login_required
+def department_edit(request, department_id):
+    """Edit a department."""
+    if not (request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'):
+        messages.error(request, 'You do not have permission to edit departments.')
+        return redirect('creator:department_list')
+
+    dept = get_object_or_404(Department, pk=department_id)
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        description = request.POST.get('description', '').strip()
+        is_active = request.POST.get('is_active') == 'on'
+
+        if not name:
+            messages.error(request, 'Department name is required.')
+            return render(request, 'creator/departments/edit.html', {'dept': dept})
+
+        if Department.objects.filter(name__iexact=name).exclude(pk=department_id).exists():
+            messages.error(request, f'A department named "{name}" already exists.')
+            return render(request, 'creator/departments/edit.html', {'dept': dept})
+
+        dept.name = name
+        dept.description = description
+        dept.is_active = is_active
+        dept.save()
+        messages.success(request, f'Department "{dept.name}" updated.')
+        return redirect('creator:department_list')
+
+    return render(request, 'creator/departments/edit.html', {'dept': dept})
+
+
+@login_required
+def department_delete(request, department_id):
+    """Delete a department. Superuser only. Blocked if coordinators are assigned."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Only superusers can delete departments.')
+        return redirect('creator:department_list')
+
+    if request.method != 'POST':
+        return redirect('creator:department_list')
+
+    dept = get_object_or_404(Department, pk=department_id)
+
+    if dept.coordinators.filter(is_deleted=False).exists():
+        messages.error(
+            request,
+            f'Cannot delete "{dept.name}" — it still has coordinators assigned. '
+            'Reassign or remove them first.'
+        )
+        return redirect('creator:department_list')
+
+    name = dept.name
+    dept.delete()
+    messages.success(request, f'Department "{name}" deleted.')
+    return redirect('creator:department_list')

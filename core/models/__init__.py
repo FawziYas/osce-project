@@ -7,6 +7,7 @@ from .course import Course, ILO
 from .exam import Exam, Station, ChecklistItem
 from .session import ExamSession, SessionStudent
 from .scoring import StationScore, ItemScore
+from .department import Department
 from .examiner import Examiner, ExaminerAssignment
 from .path import Path, StudentPath, PathStation
 from .library import ChecklistLibrary
@@ -38,6 +39,8 @@ __all__ = [
     'StationScore', 'ItemScore',
     # Examiners
     'Examiner', 'ExaminerAssignment',
+    # Departments
+    'Department',
     # OSCE rotation
     'OSCEExamPath', 'OSCERoomAssignment', 'OSCEPathStudent',
     # Dry Stations

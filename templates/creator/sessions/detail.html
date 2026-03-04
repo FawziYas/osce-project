@@ -120,21 +120,7 @@
         {% endif %}
         {% endif %}
         <!-- Session Report PDF – always visible regardless of session status -->
-        <button
-            type="button"
-            id="btn-download-report"
-            class="btn btn-outline-info "
-            title="Generate a comprehensive PDF report for this session"
-            data-session-id="{{ session.id }}"
-            data-session-name="{{ session.name }}"
-            data-session-date="{{ session.session_date|date:'Y-m-d' }}"
-            data-session-status="{{ session.status }}"
-            data-exam-name="{{ session.exam.name|default:'' }}"
-            data-course-name="{{ session.exam.course.name|default:'' }}"
-            data-department="{{ session.exam.department|default:'' }}"
-        >
-            <i class="bi bi-file-earmark-pdf me-1"></i>Session Report
-        </button>
+      
     </div>
 </div>
 
@@ -442,6 +428,22 @@
                     </div>
                 </div>
                 {% endif %}
+                <div class="col-12 mt-2">
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-info w-100 session-report-panel-btn"
+                        title="Generate a comprehensive PDF report for this session"
+                        data-session-id="{{ session.id }}"
+                        data-session-name="{{ session.name }}"
+                        data-session-date="{{ session.session_date|date:'Y-m-d' }}"
+                        data-session-status="{{ session.status }}"
+                        data-exam-name="{{ session.exam.name|default:'' }}"
+                        data-course-name="{{ session.exam.course.name|default:'' }}"
+                        data-department="{{ session.exam.department|default:'' }}"
+                    >
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Session Report
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -1171,6 +1173,24 @@ function togglePathDetails(event) {
             department:    btn.dataset.department,
         };
         generateSessionReport(btn.dataset.sessionId, meta);
+    });
+})();
+</script>
+<script>
+(function () {
+    const panelBtns = document.querySelectorAll('.session-report-panel-btn');
+    panelBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const meta = {
+                sessionName:   btn.dataset.sessionName,
+                sessionDate:   btn.dataset.sessionDate,
+                sessionStatus: btn.dataset.sessionStatus,
+                examName:      btn.dataset.examName,
+                courseName:    btn.dataset.courseName,
+                department:    btn.dataset.department,
+            };
+            generateSessionReport(btn.dataset.sessionId, meta);
+        });
     });
 })();
 </script>

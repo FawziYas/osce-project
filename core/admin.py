@@ -22,7 +22,7 @@ from .models import (
     DryQuestion, MCQOption, DryStationResponse,
     OSCEExamPath, OSCERoomAssignment, OSCEPathStudent,
     StationVariant, TemplateLibrary, StationTemplate, AuditLog,
-    LoginAuditLog, UserSession, UserProfile,
+    LoginAuditLog, UserSession, UserProfile, Department,
 )
 
 
@@ -558,6 +558,13 @@ def _custom_get_app_list(self, request, app_label=None):
 
 
 admin.AdminSite.get_app_list = _custom_get_app_list
+
+# ── Department ────────────────────────────────────────────────────
+@admin.register(Department)
+class DepartmentAdmin(admin.ModelAdmin):
+    list_display  = ('name', 'is_active', 'created_at')
+    list_filter   = ('is_active',)
+    search_fields = ('name',)
 
 # ── Rename Examiner in admin sidebar to "Users Profiles" ─────────
 # We patch _meta here (admin-only) so no migration is needed.

@@ -76,26 +76,30 @@
                             <div class="form-text">The title of this OSCE examination</div>
                         </div>
                         <div class="mb-3">
+                            <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
+                            <select class="form-select" id="department" name="department" required onchange="filterCoursesByDepartment()">
+                                <option value="">Select department...</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.name }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">This exam belongs to one department</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="course_id" class="form-label">Course <span class="text-danger">*</span></label>
                             <select class="form-select" id="course_id" name="course_id" required>
-                                <option value="">Select a course...</option>
+                                <option value="">Select a department first...</option>
                                 {% for course in courses %}
-                                <option value="{{ course.id }}" data-osce-mark="{{ course.osce_mark|default:'' }}">{{ course.code }} - {{ course.name }}</option>
+                                <option value="{{ course.id }}"
+                                        data-osce-mark="{{ course.osce_mark|default:'' }}"
+                                        data-department="{{ course.department.name|default:'' }}">
+                                    {{ course.code }} - {{ course.name }}
+                                </option>
                                 {% endfor %}
                             </select>
                             <div class="form-text">The ILOs from this course will be assessed</div>
                         </div>
-                         <div class="mb-3">
-                            <label for="department" class="form-label">Department <span class="text-danger">*</span></label>
-                            <select class="form-select" id="department" name="department" required>
-                                <option value="">Select department...</option>
-                                <option value="Internal Medicine">Internal Medicine</option>
-                                <option value="Pediatrics">Pediatrics</option>
-                                <option value="General Surgery">General Surgery</option>
-                                <option value="Obstetrics and Gynecology">Obstetrics and Gynecology</option>
-                            </select>
-                            <div class="form-text">This exam belongs to one department</div>
-                        </div>
+                         
                         <div class="mb-3">
                             <label for="exam_date" class="form-label">Exam Date <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" id="exam_date" name="exam_date" required>
@@ -303,6 +307,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+function filterCoursesByDepartment() {
+    const deptSelect = document.getElementById('department');
+    const courseSelect = document.getElementById('course_id');
+    const selectedDept = deptSelect.value;
+    const allOptions = courseSelect.querySelectorAll('option[data-department]');
+
+    // Reset course selection
+    courseSelect.value = '';
+
+    if (!selectedDept) {
+        // No department chosen — show placeholder, hide all courses
+        allOptions.forEach(opt => opt.style.display = 'none');
+        courseSelect.options[0].text = 'Select a department first...';
+        return;
+    }
+
+    let visible = 0;
+    allOptions.forEach(opt => {
+        if (opt.dataset.department === selectedDept) {
+            opt.style.display = '';
+            visible++;
+        } else {
+            opt.style.display = 'none';
+        }
+    });
+
+    courseSelect.options[0].text = visible > 0 ? 'Select a course...' : 'No courses linked to this department';
+}
 
 showStep(1);
 </script>

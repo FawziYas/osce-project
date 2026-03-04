@@ -113,9 +113,15 @@ def station_detail(request, station_id):
     """View station details and checklist."""
     station = get_object_or_404(Station, pk=station_id)
     items = ChecklistItem.objects.filter(station=station).order_by('item_number')
+    parent_path = station.path
+    parent_session = parent_path.session if parent_path else None
+    parent_exam = parent_path.exam if parent_path else None
     return render(request, 'creator/stations/detail.html', {
         'station': station,
         'items': items,
+        'parent_path': parent_path,
+        'parent_session': parent_session,
+        'parent_exam': parent_exam,
     })
 
 

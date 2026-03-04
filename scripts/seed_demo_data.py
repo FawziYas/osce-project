@@ -29,7 +29,7 @@ django.setup()
 
 from core.models import (
     Course, ILO, Exam, ExamSession, Path, Station, ChecklistItem,
-    SessionStudent,
+    SessionStudent, Department,
 )
 
 # ─────────────────────────────────────────────────────────────────────
@@ -532,7 +532,12 @@ def seed_all():
         print(f'  Creating: {exam_name}')
         print(f'  Course ID: {course_id} | Department: {department}')
         print(f'{"="*60}')
-
+        # ── Ensure Department exists in DB ───────────────────────────
+        dept_obj, dept_created = Department.objects.get_or_create(name=department)
+        if dept_created:
+            print(f'  ✓ Department created: {department}')
+        else:
+            print(f'  ✓ Department found:   {department}')
         # ── Create Exam ──────────────────────────────────────────────
         exam = Exam.objects.create(
             course_id=course_id,
@@ -615,7 +620,6 @@ def seed_all():
                         category=item_def['cat'],
                         is_critical=item_def['critical'],
                         rubric_type=item_def['rubric'],
-                        interaction_type=item_def['interact'],
                     )
                     total_items += 1
 

@@ -1,0 +1,43 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Add Department - OSCE Creator{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-building-add me-2"></i>Add Department</h1>
+    <p class="text-muted mb-0">Departments are used to organise coordinators and will drive role-based access across the app.</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="stat-card">
+            <form method="POST">
+                {% csrf_token %}
+                <div class="row g-3">
+
+                    <div class="col-12">
+                        <label class="form-label">Department Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required
+                               value="{{ post.name|default:'' }}"
+                               placeholder="e.g. Medicine, Surgery, Paediatrics">
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3"
+                                  placeholder="Optional description…">{{ post.description|default:'' }}</textarea>
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Create Department
+                        </button>
+                        <a href="{% url 'creator:department_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -88,7 +88,6 @@ def get_station_items(request, station_id):
             'description': item.description,
             'points': item.points,
             'is_critical': item.is_critical,
-            'interaction_type': item.interaction_type,
             'ilo_id': item.ilo_id,
             'ilo_number': ilo.number if ilo else None,
             'theme_name': theme.get('name', 'Unknown'),

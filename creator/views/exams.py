@@ -12,9 +12,13 @@ from django.http import JsonResponse
 
 from core.models import (
     Course, Exam, ExamSession, Path, Station, ChecklistItem,
-    SessionStudent,
+    SessionStudent, Department,
 )
 from core.utils.naming import generate_path_name
+from creator.dept_access import (
+    has_full_access, get_coordinator_dept,
+    filter_exams_by_dept, can_access_exam,
+)
 
 
 @login_required
@@ -22,14 +26,20 @@ def exam_list(request):
     """List all exams with search and pagination."""
     search_query = request.GET.get('search', '').strip()
     exams_qs = Exam.objects.filter(is_deleted=False).select_related('course').order_by('-created_at')
+
+    # Coordinators only see their department's exams
+    exams_qs = filter_exams_by_dept(exams_qs, request.user)
+
     if search_query:
         exams_qs = exams_qs.filter(
             name__icontains=search_query
-        ) | Exam.objects.filter(
-            is_deleted=False, course__name__icontains=search_query
-        ).select_related('course') | Exam.objects.filter(
-            is_deleted=False, department__icontains=search_query
-        ).select_related('course')
+        ) | filter_exams_by_dept(
+            Exam.objects.filter(is_deleted=False, course__name__icontains=search_query).select_related('course'),
+            request.user
+        ) | filter_exams_by_dept(
+            Exam.objects.filter(is_deleted=False, department__icontains=search_query).select_related('course'),
+            request.user
+        )
         exams_qs = exams_qs.order_by('-created_at').distinct()
 
     page_num = request.GET.get('page', 1)
@@ -40,7 +50,7 @@ def exam_list(request):
         page_obj = paginator.page(1)
 
     # Deleted exams visible to superuser and admin only
-    can_see_deleted = request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'
+    can_see_deleted = has_full_access(request.user)
     deleted_exams = (
         Exam.objects.filter(is_deleted=True).select_related('course').order_by('-deleted_at')
         if can_see_deleted else []
@@ -57,7 +67,13 @@ def exam_list(request):
 @login_required
 def exam_wizard(request):
     """Multi-step exam creation wizard – Exam → Sessions → Paths."""
-    courses = Course.objects.order_by('code')
+    coord_dept = get_coordinator_dept(request.user)
+    if coord_dept:
+        courses = Course.objects.filter(department=coord_dept).order_by('code')
+        departments = Department.objects.filter(pk=coord_dept.pk)
+    else:
+        courses = Course.objects.order_by('code')
+        departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
         # ---------- Exam ----------
@@ -73,7 +89,7 @@ def exam_wizard(request):
             exam.exam_date = datetime.strptime(request.POST['exam_date'], '%Y-%m-%d').date()
         else:
             messages.error(request, 'Exam date is required')
-            return render(request, 'creator/exams/wizard.html', {'courses': courses})
+            return render(request, 'creator/exams/wizard.html', {'courses': courses, 'departments': departments})
 
         exam.number_of_stations = 8
 
@@ -81,13 +97,13 @@ def exam_wizard(request):
             exam.station_duration_minutes = int(request.POST['station_duration_minutes'])
         else:
             messages.error(request, 'Station duration is required')
-            return render(request, 'creator/exams/wizard.html', {'courses': courses})
+            return render(request, 'creator/exams/wizard.html', {'courses': courses, 'departments': departments})
 
         if request.POST.get('exam_weight'):
             exam.exam_weight = request.POST['exam_weight']
         else:
             messages.error(request, 'Exam weight is required.')
-            return render(request, 'creator/exams/wizard.html', {'courses': courses})
+            return render(request, 'creator/exams/wizard.html', {'courses': courses, 'departments': departments})
 
         exam.save()
 
@@ -160,7 +176,7 @@ def exam_wizard(request):
         )
         return redirect('creator:exam_detail', exam_id=str(exam.id))
 
-    return render(request, 'creator/exams/wizard.html', {'courses': courses})
+    return render(request, 'creator/exams/wizard.html', {'courses': courses, 'departments': departments})
 
 
 @login_required
@@ -173,6 +189,11 @@ def exam_create(request):
 def exam_detail(request, exam_id):
     """View exam, sessions, and overview stats."""
     exam = get_object_or_404(Exam, pk=exam_id)
+
+    if not can_access_exam(request.user, exam):
+        messages.error(request, 'You do not have permission to view this exam.')
+        return redirect('creator:exam_list')
+
     sessions = ExamSession.objects.filter(exam=exam).order_by('session_date')
     stations = Station.objects.filter(exam=exam, active=True)
     
@@ -196,7 +217,18 @@ def exam_detail(request, exam_id):
 def exam_edit(request, exam_id):
     """Edit an exam."""
     exam = get_object_or_404(Exam, pk=exam_id)
-    courses = Course.objects.order_by('code')
+
+    if not can_access_exam(request.user, exam):
+        messages.error(request, 'You do not have permission to edit this exam.')
+        return redirect('creator:exam_list')
+
+    coord_dept = get_coordinator_dept(request.user)
+    if coord_dept:
+        courses = Course.objects.filter(department=coord_dept).order_by('code')
+        departments = Department.objects.filter(pk=coord_dept.pk)
+    else:
+        courses = Course.objects.order_by('code')
+        departments = Department.objects.order_by('name')
 
     # Check if any sessions are active or completed (date lock)
     active_or_completed_sessions = ExamSession.objects.filter(
@@ -238,6 +270,7 @@ def exam_edit(request, exam_id):
             return render(request, 'creator/exams/form.html', {
                 'exam': exam,
                 'courses': courses,
+                'departments': departments,
                 'date_field_disabled': active_or_completed_sessions,
             })
 
@@ -248,6 +281,7 @@ def exam_edit(request, exam_id):
     return render(request, 'creator/exams/form.html', {
         'exam': exam,
         'courses': courses,
+        'departments': departments,
         'date_field_disabled': active_or_completed_sessions,
     })
 
@@ -263,6 +297,8 @@ def exam_delete(request, exam_id):
         return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
     try:
         exam = get_object_or_404(Exam, pk=exam_id)
+        if not can_access_exam(request.user, exam):
+            return JsonResponse({'success': False, 'message': 'Permission denied.'}, status=403)
         if exam.status not in ('draft', 'ready'):
             return JsonResponse({
                 'success': False,
@@ -282,6 +318,8 @@ def exam_archive(request, exam_id):
         return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
     try:
         exam = get_object_or_404(Exam, pk=exam_id)
+        if not can_access_exam(request.user, exam):
+            return JsonResponse({'success': False, 'message': 'Permission denied.'}, status=403)
         if exam.status not in ('in_progress', 'completed'):
             return JsonResponse({
                 'success': False,

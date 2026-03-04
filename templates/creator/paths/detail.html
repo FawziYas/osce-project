@@ -5,8 +5,19 @@
 {% block content %}
 <div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
     <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                {% if exam %}
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+                {% endif %}
+                {% if session %}
+                <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">Session</a></li>
+                {% endif %}
+                <li class="breadcrumb-item active">Path {{ path.name }}</li>
+            </ol>
+        </nav>
         <h1 class="mb-1">Path {{ path.name }}</h1>
-       
     </div>
     <div class="btn-group flex-wrap">
         <a href="{% url 'creator:station_create' path.id %}" class="btn btn-primary">

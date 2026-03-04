@@ -8,18 +8,29 @@
         <h1><i class="bi bi-people me-2"></i>Coordinators</h1>
     </div>
     {% if request.user.is_superuser or request.user.role == 'admin' %}
-    <a href="{% url 'creator:coordinator_create' %}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i> Add Coordinator
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'creator:coordinator_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Add Coordinator
+        </a>
+    </div>
     {% endif %}
 </div>
 
-<!-- Search Bar -->
-<div class="mb-3 d-flex gap-2 align-items-center">
-    <form method="get" class="d-flex gap-2 align-items-center flex-grow-1">
-        <input type="text" name="search" class="form-control" placeholder="Search coordinators by name, username, or email..." value="{{ search_query|default:'' }}" style="max-width:400px;">
+<!-- Filters -->
+<div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+    <form method="get" class="d-flex gap-2 align-items-center flex-grow-1 flex-wrap">
+        <input type="text" name="search" class="form-control" placeholder="Search by name, username or email…"
+               value="{{ search_query|default:'' }}" style="max-width:300px;">
+        <select name="department" class="form-select" style="max-width:220px;">
+            <option value="">All Departments</option>
+            {% for dept in departments %}
+            <option value="{{ dept.id }}" {% if dept_filter == dept.id|stringformat:"s" %}selected{% endif %}>
+                {{ dept.name }}
+            </option>
+            {% endfor %}
+        </select>
         <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search me-1"></i>Search</button>
-        {% if search_query %}
+        {% if search_query or dept_filter %}
         <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-danger"><i class="bi bi-x me-1"></i>Clear</a>
         {% endif %}
     </form>
@@ -34,7 +45,8 @@
                 <tr>
                     <th>Full Name</th>
                     <th>Username</th>
-                    <th>Email</th>
+                    <th>Department</th>
+                    <th>Position</th>
                     <th>Status</th>
                     {% if request.user.is_superuser or request.user.role == 'admin' %}<th class="text-end">Actions</th>{% endif %}
                 </tr>
@@ -44,7 +56,17 @@
                 <tr>
                     <td class="fw-semibold">{{ coordinator.full_name }}</td>
                     <td><code>{{ coordinator.username }}</code></td>
-                    <td>{{ coordinator.email }}</td>
+                    <td>
+                        {% if coordinator.coordinator_department %}
+                            {{ coordinator.coordinator_department.name }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                       <span class="badge bg-light text-dark">{{ coordinator.coordinator_position }} </span>
+                        
+                    </td>
                     <td>
                         {% if coordinator.is_active %}
                             <span class="badge bg-success">Active</span>
@@ -79,7 +101,7 @@
     <div class="text-center py-5 text-muted">
         <i class="bi bi-people fs-1 d-block mb-3 opacity-25"></i>
         <p class="mb-0">
-            {% if search_query %}No coordinators match "{{ search_query }}".
+            {% if search_query or dept_filter %}No coordinators match your filters.
             {% else %}No coordinators found.{% endif %}
         </p>
         {% if request.user.is_superuser or request.user.role == 'admin' %}

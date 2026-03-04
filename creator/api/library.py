@@ -37,7 +37,6 @@ def get_library(request):
             'id': item.id,
             'description': item.description,
             'is_critical': item.is_critical,
-            'interaction_type': item.interaction_type,
             'suggested_points': item.suggested_points,
             'usage_count': item.usage_count or 0,
         })
@@ -60,7 +59,6 @@ def create_library_item(request):
         ilo_id=data['ilo_id'],
         description=data['description'],
         is_critical=data.get('is_critical', False),
-        interaction_type=data.get('interaction_type', 'passive'),
         expected_response=data.get('expected_response', ''),
         suggested_points=data.get('suggested_points', 1),
         usage_count=0,

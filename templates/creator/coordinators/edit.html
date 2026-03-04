@@ -29,41 +29,60 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Email <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" name="email" required
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email"
                                value="{{ coordinator.email }}"
                                placeholder="jsmith@hospital.edu">
                     </div>
 
+                    <!-- Department -->
+                    <div class="col-md-6">
+                        <label class="form-label">Department <span class="text-danger">*</span></label>
+                        {% if departments %}
+                        <select class="form-select" name="coordinator_department" required>
+                            <option value="">— Select department —</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}"
+                                {% if coordinator.coordinator_department_id == dept.id %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <div class="alert alert-warning mb-0 py-2">
+                            No active departments. <a href="{% url 'creator:department_create' %}">Create one first</a>.
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Position -->
+                    <div class="col-md-6">
+                        <label class="form-label">Position <span class="text-danger">*</span></label>
+                        <select class="form-select" name="coordinator_position" required>
+                            <option value="">— Select position —</option>
+                            <option value="head"      {% if coordinator.coordinator_position == 'head'      %}selected{% endif %}>Head</option>
+                            <option value="rta"       {% if coordinator.coordinator_position == 'rta'       %}selected{% endif %}>RTA</option>
+                            <option value="organizer" {% if coordinator.coordinator_position == 'organizer' %}selected{% endif %}>Organizer</option>
+                        </select>
+                        <div class="form-text">Each department can have only one <strong>Head</strong>.</div>
+                    </div>
+
+                    <!-- Status -->
                     <div class="col-md-6">
                         <label class="form-label">Status</label>
                         <div class="form-check form-switch pt-2">
                             <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
                                    {% if coordinator.is_active %}checked{% endif %}>
-                            <label class="form-check-label" for="is_active">
-                                Active
-                            </label>
+                            <label class="form-check-label" for="is_active">Active</label>
                         </div>
                         <small class="text-muted d-block mt-2">Inactive coordinators cannot log in</small>
-                    </div>
-
-                    <div class="col-12">
-                        <div class="alert alert-info d-flex align-items-start gap-2 mb-0">
-                            <i class="bi bi-info-circle-fill mt-1"></i>
-                            <div>
-                                <strong>Note:</strong> To change the coordinator's password, contact the Django admin
-                                or reset it through the system administration panel.
-                            </div>
-                        </div>
                     </div>
 
                     <div class="col-12 d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check-circle me-1"></i> Save Changes
                         </button>
-                        <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-secondary">
-                            Cancel
-                        </a>
+                        <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-secondary">Cancel</a>
                     </div>
 
                 </div>

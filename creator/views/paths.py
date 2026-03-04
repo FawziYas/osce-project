@@ -48,6 +48,7 @@ def path_detail(request, path_id):
         'path': path,
         'stations': stations,
         'exam': exam,
+        'session': session,
         'session_started': session_started,
     })
 

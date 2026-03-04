@@ -14,6 +14,13 @@ class Course(TimestampMixin):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, default='')
     year_level = models.IntegerField(default=1)
+    department = models.ForeignKey(
+        'core.Department',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='courses',
+        help_text='Department responsible for this course',
+    )
     osce_mark = models.PositiveIntegerField(
         null=True, blank=True,
         help_text='Total OSCE mark for this course (entered manually, e.g. 50)',
@@ -43,6 +50,7 @@ class Course(TimestampMixin):
             'name': self.name,
             'description': self.description,
             'year_level': self.year_level,
+            'department': self.department.name if self.department else None,
             'total_osce_marks': self.get_total_osce_marks(),
             'osce_mark': self.osce_mark,
             'ilo_count': self.ilos.count(),

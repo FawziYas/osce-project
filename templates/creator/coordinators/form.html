@@ -3,9 +3,11 @@
 {% block title %}Add Coordinator - OSCE Creator{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1><i class="bi bi-person-plus me-2"></i>Add Coordinator</h1>
-    <p class="text-muted mb-0">Coordinators have full access to the creator dashboard.</p>
+<div class="page-header d-flex align-items-center gap-3">
+    <div>
+        <h1><i class="bi bi-person-plus me-2"></i>Add Coordinator</h1>
+        <p class="text-muted mb-0">Assign a coordinator to a department and set their role within it.</p>
+    </div>
 </div>
 
 <div class="row">
@@ -18,51 +20,74 @@
                     <div class="col-12">
                         <label class="form-label">Full Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="full_name" required
+                               value="{{ post.full_name|default:'' }}"
                                placeholder="Dr. Fawzi Yasin">
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Username <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="username" required
+                               value="{{ post.username|default:'' }}"
                                placeholder="52526">
-                               <div class="form-text">Use financial number (e.g., 52526).</div>
+                        <div class="form-text">Use financial number (e.g., 52526).</div>
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label">Email <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" name="email" required
-                               placeholder="Fawzi@Najah.edu">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email"
+                               value="{{ post.email|default:'' }}"
+                               placeholder="fawzi@najah.edu">
                     </div>
 
+                    <!-- Department -->
                     <div class="col-md-6">
-                        <label class="form-label">Password</label>
-                        <input type="text" class="form-control" value="{{ default_password }}" readonly>
-                        <div class="form-text">Default password will be set automatically. User must change it on first login.</div>
-                    </div>
-
-                    <div class="col-12">
-                        <div class="alert alert-info d-flex align-items-start gap-2 mb-0">
-                            <i class="bi bi-info-circle-fill mt-1"></i>
-                            <div>
-                                <strong>Coordinator Access:</strong> This user will be able to log in and access the
-                                full creator dashboard (exams, sessions, reports). They will <strong>not</strong>
-                                have Django admin access unless explicitly granted.
-                            </div>
+                        <label class="form-label">Department <span class="text-danger">*</span></label>
+                        {% if departments %}
+                        <select class="form-select" name="coordinator_department" required>
+                            <option value="">— Select department —</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}"
+                                {% if post.coordinator_department == dept.id|stringformat:"s" %}selected{% endif %}>
+                                {{ dept.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        <div class="alert alert-warning mb-0 py-2">
+                            No active departments. <a href="{% url 'creator:department_create' %}">Create one first</a>.
                         </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Position -->
+                    <div class="col-md-6">
+                        <label class="form-label">Position <span class="text-danger">*</span></label>
+                        <select class="form-select" name="coordinator_position" required>
+                            <option value="">— Select position —</option>
+                            <option value="head"      {% if post.coordinator_position == 'head'      %}selected{% endif %}>Head</option>
+                            <option value="rta"       {% if post.coordinator_position == 'rta'       %}selected{% endif %}>RTA</option>
+                            <option value="organizer" {% if post.coordinator_position == 'organizer' %}selected{% endif %}>Organizer</option>
+                        </select>
+                        <div class="form-text">Each department can have only one <strong>Head</strong>.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Default Password</label>
+                        <input type="text" class="form-control" value="{{ default_password }}" readonly>
+                        <div class="form-text">Auto-set. User must change on first login.</div>
                     </div>
 
                     <div class="col-12 d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check-circle me-1"></i> Create Coordinator
                         </button>
-                        <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-secondary">
-                            Cancel
-                        </a>
+                        <a href="{% url 'creator:coordinator_list' %}" class="btn btn-outline-secondary">Cancel</a>
                     </div>
 
                 </div>
             </form>
         </div>
     </div>
+
 </div>
 {% endblock %}
