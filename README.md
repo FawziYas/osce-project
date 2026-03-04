@@ -328,50 +328,47 @@ The OSCE exam data is organized in a strict hierarchical tree. Every entity inhe
 ```
 Department
 │   name, description, is_active
-│   ↳ head_coordinator, rta_coordinators (Examiner FK)
+│   ↳ head_coordinator, organizer_coordinator, rta_coordinators (Examiner FK)
 │
-├── Course  (FK → Department)
-│   │   code, name, year_level, osce_mark
-│   │
-│   └── ILO  (FK → Course)
-│       number, description, osce_marks
-│
-└── Exam  (FK → Course, department CharField)
-    │   name, exam_date, status, number_of_stations, station_duration_minutes
-    │   exam_weight, is_deleted (soft delete)
+└── Course  (FK → Department)
+    │   code, name, year_level, osce_mark
     │
-    ├── Station  (FK → Exam)
-    │   │   name, station_number, station_type, duration_minutes
-    │   │   max_score, passing_score, theme (FK → Theme)
-    │   │
-    │   └── ChecklistItem  (FK → Station)
-    │       name, points, rubric_type (binary/partial/scale)
-    │       category, is_critical, ilo (FK → ILO)
+    ├── ILO  (FK → Course)
+    │   number, description, osce_marks
     │
-    └── ExamSession  (FK → Exam)
-        │   name, session_date, session_type (morning/afternoon)
-        │   start_time, number_of_stations, number_of_paths
-        │   status (scheduled → in_progress → completed / cancelled)
+    └── Exam  (FK → Course, department CharField)
+        │   name, exam_date, status, number_of_stations, station_duration_minutes
+        │   exam_weight, is_deleted (soft delete)
         │
-        ├── Path  (FK → ExamSession)
-        │   │   name (A, B, C…), rotation_minutes, is_active
-        │   │
-        │   └── PathStation  (FK → Path, FK → Station)
-        │       station_number (order within path)
-        │
-        ├── SessionStudent  (FK → ExamSession)
-        │   student_name, student_number, path (FK → Path)
-        │   sequence_number, status
-        │
-        ├── ExaminerAssignment  (FK → ExamSession, FK → Station, FK → Examiner)
-        │   Links an examiner to a specific station in a session
-        │
-        └── Scoring
-            ├── StationScore  (FK → ExamSession, FK → Station, FK → SessionStudent)
-            │   examiner (FK → Examiner), total_score, max_score, is_passed
+        └── ExamSession  (FK → Exam)
+            │   name, session_date, session_type (morning/afternoon)
+            │   start_time, number_of_stations, number_of_paths
+            │   status (scheduled → in_progress → completed / cancelled)
             │
-            └── ItemScore  (FK → StationScore, FK → ChecklistItem)
-                score, notes
+            ├── Path  (FK → ExamSession)
+            │   │   name (A, B, C…), rotation_minutes, is_active
+            │   │
+            │   └── Station  (FK → Exam, ordered via PathStation)
+            │       │   name, station_number, station_type, duration_minutes
+            │       │   max_score, passing_score, theme (FK → Theme)
+            │       │
+            │       └── ChecklistItem  (FK → Station)
+            │           name, points, rubric_type (binary/partial/scale)
+            │           category, is_critical, ilo (FK → ILO)
+            │
+            ├── SessionStudent  (FK → ExamSession)
+            │   student_name, student_number, path (FK → Path)
+            │   sequence_number, status
+            │
+            ├── ExaminerAssignment  (FK → ExamSession, FK → Station, FK → Examiner)
+            │   Links an examiner to a specific station in a session
+            │
+            └── Scoring
+                ├── StationScore  (FK → ExamSession, FK → Station, FK → SessionStudent)
+                │   examiner (FK → Examiner), total_score, max_score, is_passed
+                │
+                └── ItemScore  (FK → StationScore, FK → ChecklistItem)
+                    score, notes
 ```
 
 ### Access Control Model
