@@ -60,7 +60,6 @@ def get_ilo_library(request, ilo_id):
     return JsonResponse([{
         'id': item.id,
         'description': item.description,
-        'is_critical': item.is_critical,
         'expected_response': item.expected_response,
         'points': item.suggested_points,
         'usage_count': item.usage_count or 0,

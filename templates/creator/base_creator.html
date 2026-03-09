@@ -130,6 +130,7 @@
                 </li>
             </ul>
             
+            {% if perms.core.can_view_student_list %}
             <div class="nav-section">Students</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
@@ -138,6 +139,7 @@
                     </a>
                 </li>
             </ul>
+            {% endif %}
             
             <!-- Push sign-out to bottom -->
             <div class="mt-auto">

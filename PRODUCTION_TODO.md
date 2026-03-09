@@ -2,7 +2,7 @@
 
 **Project:** Django OSCE Exam System
 **Platform:** Microsoft Azure (covered by $100/mo university credit)
-**Last Updated:** March 2, 2026
+**Last Updated:** March 4, 2026
 
 ---
 
@@ -15,6 +15,11 @@
 | 3 | **WhiteNoise for static files** | ✅ DONE | Middleware added in `base.py`, `CompressedManifestStaticFilesStorage` in `production.py` |
 | 4 | **Gunicorn as WSGI server** | ✅ DONE | `gunicorn.conf.py` + `Procfile` created (gthread, auto workers, max-requests) |
 | 5 | **`SECRET_KEY` from environment** | ✅ DONE | `production.py` reads from `SECRET_KEY` env var, `.env.example` documents generation |
+| 6 | **Row-Level Security (RLS)** | ✅ DONE | Migration `0027_rls_policies.py` — 10 helper functions, 40+ policies over 10 tables. Auto-skips on SQLite, activates on PostgreSQL. `RLSSessionMiddleware` sets session vars per request. See `RLS_DESIGN.md` |
+| 7 | **RBAC system** | ✅ DONE | `core/utils/permissions.py` — role-based decorators on all 140+ endpoints (superuser > admin > coordinator > examiner). Coordinator department scoping enforced |
+| 8 | **Audit Logging System** | ✅ DONE | 37 action types, `AuditLogService` with old/new value JSON diff, department scoping, role-scoped admin with streaming CSV/JSON export, `AuditLogArchive` model + `archive_old_logs` management command |
+| 9 | **Celery async audit writes** | ✅ DONE | `osce_project/celery.py` + `core/tasks.py`. Falls back to synchronous writes when `CELERY_BROKER_URL` is not set |
+| 10 | **Unauthorized access logging** | ✅ DONE | `UnauthorizedAccessMiddleware` auto-logs 401/403/404 responses to AuditLog |
 
 ---
 
@@ -28,15 +33,21 @@
                     ┌────────┴─────────────┐
                     │  Azure App Service    │  ← B2 plan, autoscale 1-3
                     │  (Gunicorn workers)   │
-                    └──┬───┬───┬───────────┘
-                       │   │   │
-              ┌────────┘   │   └────────┐
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │PostgreSQL│ │ Azure    │ │WhiteNoise│
-        │ Flexible │ │ Redis    │ │ Static   │
-        │ Server   │ │ Cache C0 │ │ Files    │
-        └──────────┘ └──────────┘ └──────────┘
+                    └──┬───┬───┬───┬───────┘
+                       │   │   │   │
+              ┌────────┘   │   │   └────────┐
+              ▼            ▼   ▼            ▼
+        ┌──────────┐ ┌──────────┐     ┌──────────┐
+        │PostgreSQL│ │ Azure    │     │WhiteNoise│
+        │ Flexible │ │ Redis    │     │ Static   │
+        │ Server   │ │ Cache C0 │     │ Files    │
+        │ + RLS    │ └────┬─────┘     └──────────┘
+        │ policies │      │
+        └──────────┘      ▼
+                    ┌──────────────┐
+                    │Celery Worker │  ← WebJob or same App Service
+                    │(audit writes)│     (async audit log queue)
+                    └──────────────┘
 ```
 
 ### Estimated Monthly Cost
@@ -50,6 +61,7 @@
 | SSL | App Service Managed Certificate | $0 |
 | Error Monitoring | Sentry (free tier) | $0 |
 | Uptime Monitoring | Azure Monitor (free tier) | $0 |
+| Celery Worker | App Service WebJob or AlwaysOn | ~$0 (shares App Service) |
 | **Total** | | **~$92/month** |
 | **University credit** | | **$100/month** |
 | **Out of pocket** | | **$0** |
@@ -78,12 +90,19 @@ Without this, 100+ concurrent examiners = database crash (SQLite locks on writes
   - [ ] Azure Portal → Create Resource → Azure Database for PostgreSQL Flexible Server
   - [ ] SKU: Burstable B1ms (1 vCPU, 2GB RAM) — enough for 1000 users
   - [ ] Create database: `osce_production`
-  - [ ] Create least-privilege app user (not the admin user):
+  - [ ] Create least-privilege app user (**must NOT be a superuser** — otherwise RLS policies are bypassed!):
     ```sql
     CREATE USER osce_app WITH PASSWORD 'strong_16+_char_password';
     GRANT CONNECT ON DATABASE osce_production TO osce_app;
+    GRANT USAGE ON SCHEMA public TO osce_app;
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO osce_app;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO osce_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO osce_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO osce_app;
+    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO osce_app;
     ```
+    > **Critical:** The app user must be a regular (non-superuser) PostgreSQL role.
+    > PostgreSQL superusers bypass ALL RLS policies. See `RLS_DESIGN.md` for details.
 
 - [ ] **Enable PgBouncer** (built-in, free)
   - [ ] Azure Portal → Your PostgreSQL server → Server Parameters
@@ -101,6 +120,9 @@ Without this, 100+ concurrent examiners = database crash (SQLite locks on writes
   python manage.py migrate
   python manage.py createsuperuser
   ```
+  > Migration `0027_rls_policies.py` will automatically create all RLS
+  > helper functions, enable/force RLS on 10 tables, and create 40+ policies.
+  > Migration `0029` will create the enhanced AuditLog schema + AuditLogArchive table.
 
 ### 2. Azure App Service Deployment
 
@@ -129,6 +151,7 @@ Without this, 100+ concurrent examiners = database crash (SQLite locks on writes
   DATABASE_URL=postgresql://...
   ALLOWED_HOSTS=osce-app.azurewebsites.net,yourdomain.com
   DJANGO_SETTINGS_MODULE=osce_project.settings
+  CELERY_BROKER_URL=rediss://:ACCESS_KEY@yourredis.redis.cache.windows.net:6380/0
   ```
 
 - [ ] **Run collectstatic**
@@ -207,6 +230,75 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
   - `idx_score_student_station` (StationScore)
   - `idx_student_session_path` (SessionStudent)
   - `idx_student_session_status` (SessionStudent)
+- [x] **Audit log indexes created** — Migration `0029` applied
+  - `idx_audit_user_action` (AuditLog: user + action)
+  - `idx_audit_resource` (AuditLog: resource_type + resource_id)
+  - `idx_audit_dept_ts` (AuditLog: department_id + timestamp)
+  - `idx_audit_action_ts` (AuditLog: action + timestamp)
+  - `idx_audit_status_ts` (AuditLog: status + timestamp)
+
+### 5b. Row-Level Security Verification (PostgreSQL only)
+
+RLS is fully coded in migration `0027_rls_policies.py` and activates automatically.
+After running migrations on PostgreSQL, verify:
+
+- [ ] **Verify RLS is enabled on all tables:**
+  ```sql
+  SELECT relname, relrowsecurity, relforcerowsecurity
+  FROM pg_class
+  WHERE relname IN ('departments','courses','exams','exam_sessions',
+                    'paths','stations','checklist_items',
+                    'examiner_assignments','station_scores','item_scores');
+  ```
+  All rows should show `relrowsecurity=t` and `relforcerowsecurity=t`.
+
+- [ ] **Verify helper functions exist:**
+  ```sql
+  SELECT proname FROM pg_proc
+  WHERE proname IN ('app_role','is_global_role','is_coordinator',
+                    'app_department_id','app_user_id','station_department_id',
+                    'examiner_has_station','exam_department_id',
+                    'session_department_id','path_department_id');
+  ```
+  Should return 10 functions.
+
+- [ ] **Verify policies exist:**
+  ```sql
+  SELECT tablename, policyname, cmd FROM pg_policies
+  WHERE schemaname = 'public' ORDER BY tablename, policyname;
+  ```
+  Should return 40+ policies.
+
+- [ ] **Run RLS test matrix** (see `RLS_DESIGN.md` § 7 for full test cases)
+
+### 5c. Celery Worker (Optional — for async audit logging)
+
+Audit logging works **synchronously by default**. Celery is only needed if you
+want audit writes to be non-blocking (recommended for exam day with 1000+ users).
+
+- [ ] **Set `CELERY_BROKER_URL` in App Service** (reuse the same Redis)
+  ```
+  CELERY_BROKER_URL=rediss://:ACCESS_KEY@yourredis.redis.cache.windows.net:6380/0
+  ```
+
+- [ ] **Start Celery worker** (choose one approach):
+  - **Option A — Azure WebJob:** Add a `run.sh` script that runs `celery -A osce_project worker -l info`
+  - **Option B — Same App Service:** Update Procfile to include worker:
+    ```
+    web: gunicorn osce_project.wsgi:application --config gunicorn.conf.py
+    worker: celery -A osce_project worker -l info --concurrency 2
+    ```
+  - **Option C — No Celery:** Leave `CELERY_BROKER_URL` empty. Audit writes happen synchronously (adds ~5ms per request).
+
+### 5d. Audit Log Archival
+
+- [ ] **Schedule recurring archive job** (monthly or quarterly)
+  ```bash
+  python manage.py archive_old_logs --days 365 --batch-size 1000
+  ```
+  - Use Azure WebJob (scheduled) or manual run
+  - Moves AuditLog rows older than N days to AuditLogArchive table
+  - Use `--dry-run` first to preview
 
 ### 6. Score Submission Optimization
 
@@ -274,6 +366,10 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
 - [x] **Rate limiting configured** — django-axes (10 attempts, 10min lockout)
 - [x] **Log rotation configured** — RotatingFileHandler (10MB, 5 backups) in `production.py`
 - [x] **Stronger password validators** — MinLength 10, in `production.py`
+- [x] **Row-Level Security** — PostgreSQL-level data isolation per department (migration 0027)
+- [x] **RBAC** — Role-based access control on all 140+ endpoints (`core/utils/permissions.py`)
+- [x] **Audit trail** — 37 action types with old/new value diffs, auto-logged via signals + middleware
+- [x] **Unauthorized access logging** — 401/403/404 responses auto-logged to audit trail
 
 - [ ] **Run Django deploy check**
   ```bash
@@ -339,7 +435,7 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
 
 ### Configuration Files Created
 
-- [x] **`Procfile`** — `web: gunicorn osce_project.wsgi:application --config gunicorn.conf.py`
+- [x] **`Procfile`** — `web: gunicorn osce_project.wsgi:application --config gunicorn.conf.py` (add `worker:` line if using Celery)
 - [x] **`runtime.txt`** — `python-3.13.12`
 - [x] **`gunicorn.conf.py`** — gthread workers, auto CPU detection, max-requests recycling, structured logging
 - [x] **`.env.example`** — All production env vars documented with examples
@@ -401,6 +497,8 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
 | Table | Data | Risk if Compromised |
 |-------|------|---------------------|
 | `examiners` | Usernames + hashed passwords + roles | Staff account takeover |
+| `audit_logs` | Full action history, IP addresses, old/new values | Compliance data leak |
+| `audit_logs_archive` | Archived audit records | Same as audit_logs |
 | `login_audit_logs` | Login history, IP addresses | Privacy violation |
 | `user_sessions` | Active session keys | Session hijacking |
 | `session_students` | Student names + registration numbers | Student PII leak |
@@ -410,8 +508,10 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
 **Mitigations:**
 - Azure PostgreSQL only accessible from App Service VNet (deny public access)
 - App connects as least-privilege DB user (not admin/superuser)
+- Row-Level Security (RLS) enforced at PostgreSQL level — coordinators see only their department's data
 - All passwords 16+ chars with mixed case + numbers + symbols
 - Regular encrypted backups with tested restore procedure
+- Comprehensive audit trail (37 action types) with old/new value tracking
 
 ---
 
@@ -421,12 +521,17 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
 - [ ] Azure App Service deployed and running
 - [ ] PostgreSQL Flexible Server + PgBouncer enabled
 - [ ] Migrations applied to production DB
+- [ ] RLS policies verified: `SELECT * FROM pg_policies WHERE schemaname = 'public';`
+- [ ] RLS helper functions verified: `SELECT app_role();`
 - [ ] Superuser created
 - [ ] `SECRET_KEY` in App Service environment (not in code)
 - [ ] `DEBUG = False` with `ALLOWED_HOSTS` set
 - [ ] HTTPS working (Azure managed certificate)
 - [ ] `collectstatic` run
 - [ ] Sentry configured and tested
+- [ ] Celery worker running (or sync fallback confirmed)
+- [ ] `CELERY_BROKER_URL` set if using async audit writes
+- [ ] Audit logging verified (login/logout events appear in AuditLog)
 - [ ] Backups enabled (7+ day retention)
 - [ ] `python manage.py check --deploy` passes with 0 warnings
 - [ ] Load testing passed (50+ concurrent users)
@@ -442,6 +547,9 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
 ### Post-Launch (1 week after)
 - [ ] Review Sentry error logs daily
 - [ ] Monitor performance metrics
+- [ ] Review audit logs in admin (check for UNAUTHORIZED_ACCESS events)
+- [ ] Run `python manage.py archive_old_logs --dry-run` to preview archival
+- [ ] Schedule recurring `archive_old_logs --days 365` (Azure WebJob or cron)
 - [ ] Gather user feedback
 - [ ] Document lessons learned
 
@@ -453,11 +561,13 @@ Production is successfully deployed when:
 
 1. Application accessible via HTTPS with valid certificate
 2. PostgreSQL with PgBouncer handling concurrent writes
-3. Database backups automated and restore tested
-4. Sentry error monitoring configured and verified
-5. Load testing passes with 50+ concurrent users
-6. `manage.py check --deploy` passes with 0 warnings
-7. Staff trained and dry run completed
+3. RLS policies active (non-superuser DB role, `FORCE ROW LEVEL SECURITY` on all tables)
+4. Audit logging operational (37 action types, login/logout/CRUD tracked)
+5. Database backups automated and restore tested
+6. Sentry error monitoring configured and verified
+7. Load testing passes with 50+ concurrent users
+8. `manage.py check --deploy` passes with 0 warnings
+9. Staff trained and dry run completed
 
 ---
 
@@ -471,12 +581,28 @@ Production is successfully deployed when:
 
 ## 📝 Implementation Notes
 
+**See also for detailed system documentation:**
+- [RLS_DESIGN.md](RLS_DESIGN.md) — Complete RLS design with test matrix and deployment checklist
+- [prompt3.md](prompt3.md) — RLS design evolution, PostgreSQL schema mapping, policy details
+- [prompt4.md](prompt4.md) — Audit logging system, AuditLogService implementation, signals integration
+
 **Already configured in code (just need Azure services provisioned):**
 - `production.py` — DATABASE_URL (via dj-database-url), REDIS_URL, SENTRY_DSN, security headers, log rotation
 - `gunicorn.conf.py` — gthread workers, auto CPU detection, max-requests recycling
 - `Procfile` + `runtime.txt` — PaaS-ready
 - `.env.example` — All required env vars documented with examples
 - Migration `0022_production_indexes.py` — Performance indexes applied
+- Migration `0027_rls_policies.py` — RLS helper functions + 40+ policies (auto-activates on PostgreSQL)
+- Migration `0029` — Enhanced AuditLog schema + AuditLogArchive
+- `core/utils/permissions.py` — Full RBAC system with role-based decorators on all endpoints
+- `core/models/audit.py` — 37 action-type constants, AuditLog + AuditLogArchive models
+- `core/utils/audit.py` — AuditLogService with hierarchy-aware department resolution
+- `core/tasks.py` — Celery task for async audit writes (falls back to sync when CELERY_BROKER_URL not set)
+- `core/middleware.py` — UnauthorizedAccessMiddleware + RLSSessionMiddleware
+- `core/signals.py` — Automatic audit logging for all CRUD on hierarchy models
+- `core/management/commands/archive_old_logs.py` — Move old AuditLog rows to archive
+- `osce_project/celery.py` — Celery app configuration (auto-discovered tasks)
+- `RLS_DESIGN.md` — Full RLS design document with test matrix and deployment checklist
 - `examiner/views/api.py` — `mark_item()` optimized with `update_or_create`
 
 **What remains is Azure resource provisioning, not code changes.**

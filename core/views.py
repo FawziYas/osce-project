@@ -4,6 +4,7 @@ Core views – unified authentication for all user types.
 import logging
 
 from axes.decorators import axes_dispatch
+from axes.models import AccessAttempt
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -79,11 +80,16 @@ def login_view(request):
                         "active session already exists (key %s).",
                         user.username, ip, existing.session_key[:8]
                     )
+                    try:
+                        session_obj = Session.objects.get(session_key=existing.session_key)
+                        minutes_left = max(1, int((session_obj.expire_date - timezone.now()).total_seconds() / 60))
+                        duration = f'in {minutes_left} minute{"s" if minutes_left != 1 else ""}'
+                    except Session.DoesNotExist:
+                        duration = 'soon'
                     messages.error(
                         request,
-                        'There is already an open session for this account. '
-                        'If your computer crashed, ask the Administrator to '
-                        'end your previous session.'
+                        f'There is already an open session for this account (expires {duration}). '
+                        'If your computer crashed, ask the Administrator to end your previous session.'
                     )
                     return render(request, 'login.html')
                 else:
@@ -107,11 +113,39 @@ def login_view(request):
             )
             log_action(request, 'LOGIN', 'User', user.id,
                        f'{user.display_name} logged in (role: {getattr(user, "role", "superuser")})')
+            
+            # Check for 'next' parameter to redirect back to original page after login
+            next_url = request.POST.get('next') or request.GET.get('next')
+            if next_url:
+                from django.utils.http import url_has_allowed_host_and_scheme
+                # Validate the next URL to prevent open redirect attacks
+                if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                    return redirect(next_url)
+            
             return _redirect_by_role(user)
 
-        messages.error(request, 'Invalid username or password. (Username is case-sensitive)')
+        # Check if this is a rate-limit lockout
+        lockout = AccessAttempt.objects.filter(username=username).first()
+        failure_limit = getattr(settings, 'AXES_FAILURE_LIMIT', 10)
+        cooloff = getattr(settings, 'AXES_COOLOFF_TIME', None)
+        if lockout and lockout.failures_since_start >= failure_limit and cooloff:
+            from datetime import timedelta as _td
+            unlock_at = lockout.attempt_time + (cooloff if isinstance(cooloff, __import__('datetime').timedelta) else _td(hours=cooloff))
+            minutes_remaining = int((unlock_at - timezone.now()).total_seconds() / 60)
+            if minutes_remaining > 0:
+                messages.error(
+                    request,
+                    f'Too many failed login attempts. Please try again in '
+                    f'{minutes_remaining} minute{"s" if minutes_remaining != 1 else ""}.'
+                )
+            else:
+                messages.error(request, 'Too many failed login attempts. Please try again shortly.')
+        else:
+            messages.error(request, 'Invalid username or password. (Username is case-sensitive)')
 
-    return render(request, 'login.html')
+    # Pass 'next' parameter to template for form preservation
+    next_url = request.GET.get('next', '')
+    return render(request, 'login.html', {'next': next_url})
 
 
 def logout_view(request):

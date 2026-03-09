@@ -35,7 +35,7 @@ class CreatorTestBase(TestCase):
         # Library item
         cls.lib_item = ChecklistLibrary.objects.create(
             ilo=cls.ilo, description='Check vitals',
-            is_critical=False, suggested_points=2,
+            suggested_points=2,
         )
         # Exam
         cls.exam = Exam.objects.create(

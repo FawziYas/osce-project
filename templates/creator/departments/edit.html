@@ -22,21 +22,6 @@
                                placeholder="e.g. Medicine">
                     </div>
 
-                    <div class="col-12">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description" rows="3">{{ dept.description }}</textarea>
-                    </div>
-
-                    <div class="col-12">
-                        <label class="form-label">Status</label>
-                        <div class="form-check form-switch pt-1">
-                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
-                                   {% if dept.is_active %}checked{% endif %}>
-                            <label class="form-check-label" for="is_active">Active</label>
-                        </div>
-                        <small class="text-muted">Inactive departments are hidden from coordinator assignment dropdowns.</small>
-                    </div>
-
                     <div class="col-12 d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check-circle me-1"></i> Save Changes

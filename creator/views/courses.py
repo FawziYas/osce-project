@@ -8,7 +8,6 @@ from django.db.models import Max
 
 from core.models import Course, ILO, Theme
 from core.models.department import Department
-from creator.dept_access import filter_courses_by_dept, get_coordinator_dept, has_full_access
 
 
 # =============================================================================
@@ -17,29 +16,18 @@ from creator.dept_access import filter_courses_by_dept, get_coordinator_dept, ha
 
 @login_required
 def course_list(request):
-    """List all courses. Coordinators see only their department's courses."""
-    courses = filter_courses_by_dept(
-        Course.objects.order_by('year_level', 'code').all(),
-        request.user,
-    )
+    """List all courses."""
+    courses = Course.objects.order_by('year_level', 'code').all()
     return render(request, 'creator/courses/list.html', {'courses': courses})
 
 
 @login_required
 def course_create(request):
-    """Create a new course. Coordinators can only assign their own department."""
-    coord_dept = get_coordinator_dept(request.user)
-    if coord_dept:
-        departments = Department.objects.filter(pk=coord_dept.pk)
-    else:
-        departments = Department.objects.order_by('name')
-
+    """Create a new course."""
+    departments = Department.objects.order_by('name')
     if request.method == 'POST':
         osce_mark_raw = request.POST.get('osce_mark', '').strip()
         dept_id = request.POST.get('department', '').strip()
-        # Coordinators: force their own department
-        if coord_dept:
-            dept_id = str(coord_dept.pk)
         course = Course.objects.create(
             code=request.POST['code'],
             name=request.POST['name'],
@@ -58,10 +46,6 @@ def course_create(request):
 def course_detail(request, course_id):
     """View course details and ILOs."""
     course = get_object_or_404(Course, pk=course_id)
-    coord_dept = get_coordinator_dept(request.user)
-    if coord_dept and course.department != coord_dept:
-        messages.error(request, 'You do not have permission to view this course.')
-        return redirect('creator:course_list')
     ilos = ILO.objects.filter(course_id=course_id).order_by('number')
     return render(request, 'creator/courses/detail.html', {
         'course': course,
@@ -71,17 +55,9 @@ def course_detail(request, course_id):
 
 @login_required
 def course_edit(request, course_id):
-    """Edit a course. Coordinators can only edit courses in their department."""
+    """Edit a course."""
     course = get_object_or_404(Course, pk=course_id)
-    coord_dept = get_coordinator_dept(request.user)
-    if coord_dept and course.department != coord_dept:
-        messages.error(request, 'You do not have permission to edit this course.')
-        return redirect('creator:course_list')
-
-    if coord_dept:
-        departments = Department.objects.filter(pk=coord_dept.pk)
-    else:
-        departments = Department.objects.order_by('name')
+    departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
         course.code = request.POST['code']
@@ -91,8 +67,6 @@ def course_edit(request, course_id):
         osce_mark_raw = request.POST.get('osce_mark', '').strip()
         course.osce_mark = int(osce_mark_raw) if osce_mark_raw else None
         dept_id = request.POST.get('department', '').strip()
-        if coord_dept:
-            dept_id = str(coord_dept.pk)
         course.department_id = int(dept_id) if dept_id else None
         course.save()
         messages.success(request, f'Course "{course.code}" updated.')

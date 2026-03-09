@@ -80,6 +80,8 @@
 <div class="dashboard-content">
    
 
+  
+
     <!-- Stats Grid -->
     <div class="stats-grid">
         <div class="stat-card done">
@@ -104,6 +106,13 @@
                 <i class="bi bi-people"></i>
                 Students
             </h2>
+              <!-- Co-Examiner Banner -->
+    {% if is_dual_examiner %}
+    <div class="co-examiner-banner">
+        <i class="bi bi-people-fill"></i>
+            <span class="co-examiner-name">Co-Examiner: <strong>{{ co_examiner.display_name }}</strong></span>
+    </div>
+    {% endif %}
             <span class="students-count">{{ total_count }}</span>
         </div>
 
@@ -147,11 +156,15 @@
                                 {% else %}
                                 <span class="badge-sm bg-warning text-dark" title="Pending"><i class="bi bi-clock"></i></span>
                                 {% endif %}
-                                {% if entry.other_examiner_score is not None %}
-                                <span class="badge-sm bg-info" title="Co-Examiner Marked"><i class="bi bi-person-check"></i></span>
-                                {% endif %}
-                                {% if entry.both_submitted %}
-                                <span class="badge-sm bg-primary" title="Finalized"><i class="bi bi-check-all"></i></span>
+                                {% if is_dual_examiner %}
+                                    {% if entry.other_examiner_score is not None %}
+                                    <span class="badge-sm bg-success" title="{{ co_examiner.display_name }} Marked"><i class="bi bi-person-check"></i></span>
+                                    {% else %}
+                                    <span class="badge-sm bg-secondary" title="{{ co_examiner.display_name }} Pending"><i class="bi bi-person-dash"></i></span>
+                                    {% endif %}
+                                    {% if entry.both_submitted %}
+                                    <span class="badge-sm bg-primary" title="Finalized"><i class="bi bi-check-all"></i></span>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </td>

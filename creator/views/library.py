@@ -33,7 +33,6 @@ def library_item_create(request):
         ChecklistLibrary.objects.create(
             ilo_id=int(request.POST['ilo_id']),
             description=request.POST['description'],
-            is_critical=request.POST.get('is_critical') == 'on',
             expected_response=request.POST.get('expected_response', ''),
             suggested_points=float(request.POST.get('points', 1)),
             usage_count=0,
@@ -53,7 +52,6 @@ def library_item_edit(request, item_id):
     if request.method == 'POST':
         item.ilo_id = int(request.POST['ilo_id'])
         item.description = request.POST['description']
-        item.is_critical = request.POST.get('is_critical') == 'on'
         item.expected_response = request.POST.get('expected_response', '')
         item.suggested_points = float(request.POST.get('points', 1))
         item.save()

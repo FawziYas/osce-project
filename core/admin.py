@@ -19,9 +19,9 @@ from .models import (
     Theme, Course, ILO, Exam, Station, ChecklistItem,
     ExamSession, SessionStudent, StationScore, ItemScore,
     Examiner, ExaminerAssignment, Path, ChecklistLibrary,
-    DryQuestion, MCQOption, DryStationResponse,
     OSCEExamPath, OSCERoomAssignment, OSCEPathStudent,
     StationVariant, TemplateLibrary, StationTemplate, AuditLog,
+    AuditLogArchive,
     LoginAuditLog, UserSession, UserProfile, Department,
 )
 
@@ -257,7 +257,7 @@ class ExamAdmin(admin.ModelAdmin):
 class ChecklistItemInline(admin.TabularInline):
     model = ChecklistItem
     extra = 0
-    fields = ('item_number', 'description', 'points', 'is_critical', 'rubric_type')
+    fields = ('item_number', 'description', 'points', 'rubric_type')
 
 
 @admin.register(Station)
@@ -270,7 +270,7 @@ class StationAdmin(admin.ModelAdmin):
 
 @admin.register(ChecklistItem)
 class ChecklistItemAdmin(admin.ModelAdmin):
-    list_display = ('item_number', 'description', 'station', 'points', 'is_critical')
+    list_display = ('item_number', 'description', 'station', 'points')
 
 
 def _get_client_ip(request):
@@ -379,23 +379,6 @@ class ChecklistLibraryAdmin(admin.ModelAdmin):
     list_filter = ('active',)
 
 
-# ── Dry Stations ────────────────────────────────────────────────
-@admin.register(DryQuestion)
-class DryQuestionAdmin(admin.ModelAdmin):
-    list_display = ('question_number', 'station', 'question_type', 'points')
-    list_filter = ('question_type',)
-
-
-@admin.register(MCQOption)
-class MCQOptionAdmin(admin.ModelAdmin):
-    list_display = ('question', 'option_number', 'option_text', 'is_correct')
-
-
-@admin.register(DryStationResponse)
-class DryStationResponseAdmin(admin.ModelAdmin):
-    list_display = ('question', 'student', 'final_score', 'submitted_at')
-
-
 # ── OSCE Paths ──────────────────────────────────────────────────
 @admin.register(OSCEExamPath)
 class OSCEExamPathAdmin(admin.ModelAdmin):
@@ -429,19 +412,302 @@ class StationTemplateAdmin(admin.ModelAdmin):
 
 
 # ── Audit Log ───────────────────────────────────────────────────
+
+import csv
+import io
+import json as _json
+from django.http import StreamingHttpResponse
+from django.utils.safestring import mark_safe
+
+
+class _Echo:
+    """Pseudo-buffer for StreamingHttpResponse CSV writer."""
+    def write(self, value):
+        return value
+
+
+def _export_audit_csv(modeladmin, request, queryset):
+    """
+    Stream-export selected audit log rows as CSV.
+    Logs the export action itself to the audit trail.
+    """
+    from core.utils.audit import AuditLogService
+    from core.models.audit import REPORT_EXPORTED
+
+    pseudo_buf = _Echo()
+    writer = csv.writer(pseudo_buf)
+
+    header = [
+        'timestamp', 'user_email', 'username', 'user_role', 'department_id',
+        'action', 'status', 'resource_type', 'resource_label', 'resource_id',
+        'old_value', 'new_value', 'ip_address', 'user_agent', 'description',
+    ]
+
+    def rows():
+        yield writer.writerow(header)
+        for obj in queryset.iterator(chunk_size=500):
+            yield writer.writerow([
+                obj.timestamp.isoformat() if obj.timestamp else '',
+                getattr(obj.user, 'email', '') if obj.user else '',
+                obj.username,
+                obj.user_role,
+                obj.department_id or '',
+                obj.action,
+                obj.status,
+                obj.resource_type,
+                obj.resource_label,
+                obj.resource_id,
+                _json.dumps(obj.old_value) if obj.old_value else '',
+                _json.dumps(obj.new_value) if obj.new_value else '',
+                obj.ip_address or '',
+                obj.user_agent[:120] if obj.user_agent else '',
+                obj.description[:200] if obj.description else '',
+            ])
+
+    response = StreamingHttpResponse(rows(), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="audit_logs.csv"'
+
+    # Log the export itself
+    AuditLogService.log(
+        action=REPORT_EXPORTED,
+        user=request.user,
+        request=request,
+        resource_type='AuditLog',
+        resource_label_override='CSV Export',
+        description=f'Exported {queryset.count()} audit log rows',
+        extra={'row_count': queryset.count(), 'format': 'CSV'},
+    )
+
+    return response
+
+
+_export_audit_csv.short_description = 'Export selected as CSV'
+
+
+def _export_audit_json(modeladmin, request, queryset):
+    """Stream-export selected audit log rows as JSON."""
+    from core.utils.audit import AuditLogService
+    from core.models.audit import REPORT_EXPORTED
+
+    def rows():
+        yield '['
+        first = True
+        for obj in queryset.iterator(chunk_size=500):
+            entry = {
+                'timestamp': obj.timestamp.isoformat() if obj.timestamp else '',
+                'username': obj.username,
+                'user_role': obj.user_role,
+                'department_id': obj.department_id,
+                'action': obj.action,
+                'status': obj.status,
+                'resource_type': obj.resource_type,
+                'resource_label': obj.resource_label,
+                'resource_id': obj.resource_id,
+                'old_value': obj.old_value,
+                'new_value': obj.new_value,
+                'ip_address': obj.ip_address,
+                'description': obj.description,
+            }
+            if not first:
+                yield ','
+            yield _json.dumps(entry)
+            first = False
+        yield ']'
+
+    response = StreamingHttpResponse(rows(), content_type='application/json')
+    response['Content-Disposition'] = 'attachment; filename="audit_logs.json"'
+
+    AuditLogService.log(
+        action=REPORT_EXPORTED,
+        user=request.user,
+        request=request,
+        resource_type='AuditLog',
+        resource_label_override='JSON Export',
+        description=f'Exported {queryset.count()} audit log rows',
+        extra={'row_count': queryset.count(), 'format': 'JSON'},
+    )
+
+    return response
+
+
+_export_audit_json.short_description = 'Export selected as JSON'
+
+
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ('timestamp', 'username', 'action', 'resource_type', 'resource_id', 'ip_address')
-    list_filter = ('action', 'resource_type')
-    search_fields = ('username', 'description', 'resource_id')
-    readonly_fields = ('id', 'user', 'username', 'action', 'resource_type', 'resource_id',
-                       'description', 'ip_address', 'user_agent', 'extra_data', 'timestamp')
+    """
+    Full-featured audit log viewer.
+
+    - Read-only, non-editable, non-deletable
+    - Role-scoped queryset (Coordinator sees own dept only, Examiner blocked)
+    - JSON diff widget for old_value / new_value
+    - CSV and JSON streaming exports
+    """
+
+    list_display = (
+        'timestamp', 'username', 'user_role', 'department_id',
+        'action', 'resource_type', 'resource_label', 'status',
+        'ip_address',
+    )
+    list_filter = (
+        'action', 'user_role', 'resource_type', 'status',
+        'department_id',
+    )
+    search_fields = (
+        'username', 'resource_label', 'resource_id', 'ip_address',
+        'description',
+    )
+    readonly_fields = (
+        'id', 'timestamp', 'user', 'username', 'user_role',
+        'department_id', 'action', 'status',
+        'resource_type', 'resource_id', 'resource_label',
+        'formatted_old_value', 'formatted_new_value', 'formatted_diff',
+        'description', 'ip_address', 'user_agent',
+        'request_method', 'request_path', 'extra_data',
+    )
+    date_hierarchy = 'timestamp'
+    list_per_page = 50
+    list_select_related = ('user',)
+    actions = [_export_audit_csv, _export_audit_json]
+    ordering = ('-timestamp',)
+
+    fieldsets = (
+        ('When & Who', {
+            'fields': (
+                'id', 'timestamp', 'user', 'username', 'user_role',
+                'department_id',
+            ),
+        }),
+        ('What Happened', {
+            'fields': ('action', 'status', 'description'),
+        }),
+        ('Resource', {
+            'fields': (
+                'resource_type', 'resource_id', 'resource_label',
+            ),
+        }),
+        ('Change Details', {
+            'classes': ('collapse',),
+            'fields': (
+                'formatted_old_value', 'formatted_new_value',
+                'formatted_diff',
+            ),
+        }),
+        ('Request Context', {
+            'classes': ('collapse',),
+            'fields': (
+                'ip_address', 'user_agent', 'request_method',
+                'request_path', 'extra_data',
+            ),
+        }),
+    )
+
+    def formatted_old_value(self, obj):
+        return self._format_json(obj.old_value)
+    formatted_old_value.short_description = 'Old Value (JSON)'
+
+    def formatted_new_value(self, obj):
+        return self._format_json(obj.new_value)
+    formatted_new_value.short_description = 'New Value (JSON)'
+
+    def formatted_diff(self, obj):
+        """Show a side-by-side diff of old_value → new_value."""
+        if not obj.old_value or not obj.new_value:
+            return mark_safe('<em>N/A (not an update action)</em>')
+
+        rows = []
+        all_keys = sorted(set(list(obj.old_value.keys()) + list(obj.new_value.keys())))
+        for key in all_keys:
+            old = obj.old_value.get(key, '—')
+            new = obj.new_value.get(key, '—')
+            if old != new:
+                rows.append(
+                    f'<tr style="background:#fff3cd">'
+                    f'<td><strong>{key}</strong></td>'
+                    f'<td style="color:#842029">{old}</td>'
+                    f'<td style="color:#0f5132">{new}</td>'
+                    f'</tr>'
+                )
+            else:
+                rows.append(
+                    f'<tr><td>{key}</td><td>{old}</td><td>{new}</td></tr>'
+                )
+
+        table = (
+            '<table style="border-collapse:collapse;width:100%">'
+            '<thead><tr><th>Field</th><th>Old</th><th>New</th></tr></thead>'
+            '<tbody>' + ''.join(rows) + '</tbody></table>'
+        )
+        return mark_safe(table)
+    formatted_diff.short_description = 'Change Diff'
+
+    @staticmethod
+    def _format_json(data):
+        if not data:
+            return mark_safe('<em>—</em>')
+        formatted = _json.dumps(data, indent=2, ensure_ascii=False, default=str)
+        return mark_safe(f'<pre style="max-height:300px;overflow:auto">{formatted}</pre>')
+
+    # ── Access control ───────────────────────────────────────────
 
     def has_add_permission(self, request):
         return False
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_module_permission(self, request):
+        """
+        - Superuser: full access
+        - Admin: access (filtered in get_queryset)
+        - Coordinator: access (scoped to own department)
+        - Examiner: NO access
+        """
+        user = request.user
+        if not user.is_authenticated:
+            return False
+        if user.is_superuser:
+            return True
+        role = getattr(user, 'role', '')
+        return role in ('admin', 'coordinator')
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        user = request.user
+
+        if user.is_superuser:
+            return qs
+
+        role = getattr(user, 'role', '')
+
+        if role == 'admin':
+            # Admins see all logs EXCEPT login/admin events of other admins/superusers
+            return qs.exclude(
+                action__in=['LOGIN_SUCCESS', 'LOGIN_FAILED', 'ADMIN_ACTION'],
+                user_role__in=['superuser', 'admin'],
+            ).exclude(
+                action__in=['LOGIN_SUCCESS', 'LOGIN_FAILED', 'ADMIN_ACTION'],
+                user=None,  # keep anonymous attempts visible
+            ) | qs.filter(user=user)
+
+        if role == 'coordinator':
+            # Coordinator sees only their own department
+            dept = getattr(user, 'coordinator_department', None)
+            if dept:
+                return qs.filter(department_id=dept.pk)
+            return qs.none()
+
+        return qs.none()
+
+    def get_actions(self, request):
+        """Only show export actions to users who can view logs."""
+        actions = super().get_actions(request)
+        if not self.has_module_permission(request):
+            return {}
+        return actions
 
 
 # ── Login Audit Log ─────────────────────────────────────────────
@@ -474,6 +740,34 @@ class LoginAuditLogAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(AuditLogArchive)
+class AuditLogArchiveAdmin(admin.ModelAdmin):
+    """Read-only viewer for archived audit logs."""
+    list_display = ('timestamp', 'username', 'user_role', 'action',
+                    'resource_type', 'resource_label', 'status')
+    list_filter = ('action', 'user_role', 'resource_type', 'status')
+    search_fields = ('username', 'resource_label', 'resource_id')
+    readonly_fields = [f.name for f in AuditLogArchive._meta.get_fields()
+                       if hasattr(f, 'column')]
+    date_hierarchy = 'timestamp'
+    list_per_page = 50
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_module_permission(self, request):
+        user = request.user
+        if not user.is_authenticated:
+            return False
+        return user.is_superuser or getattr(user, 'role', '') == 'admin'
+
+
 # ── Custom Admin Sidebar Grouping ────────────────────────────────
 _ADMIN_GROUPS = [
     {
@@ -482,7 +776,7 @@ _ADMIN_GROUPS = [
     },
     {
         'name': 'Logs & Audit',
-        'models': ['AuditLog', 'LoginAuditLog', 'AccessAttempt', 'AccessFailureLog', 'AccessLog'],
+        'models': ['AuditLog', 'AuditLogArchive', 'LoginAuditLog', 'AccessAttempt', 'AccessFailureLog', 'AccessLog'],
     },
     {
         'name': 'Courses & Curriculum',
@@ -500,8 +794,7 @@ _ADMIN_GROUPS = [
     },
     {
         'name': 'Library & Templates',
-        'models': ['ChecklistLibrary', 'DryQuestion', 'MCQOption',
-                   'DryStationResponse', 'StationVariant',
+        'models': ['ChecklistLibrary', 'StationVariant',
                    'TemplateLibrary', 'StationTemplate'],
     },
 ]
@@ -562,8 +855,7 @@ admin.AdminSite.get_app_list = _custom_get_app_list
 # ── Department ────────────────────────────────────────────────────
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
-    list_display  = ('name', 'is_active', 'created_at')
-    list_filter   = ('is_active',)
+    list_display  = ('name', 'created_at')
     search_fields = ('name',)
 
 # ── Rename Examiner in admin sidebar to "Users Profiles" ─────────

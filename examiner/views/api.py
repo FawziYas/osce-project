@@ -313,7 +313,6 @@ def submit_score(request, station_score_id):
         'total_score': round(score.total_score, 2),
         'max_score': round(score.max_score, 2) if score.max_score else 0,
         'percentage': round(score.percentage, 2) if score.percentage else 0,
-        'passed_critical': score.passed_critical,
     })
 
 

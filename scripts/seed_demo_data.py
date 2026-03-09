@@ -618,7 +618,6 @@ def seed_all():
                         description=item_def['desc'],
                         points=item_def['pts'],
                         category=item_def['cat'],
-                        is_critical=item_def['critical'],
                         rubric_type=item_def['rubric'],
                     )
                     total_items += 1

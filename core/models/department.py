@@ -11,8 +11,6 @@ class Department(TimestampMixin):
     Coordinators are linked to a department and assigned a position (Head / RTA).
     """
     name = models.CharField(max_length=150, unique=True)
-    description = models.TextField(blank=True, default='')
-    is_active = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'departments'

@@ -500,6 +500,7 @@
     padding: 12px 20px;
     border-bottom: 1px solid #F3F4F6;
     vertical-align: middle;
+    overflow: hidden;
 }
 
 .students-table tr:last-child td {
@@ -519,6 +520,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
 }
 
 .student-avatar-sm {
@@ -527,6 +529,7 @@
     border-radius: 8px;
     object-fit: cover;
     border: 1px solid #E5E7EB;
+    flex-shrink: 0;
 }
 
 .student-avatar-sm-placeholder {
@@ -539,11 +542,14 @@
     justify-content: center;
     color: #9CA3AF;
     border: 1px solid #E5E7EB;
+    flex-shrink: 0;
 }
 
 .student-info-cell {
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    flex: 1;
 }
 
 .student-name-sm {
@@ -551,12 +557,18 @@
     font-size: 1rem;
     color: #0f172a;
     line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .student-id-sm {
     font-size: 0.8rem;
     color: #6B7280;
     font-family: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* BADGES SM */
@@ -568,6 +580,10 @@
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 .status-badges-sm {
@@ -909,4 +925,69 @@
         #f0f0f0 100%
     );
     background-size: 1000px 100%;
+}
+
+/* ============================================================================
+   CO-EXAMINER BANNER
+   ============================================================================ */
+.co-examiner-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 6px 0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.co-examiner-banner.single {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.co-examiner-banner i {
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.co-examiner-sep {
+    opacity: 0.5;
+}
+
+.co-examiner-name {
+    color: #12567d;
+}
+
+.co-examiner-banner.single .co-examiner-label {
+    color: #166534;
+}
+
+/* ============================================================================
+   STATUS BADGE SIZES
+   ============================================================================ */
+.status-badges-sm {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.badge-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.badge-sm i {
+    font-size: 0.75rem;
 }

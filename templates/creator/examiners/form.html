@@ -38,9 +38,11 @@
                         <input type="text" class="form-control" name="username" required
                                value="{{ examiner.username|default:'' }}"
                                placeholder="700125" {% if examiner %}readonly{% endif %}>
-                                <div class="form-text">Use financial number (e.g., 700125).</div>
                         {% if examiner %}
                         <div class="form-text">Username cannot be changed</div>
+                        {%else %}
+                        <div class="form-text">Use financial number (e.g., 700125).</div>
+
                         {% endif %}
                     </div>
 
@@ -49,29 +51,24 @@
                         <input type="email" class="form-control" name="email"
                                value="{{ examiner.email|default:'' }}"
                                placeholder="moh@najah.edu">
-                        <div class="form-text">Optional</div>
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Department <span class="text-danger">*</span></label>
                         <select class="form-select" name="department" required>
                             <option value="">-- Select Department --</option>
-                            <option value="Internal Medicine" {% if examiner and examiner.department == 'Internal Medicine' %}selected{% endif %}>Internal Medicine</option>
-                            <option value="Pediatrics" {% if examiner and examiner.department == 'Pediatrics' %}selected{% endif %}>Pediatrics</option>
-                            <option value="General Surgery" {% if examiner and examiner.department == 'General Surgery' %}selected{% endif %}>General Surgery</option>
-                            <option value="Obstetrics and Gynecology" {% if examiner and examiner.department == 'Obstetrics and Gynecology' %}selected{% endif %}>Obstetrics and Gynecology</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.name }}" {% if examiner and examiner.department == dept.name %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
                         </select>
                     </div>
 
                     <div class="col-md-6">
+                         {% if not examiner %}
                         <label class="form-label">Password</label>
-                        {% if not examiner %}
+                       
                         <input type="text" class="form-control" value="{{ default_password }}" readonly>
                         <div class="form-text">Default password will be set automatically. User must change it on first login.</div>
-                        {% else %}
-                        <input type="password" class="form-control" name="password"
-                               placeholder="Leave blank to keep current">
-                        <div class="form-text">Leave blank to keep current password</div>
                         {% endif %}
                     </div>
 

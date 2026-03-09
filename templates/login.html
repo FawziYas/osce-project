@@ -320,6 +320,9 @@
 
         <form method="POST" action="/login/">
             {% csrf_token %}
+            {% if request.GET.next or next %}
+                <input type="hidden" name="next" value="{{ request.GET.next|default:next }}">
+            {% endif %}
 
             <div class="mb-4">
                 <label for="username" class="form-label small fw-semibold text-uppercase" style="font-size:0.72rem;letter-spacing:0.06em;color:#6b7280;">Username</label>
@@ -394,6 +397,15 @@
             icon.classList.replace('bi-eye-slash', 'bi-eye');
         }
         passwordField.focus();
+    });
+
+    // Prevent double-submit
+    const loginForm = document.querySelector('form[action="/login/"]');
+    const submitBtn = loginForm.querySelector('button[type="submit"]');
+    loginForm.addEventListener('submit', function() {
+        if (submitBtn.disabled) { return false; }
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Signing In…';
     });
 </script>
 </body>

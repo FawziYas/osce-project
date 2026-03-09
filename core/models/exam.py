@@ -187,9 +187,6 @@ class Station(TimestampMixin):
     def get_max_score(self):
         return sum(item.points for item in self.checklist_items.all())
 
-    def get_critical_items(self):
-        return list(self.checklist_items.filter(is_critical=True))
-
     def to_dict(self, include_items=False):
         data = {
             'id': str(self.id),
@@ -230,7 +227,6 @@ class ChecklistItem(TimestampMixin):
     description = models.TextField()
     points = models.FloatField(default=1)
     category = models.CharField(max_length=50, blank=True, default='')
-    is_critical = models.BooleanField(default=False)
 
     # Rubric: binary, partial, scale
     rubric_type = models.CharField(max_length=20, default='binary')
@@ -264,7 +260,6 @@ class ChecklistItem(TimestampMixin):
             'description': self.description,
             'points': self.points,
             'category': self.category,
-            'is_critical': self.is_critical,
             'rubric_type': self.rubric_type,
             'rubric_levels': self.rubric_levels,
             'expected_response': self.expected_response,

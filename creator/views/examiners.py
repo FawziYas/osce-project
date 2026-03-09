@@ -12,30 +12,46 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 
 from core.models import Examiner, ExaminerAssignment, ExamSession, Department
+from core.utils.cache_utils import (
+    get_departments, invalidate_examiner_list,
+    EXAMINER_LIST_KEY, EXAMINER_LIST_TTL,
+    EXAMINER_STATS_KEY, EXAMINER_STATS_TTL,
+)
 
 
 @login_required
 def examiner_list(request):
     """List all examiners (active only). Deleted shown separately for admin/superuser."""
-    examiners = Examiner.objects.filter(role='examiner', is_deleted=False).order_by('full_name')
+    from django.core.cache import cache
+
+    examiners = cache.get(EXAMINER_LIST_KEY)
+    if examiners is None:
+        examiners = list(
+            Examiner.objects.filter(role='examiner', is_deleted=False).order_by('full_name')
+        )
+        cache.set(EXAMINER_LIST_KEY, examiners, EXAMINER_LIST_TTL)
+
     today = datetime.now().date()
 
     can_see_deleted = request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'
     deleted_examiners = Examiner.objects.filter(role='examiner', is_deleted=True).order_by('full_name') if can_see_deleted else []
 
-    stats = {
-        'total': Examiner.objects.filter(role='examiner', is_deleted=False).count(),
-        'active': Examiner.objects.filter(role='examiner', is_active=True, is_deleted=False).count(),
-        'assigned_today': ExaminerAssignment.objects.filter(
-            session__session_date=today,
-            examiner__role='examiner',
-            examiner__is_deleted=False,
-        ).values('examiner_id').distinct().count(),
-        'total_assignments': ExaminerAssignment.objects.filter(
-            examiner__role='examiner',
-            examiner__is_deleted=False,
-        ).count(),
-    }
+    stats = cache.get(EXAMINER_STATS_KEY)
+    if stats is None:
+        stats = {
+            'total': Examiner.objects.filter(role='examiner', is_deleted=False).count(),
+            'active': Examiner.objects.filter(role='examiner', is_active=True, is_deleted=False).count(),
+            'assigned_today': ExaminerAssignment.objects.filter(
+                session__session_date=today,
+                examiner__role='examiner',
+                examiner__is_deleted=False,
+            ).values('examiner_id').distinct().count(),
+            'total_assignments': ExaminerAssignment.objects.filter(
+                examiner__role='examiner',
+                examiner__is_deleted=False,
+            ).count(),
+        }
+        cache.set(EXAMINER_STATS_KEY, stats, EXAMINER_STATS_TTL)
 
     return render(request, 'creator/examiners/list.html', {
         'examiners': examiners,
@@ -55,17 +71,21 @@ def examiner_create(request):
         if Examiner.objects.filter(username=username).exists():
             messages.error(request, f'Username "{username}" already exists.')
             default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+            departments = get_departments()
             return render(request, 'creator/examiners/form.html', {
                 'examiner': None,
                 'default_password': default_password,
+                'departments': departments,
             })
 
         if email and Examiner.objects.filter(email=email).exists():
             messages.error(request, f'Email "{email}" already exists.')
             default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+            departments = get_departments()
             return render(request, 'creator/examiners/form.html', {
                 'examiner': None,
                 'default_password': default_password,
+                'departments': departments,
             })
 
         examiner = Examiner(
@@ -79,14 +99,17 @@ def examiner_create(request):
         # Password is set automatically to DEFAULT_USER_PASSWORD by the
         # post_save signal.  User will be forced to change it on first login.
         examiner.save()
+        invalidate_examiner_list()
 
         messages.success(request, f'Examiner "{examiner.display_name}" created successfully.')
         return redirect('creator:examiner_list')
 
     default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    departments = get_departments()
     return render(request, 'creator/examiners/form.html', {
         'examiner': None,
         'default_password': default_password,
+        'departments': departments,
     })
 
 
@@ -113,7 +136,11 @@ def examiner_edit(request, examiner_id):
         email = request.POST.get('email', '').strip().lower()
         if email and Examiner.objects.filter(email=email).exclude(pk=examiner_id).exists():
             messages.error(request, f'Email "{email}" is already used by another examiner.')
-            return render(request, 'creator/examiners/form.html', {'examiner': examiner})
+            departments = get_departments()
+            return render(request, 'creator/examiners/form.html', {
+                'examiner': examiner,
+                'departments': departments,
+            })
 
         examiner.email = email
         examiner.full_name = request.POST['full_name'].strip()
@@ -121,15 +148,16 @@ def examiner_edit(request, examiner_id):
         examiner.department = request.POST.get('department', '').strip() or ''
         examiner.is_active = 'is_active' in request.POST
 
-        password = request.POST.get('password', '').strip()
-        if password:
-            examiner.set_password(password)
-
         examiner.save()
+        invalidate_examiner_list()
         messages.success(request, f'Examiner "{examiner.display_name}" updated.')
         return redirect('creator:examiner_detail', examiner_id=examiner_id)
 
-    return render(request, 'creator/examiners/form.html', {'examiner': examiner})
+    departments = get_departments()
+    return render(request, 'creator/examiners/form.html', {
+        'examiner': examiner,
+        'departments': departments,
+    })
 
 
 @login_required
@@ -149,6 +177,7 @@ def examiner_delete(request, examiner_id):
     examiner.is_active = False
     examiner.deleted_at = timezone.now()
     examiner.save()
+    invalidate_examiner_list()
 
     messages.success(request, f'Examiner "{name}" has been deleted. You can restore them from the deleted list.')
     return redirect('creator:examiner_list')
@@ -169,6 +198,7 @@ def examiner_restore(request, examiner_id):
     examiner.is_active = True
     examiner.deleted_at = None
     examiner.save()
+    invalidate_examiner_list()
 
     messages.success(request, f'Examiner "{examiner.display_name}" has been restored.')
     return redirect('creator:examiner_list')
@@ -193,6 +223,7 @@ def examiner_permanent_delete(request, examiner_id):
     # StationScore records are preserved (SET_NULL on examiner FK)
     # ExaminerAssignment records are removed via CASCADE
     examiner.delete()
+    invalidate_examiner_list()
 
     messages.success(request, f'Examiner "{name}" permanently deleted. Their scoring records have been preserved.')
     return redirect('creator:examiner_list')
@@ -230,9 +261,15 @@ def examiner_unassign(request, assignment_id):
 
 @login_required
 def examiner_download_template(request):
-    """Download an XLSX template for bulk examiner upload."""
+    """Download an XLSX template for bulk examiner upload with department dropdowns."""
+    if not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to download templates.')
+        return redirect('creator:examiner_list')
+    
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from core.models import Department
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -257,9 +294,28 @@ def examiner_download_template(request):
         hint.font = Font(italic=True, color='666666')
         hint.alignment = Alignment(horizontal='right')
 
-    sample = ['Dr.', 'Ahmed Mansour', 'ahmed_m', 'ahmed@example.com', 'Surgery']
+    sample = ['Dr.', 'Ahmed Mansour', 'ahmed_m', 'ahmed@example.com', 'General Surgery']
     for col, val in enumerate(sample, 1):
         ws.cell(row=3, column=col, value=val)
+
+    # Add department dropdown validation
+    departments = list(Department.objects.values_list('name', flat=True).order_by('name'))
+    if departments:
+        # Create a hidden sheet to store department list
+        dv_sheet = wb.create_sheet('Departments')
+        for idx, dept in enumerate(departments, 1):
+            dv_sheet.cell(row=idx, column=1, value=dept)
+        
+        # Create data validation with dropdown for department column (rows 4-1000)
+        dv = DataValidation(
+            type='list',
+            formula1=f'=Departments!$A$1:$A${len(departments)}',
+            allow_blank=True
+        )
+        dv.error = 'Please select a valid department from the list'
+        dv.errorTitle = 'Invalid Department'
+        ws.add_data_validation(dv)
+        dv.add(f'E4:E1000')  # Apply to department column, rows 4-1000
 
     for i in range(1, 6):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 20
@@ -279,8 +335,13 @@ def examiner_download_template(request):
 
 @login_required
 def examiner_bulk_upload(request):
-    """Handle XLSX upload for bulk examiner creation."""
+    """Handle XLSX upload for bulk examiner creation with department validation."""
+    if not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to upload examiners.')
+        return redirect('creator:examiner_list')
+    
     import openpyxl
+    from core.models import Department
 
     if request.method != 'POST' or 'file' not in request.FILES:
         messages.error(request, 'No file uploaded')
@@ -298,6 +359,9 @@ def examiner_bulk_upload(request):
         return redirect('creator:examiner_list')
 
     try:
+        # Get valid departments
+        valid_departments = set(Department.objects.values_list('name', flat=True))
+        
         wb = openpyxl.load_workbook(f)
         ws = wb.active
 
@@ -326,6 +390,13 @@ def examiner_bulk_upload(request):
                     errors_list.append(f'Row {row_num}: Missing required data')
                     continue
 
+                # Validate department
+                if department and department not in valid_departments:
+                    errors_list.append(
+                        f"Row {row_num}: Department '{department}' does not exist."
+                    )
+                    continue
+
                 if Examiner.objects.filter(username=username).exists():
                     errors_list.append(f"Row {row_num}: Username '{username}' already exists")
                     continue
@@ -348,6 +419,7 @@ def examiner_bulk_upload(request):
                 errors_list.append(f'Row {row_num}: {e}')
 
         if success_count:
+            invalidate_examiner_list()
             messages.success(request, f'Successfully imported {success_count} examiners.')
         if errors_list:
             messages.warning(request, f'Failed to import {len(errors_list)} rows.')
@@ -360,6 +432,29 @@ def examiner_bulk_upload(request):
         messages.error(request, f'Error processing file: {e}')
 
     return redirect('creator:examiner_list')
+
+
+@login_required
+def bulk_import_status(request):
+    """
+    Poll the status of an async bulk examiner import task.
+    GET /examiners/bulk-import-status/?task_id=<uuid>
+    Returns: {status: 'running'|'done'|'error'|'pending', progress: int, ...}
+    """
+    from django.core.cache import cache
+    from django.http import JsonResponse
+
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+
+    task_id = request.GET.get('task_id', '')
+    if not task_id:
+        return JsonResponse({'status': 'error', 'message': 'Missing task_id'}, status=400)
+
+    result = cache.get(f'osce:bulk_import:{task_id}')
+    if result is None:
+        return JsonResponse({'status': 'pending'})
+    return JsonResponse(result)
 
 
 # ── Coordinator management (admin/superuser only) ─────────────────────────────
@@ -389,7 +484,7 @@ def coordinator_list(request):
     if dept_filter:
         coordinators_qs = coordinators_qs.filter(coordinator_department_id=dept_filter)
 
-    departments = Department.objects.filter(is_active=True).order_by('name')
+    departments = Department.objects.order_by('name')
 
     return render(request, 'creator/coordinators/list.html', {
         'coordinators': coordinators_qs,
@@ -407,7 +502,7 @@ def coordinator_create(request):
         return redirect('creator:dashboard')
 
     default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
-    departments = Department.objects.filter(is_active=True).order_by('name')
+    departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip().lower()
@@ -486,7 +581,7 @@ def coordinator_edit(request, coordinator_id):
         return redirect('creator:coordinator_list')
 
     coordinator = get_object_or_404(Examiner, pk=coordinator_id, role='coordinator')
-    departments = Department.objects.filter(is_active=True).order_by('name')
+    departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
         full_name = request.POST.get('full_name', '').strip()
@@ -595,7 +690,6 @@ def department_create(request):
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
-        description = request.POST.get('description', '').strip()
 
         if not name:
             messages.error(request, 'Department name is required.')
@@ -605,7 +699,7 @@ def department_create(request):
             messages.error(request, f'A department named "{name}" already exists.')
             return render(request, 'creator/departments/form.html', {'post': request.POST})
 
-        dept = Department.objects.create(name=name, description=description)
+        dept = Department.objects.create(name=name)
         messages.success(request, f'Department "{dept.name}" created.')
         return redirect('creator:department_list')
 
@@ -623,8 +717,6 @@ def department_edit(request, department_id):
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
-        description = request.POST.get('description', '').strip()
-        is_active = request.POST.get('is_active') == 'on'
 
         if not name:
             messages.error(request, 'Department name is required.')
@@ -635,8 +727,6 @@ def department_edit(request, department_id):
             return render(request, 'creator/departments/edit.html', {'dept': dept})
 
         dept.name = name
-        dept.description = description
-        dept.is_active = is_active
         dept.save()
         messages.success(request, f'Department "{dept.name}" updated.')
         return redirect('creator:department_list')

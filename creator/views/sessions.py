@@ -19,7 +19,11 @@ from core.models import (
     Examiner, ExaminerAssignment, StationScore,
 )
 from core.utils.naming import generate_path_name
-from creator.dept_access import can_access_exam, can_access_session
+from core.utils.cache_utils import (
+    EXAMINER_LIST_KEY, EXAMINER_LIST_TTL,
+    invalidate_session_detail, get_session_detail_cache_key,
+    SESSION_DETAIL_KEY, SESSION_DETAIL_TTL,
+)
 
 
 @login_required
@@ -58,9 +62,6 @@ def live_student_search(request, session_id):
 def session_list(request, exam_id):
     """List sessions for an exam with search."""
     exam = get_object_or_404(Exam, pk=exam_id)
-    if not can_access_exam(request.user, exam):
-        messages.error(request, 'You do not have permission to view this exam\'s sessions.')
-        return redirect('creator:exam_list')
     search_query = request.GET.get('search', '').strip()
     sessions_qs = ExamSession.objects.filter(exam=exam).order_by('-session_date')
     
@@ -83,9 +84,6 @@ def session_list(request, exam_id):
 def session_create(request, exam_id):
     """Create a new exam session."""
     exam = get_object_or_404(Exam, pk=exam_id)
-    if not can_access_exam(request.user, exam):
-        messages.error(request, 'You do not have permission to create sessions for this exam.')
-        return redirect('creator:exam_list')
 
     if not exam.exam_date:
         messages.warning(request, 'Please set an exam date before creating sessions.')
@@ -150,9 +148,6 @@ def session_edit(request, session_id):
     """Edit a session."""
     session = get_object_or_404(ExamSession, pk=session_id)
     exam = session.exam
-    if not can_access_session(request.user, session):
-        messages.error(request, 'You do not have permission to edit this session.')
-        return redirect('creator:exam_list')
 
     if not exam.exam_date:
         messages.warning(request, 'Please set an exam date first.')
@@ -180,6 +175,7 @@ def session_edit(request, session_id):
 
         session.notes = request.POST.get('notes', '')
         session.save()
+        invalidate_session_detail(session_id)
         messages.success(request, f'Session "{session.name}" updated.')
         return redirect('creator:exam_detail', exam_id=str(exam.id))
 
@@ -190,14 +186,12 @@ def session_edit(request, session_id):
 def session_delete(request, session_id):
     """Cancel a session."""
     session = get_object_or_404(ExamSession, pk=session_id)
-    if not can_access_session(request.user, session):
-        messages.error(request, 'You do not have permission to cancel this session.')
-        return redirect('creator:exam_list')
     exam_id = str(session.exam_id)
     session_name = session.name
 
     session.status = 'cancelled'
     session.save()
+    invalidate_session_detail(session_id)
     _sync_exam_status(session.exam)  # recalculate exam status after session cancelled
 
     messages.success(request, f"Session '{session_name}' has been cancelled.")
@@ -210,10 +204,7 @@ def session_detail(request, session_id):
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
     
     session = get_object_or_404(ExamSession, pk=session_id)
-    if not can_access_session(request.user, session):
-        messages.error(request, 'You do not have permission to view this session.')
-        return redirect('creator:exam_list')
-
+    
     # Search and pagination for students
     search_query = request.GET.get('search', '').strip()
     students_qs = SessionStudent.objects.filter(session=session).order_by('student_number')
@@ -295,6 +286,14 @@ def session_detail(request, session_id):
         ExaminerAssignment.objects.filter(session=session)
         .values_list('station_id', flat=True)
     )
+
+    all_examiners_cached = None
+    from django.core.cache import cache as _cache
+    all_examiners_cached = _cache.get(EXAMINER_LIST_KEY)
+    if all_examiners_cached is None:
+        all_examiners_cached = list(Examiner.objects.filter(is_active=True, role='examiner').order_by('full_name'))
+        _cache.set(EXAMINER_LIST_KEY, all_examiners_cached, EXAMINER_LIST_TTL)
+    all_examiners = all_examiners_cached
 
     total_unassigned = 0
     paths = list(paths)   # materialise so we can annotate
@@ -448,6 +447,44 @@ def download_student_paths_pdf(request, session_id):
 
 
 @login_required
+def request_pdf_async(request, session_id):
+    """
+    Dispatch async PDF generation via Celery.
+    Returns JSON {'task_id': str} for the frontend to poll.
+    """
+    from django.conf import settings
+    session = get_object_or_404(ExamSession, pk=session_id)
+
+    broker = getattr(settings, 'CELERY_BROKER_URL', '')
+    if not broker:
+        # Celery not configured – fall back to inline synchronous generation
+        return download_student_paths_pdf(request, session_id)
+
+    from core.tasks import generate_pdf_report
+    result = generate_pdf_report.delay(str(session_id))
+    return JsonResponse({'task_id': result.id})
+
+
+@login_required
+def pdf_report_status(request, session_id):
+    """
+    Poll the status of a PDF generation task.
+    GET /sessions/<id>/pdf-status/?task_id=<uuid>
+    Returns: {status: 'running'|'done'|'error', pdf_b64?: str, filename?: str, message?: str}
+    """
+    from django.core.cache import cache
+    task_id = request.GET.get('task_id', '')
+    if not task_id:
+        return JsonResponse({'status': 'error', 'message': 'Missing task_id'}, status=400)
+
+    status_key = f'osce:pdf_status:{session_id}:{task_id}'
+    result = cache.get(status_key)
+    if result is None:
+        return JsonResponse({'status': 'pending'})
+    return JsonResponse(result)
+
+
+@login_required
 def assign_examiner(request, session_id):
     """Bulk-assign examiners to all stations of a path (POST only)."""
     from django.db import transaction
@@ -537,6 +574,7 @@ def assign_examiner(request, session_id):
     else:
         messages.info(request, 'No changes made.')
 
+    invalidate_session_detail(session_id)
     return redirect('creator:session_detail', session_id=str(session_id))
 
 

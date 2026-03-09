@@ -36,7 +36,6 @@ def get_library(request):
         grouped[ilo.id]['items'].append({
             'id': item.id,
             'description': item.description,
-            'is_critical': item.is_critical,
             'suggested_points': item.suggested_points,
             'usage_count': item.usage_count or 0,
         })
@@ -58,7 +57,6 @@ def create_library_item(request):
     item = ChecklistLibrary.objects.create(
         ilo_id=data['ilo_id'],
         description=data['description'],
-        is_critical=data.get('is_critical', False),
         expected_response=data.get('expected_response', ''),
         suggested_points=data.get('suggested_points', 1),
         usage_count=0,

@@ -238,21 +238,22 @@
                             {% csrf_token %}
                             <div class="mb-3">
                                 <label class="form-label">Add Students (one per line: student_number,full_name)</label>
-                                <textarea class="form-control" id="studentListInput" name="student_list" rows="4" placeholder="12345,John Doe
-12346,Jane Smith
-12347,Bob Johnson" oninput="validateStudentNumbers()"></textarea>
+                                <textarea class="form-control" id="studentListInput" name="student_list" rows="4" placeholder="11844785,محمد هشام خالد جرار 
+11844745,فؤاد عبد الله محمد ابولبدة
+11825636,أحمد محمد علي خالدي" oninput="validateStudentNumbers()"></textarea>
                                 <div id="studentValidationError" class="invalid-feedback d-block" style="display:none; color:#dc3545; font-size:0.875rem; margin-top:0.25rem;"></div>
                                 <div class="form-text">Format: Registration Number (digits only), Full Name</div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Assign to Path (optional)</label>
-                                <select name="path_id" class="form-select">
-                                    <option value="">-- Auto-distribute --</option>
+                                <label class="form-label fw-semibold">Assign to Path <span class="text-danger">*</span></label>
+                                <select name="path_id" class="form-select" id="textPathSelect" required>
+                                    <option value="" disabled selected>-- Select Path Assignment --</option>
+                                    <option value="auto">&#8635; Auto-distribute (spread evenly across all paths)</option>
                                     {% for path in paths %}
                                     <option value="{{ path.id }}">Path {{ path.name }}</option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">Auto-distribute will spread students evenly across paths</div>
+                                <div class="form-text">Auto-distribute spreads students evenly across paths</div>
                             </div>
                             <button type="submit" id="submitAddStudents" class="btn btn-primary">
                                 <span id="textAddStudents"><i class="bi bi-plus-lg me-1"></i>Add Students</span>
@@ -269,22 +270,21 @@
                                 <div class="form-text">Excel columns: 1. Student Number, 2. Full Name</div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Assign to Path (optional)</label>
-                                <select name="path_id" class="form-select">
-                                    <option value="">-- Auto-distribute --</option>
+                                <label class="form-label fw-semibold">Assign to Path <span class="text-danger">*</span></label>
+                                <select name="path_id" class="form-select" id="excelPathSelect" required>
+                                    <option value="" disabled selected>-- Select Path Assignment --</option>
+                                    <option value="auto">&#8635; Auto-distribute (spread evenly across all paths)</option>
                                     {% for path in paths %}
                                     <option value="{{ path.id }}">Path {{ path.name }}</option>
                                     {% endfor %}
                                 </select>
+                                <div class="form-text">Auto-distribute spreads students evenly across paths</div>
                             </div>
                             <button type="submit" id="submitUploadExcel" class="btn btn-primary">
                                 <span id="textUploadExcel"><i class="bi bi-upload me-1"></i>Upload Excel</span>
                                 <span id="spinnerUploadExcel" class="spinner-border spinner-border-sm d-none" role="status"></span>
                             </button>
                         </form>
-                        <div class="mt-3 p-2 bg-light rounded">
-                            <small class="text-muted"><strong>Required Format:</strong><br>Column A: ID/Number<br>Column B: Full Name</small>
-                        </div>
                     </div>
                 </div>
             </div>

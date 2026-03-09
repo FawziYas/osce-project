@@ -96,6 +96,30 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
         db_table = 'examiners'
         verbose_name = 'Examiner'
         verbose_name_plural = 'Examiners'
+        constraints = [
+            # Coordinators must have a department assigned
+            models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(role='coordinator', _negated=True)
+                ) | models.Q(coordinator_department__isnull=False),
+                name='coordinator_must_have_department',
+            ),
+            # Coordinators must have a position set
+            models.CheckConstraint(
+                condition=models.Q(
+                    models.Q(role='coordinator', _negated=True)
+                ) | ~models.Q(coordinator_position=''),
+                name='coordinator_must_have_position',
+            ),
+            # Non-coordinators should not have department/position set
+            models.CheckConstraint(
+                condition=models.Q(role='coordinator') | models.Q(
+                    coordinator_department__isnull=True,
+                    coordinator_position='',
+                ),
+                name='non_coordinator_no_dept_fields',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.username}'

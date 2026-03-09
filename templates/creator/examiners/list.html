@@ -8,12 +8,14 @@
         <h1><i class="bi bi-person-badge me-2"></i>Examiners</h1>
     </div>
     <div class="btn-group">
+        {% if request.user.is_superuser %}
         <a href="{% url 'creator:examiner_download_template' %}" class="btn btn-outline-secondary">
             <i class="bi bi-download me-1"></i>Template
         </a>
         <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
             <i class="bi bi-upload me-1"></i>Bulk Upload
         </button>
+        {% endif %}
         <a href="{% url 'creator:examiner_create' %}" class="btn btn-primary">
             <i class="bi bi-plus-lg me-1"></i>Add Examiner
         </a>
@@ -21,6 +23,7 @@
 </div>
 
 <!-- Upload Modal -->
+{% if request.user.is_superuser %}
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -45,8 +48,6 @@
                     <ul class="small mb-0">
                         <li><code>full_name</code> - Name of examiner</li>
                         <li><code>username</code> - Unique login ID</li>
-                        <li><code>email</code> - Unique contact email</li>
-                        <li><code>password</code> - Initial login password</li>
                     </ul>
                 </div>
                 <div class="modal-footer">
@@ -60,54 +61,8 @@
         </div>
     </div>
 </div>
+{% endif %}
 
-<!-- Stats Row -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="stat-card h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="stat-value">{{ stats.total }}</div>
-                    <div class="stat-label">Total Examiners</div>
-                </div>
-                <i class="bi bi-people fs-1 text-primary opacity-50"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="stat-value">{{ stats.active }}</div>
-                    <div class="stat-label">Active</div>
-                </div>
-                <i class="bi bi-check-circle fs-1 text-success opacity-50"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="stat-value">{{ stats.assigned_today }}</div>
-                    <div class="stat-label">Assigned Today</div>
-                </div>
-                <i class="bi bi-calendar-check fs-1 text-info opacity-50"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="stat-value">{{ stats.total_assignments }}</div>
-                    <div class="stat-label">Total Assignments</div>
-                </div>
-                <i class="bi bi-clipboard-check fs-1 text-warning opacity-50"></i>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Search and Filter Section -->
 <div class="card mb-4">

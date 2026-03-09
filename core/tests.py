@@ -125,8 +125,6 @@ class ChecklistLibraryTest(TestCase):
         item = ChecklistLibrary.objects.create(
             ilo=self.ilo,
             description='Check vital signs',
-            is_critical=True,
             suggested_points=5,
         )
-        self.assertTrue(item.is_critical)
         self.assertEqual(item.suggested_points, 5)

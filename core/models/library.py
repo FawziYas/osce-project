@@ -15,7 +15,6 @@ class ChecklistLibrary(TimestampMixin):
 
     description = models.TextField()
     suggested_points = models.FloatField(default=1)
-    is_critical = models.BooleanField(default=False)
 
     rubric_type = models.CharField(max_length=20, default='binary')
     expected_response = models.TextField(blank=True, default='')
@@ -42,7 +41,6 @@ class ChecklistLibrary(TimestampMixin):
             'ilo_id': self.ilo_id,
             'description': self.description,
             'suggested_points': self.suggested_points,
-            'is_critical': self.is_critical,
             'rubric_type': self.rubric_type,
             'expected_response': self.expected_response,
             'usage_count': self.usage_count or 0,

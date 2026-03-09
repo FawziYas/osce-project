@@ -1,17 +1,16 @@
 """
 Student management views – add from textarea and XLSX upload.
 """
-from django.shortcuts import get_object_or_404, render
-from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, render, redirect
+from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib import messages
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
 
 from core.models import Exam, ExamSession, SessionStudent, Path
-from creator.dept_access import (
-    can_access_session, filter_exams_by_dept, filter_sessions_by_dept,
-)
 
 
 def validate_registration_number(number):
@@ -22,15 +21,17 @@ def validate_registration_number(number):
 
 
 @login_required
+@require_POST
 def add_students(request, session_id):
     """Add students to a session from textarea (number,name per line)."""
     session = get_object_or_404(ExamSession, pk=session_id)
-    if not can_access_session(request.user, session):
-        return JsonResponse({'success': False, 'message': 'You do not have permission to add students to this session.'}, status=403)
     paths = list(Path.objects.filter(session=session, is_deleted=False).order_by('name'))
 
     student_data = request.POST.get('student_list', '')
     path_id = request.POST.get('path_id', '')
+    # 'auto' means auto-distribute across paths (explicit user choice)
+    if path_id == 'auto':
+        path_id = ''
 
     students_to_add = []
     validation_errors = []
@@ -103,14 +104,12 @@ def add_students(request, session_id):
 
 
 @login_required
+@require_POST
 def upload_students_xlsx(request, session_id):
     """Upload students from XLSX file."""
     import openpyxl
 
     session = get_object_or_404(ExamSession, pk=session_id)
-    if not can_access_session(request.user, session):
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden('You do not have permission to upload students to this session.')
     paths = list(Path.objects.filter(session=session, is_deleted=False).order_by('name'))
 
     if 'file' not in request.FILES:
@@ -126,6 +125,9 @@ def upload_students_xlsx(request, session_id):
         return JsonResponse({'success': False, 'message': 'File too large. Maximum size is 5 MB.'})
 
     path_id = request.POST.get('path_id', '')
+    # 'auto' means auto-distribute across paths (explicit user choice)
+    if path_id == 'auto':
+        path_id = ''
 
     try:
         wb = openpyxl.load_workbook(f)
@@ -219,13 +221,14 @@ def upload_students_xlsx(request, session_id):
         return JsonResponse({'success': False, 'message': f'Error reading XLSX: {e}'})
 
 
-@login_required
+@permission_required('core.can_view_student_list', raise_exception=True)
 def student_list(request):
-    """Global student list — all students across all sessions, filterable by Exam/Session."""
-    all_exams = filter_exams_by_dept(
-        Exam.objects.filter(is_deleted=False).order_by('name'),
-        request.user,
-    )
+    """Global student list — all students across all sessions, filterable by Exam/Session.
+    
+    Requires: core.can_view_student_list permission
+    This permission can be assigned to any user via Django Admin.
+    """
+    all_exams = Exam.objects.filter(is_deleted=False).order_by('name')
 
     # GET filters
     exam_id = request.GET.get('exam_id', '')
@@ -236,21 +239,14 @@ def student_list(request):
     # Sessions for the selected exam (for the session dropdown)
     sessions_for_exam = []
     if exam_id:
-        sessions_for_exam = filter_sessions_by_dept(
-            ExamSession.objects.filter(exam_id=exam_id).order_by('session_date'),
-            request.user,
-        )
+        sessions_for_exam = ExamSession.objects.filter(
+            exam_id=exam_id
+        ).order_by('session_date')
 
     # Build queryset
     qs = SessionStudent.objects.select_related(
         'session', 'session__exam', 'path'
     ).filter(session__exam__is_deleted=False)
-
-    # Scope to coordinator's department
-    from creator.dept_access import get_coordinator_dept
-    coord_dept = get_coordinator_dept(request.user)
-    if coord_dept:
-        qs = qs.filter(session__exam__department=coord_dept.name)
 
     if exam_id:
         qs = qs.filter(session__exam_id=exam_id)

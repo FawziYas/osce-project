@@ -243,3 +243,165 @@ class SessionTimeoutMiddleware:
         
         response = self.get_response(request)
         return response
+
+
+class UnauthorizedAccessMiddleware:
+    """
+    Intercepts 401, 403, and 404 responses and logs them as
+    potential unauthorized access attempts to the audit log.
+
+    Catches URL-sharing attacks and brute-force enumeration at
+    the middleware layer.
+    """
+
+    # Status codes to intercept
+    WATCHED_CODES = {401, 403, 404}
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        if response.status_code in self.WATCHED_CODES:
+            self._log_attempt(request, response)
+
+        return response
+
+    def _log_attempt(self, request, response):
+        """Log the unauthorized/forbidden/not-found access attempt."""
+        try:
+            from core.utils.audit import AuditLogService
+            from core.models.audit import (
+                UNAUTHORIZED_ACCESS, STATUS_BLOCKED,
+                EXAMINER_ACCESS_BLOCKED,
+            )
+
+            user = getattr(request, 'user', None)
+            is_auth = user is not None and getattr(user, 'is_authenticated', False)
+
+            # Skip logging for common static-file 404s
+            static_exts = ('.ico', '.png', '.jpg', '.css', '.js', '.map', '.woff', '.woff2')
+            if response.status_code == 404 and any(
+                request.path.endswith(ext) for ext in static_exts
+            ):
+                return
+
+            action = UNAUTHORIZED_ACCESS
+            if response.status_code == 403 and is_auth:
+                role = getattr(user, 'role', '')
+                if role == 'examiner':
+                    action = EXAMINER_ACCESS_BLOCKED
+
+            AuditLogService.log(
+                action=action,
+                user=user if is_auth else None,
+                request=request,
+                resource_type='URL',
+                resource_id='',
+                resource_label_override=request.path[:200],
+                status=STATUS_BLOCKED,
+                description=(
+                    f'HTTP {response.status_code} on {request.method} {request.path}'
+                ),
+                extra={
+                    'status_code': response.status_code,
+                    'method': request.method,
+                    'path': request.path,
+                },
+            )
+        except Exception:
+            # Never break the response for a logging failure
+            import logging
+            logging.getLogger('osce.audit').error(
+                'UnauthorizedAccessMiddleware failed', exc_info=True,
+            )
+
+
+class RLSSessionMiddleware:
+    """
+    Injects Django user context into the PostgreSQL session so
+    Row-Level Security policies can read it via current_setting().
+
+    Uses set_config(..., true) so variables are transaction-scoped
+    and reset automatically after each request.
+
+    Sets 4 session variables:
+      app.current_user_id  - integer user PK
+      app.current_role     - SUPERUSER / ADMIN / COORDINATOR_HEAD / etc.
+      app.department_id    - department PK (coordinators only)
+      app.station_ids      - comma-separated station UUIDs (examiners only)
+
+    Automatically skipped on non-PostgreSQL databases.
+    """
+
+    # Map Django role + position to RLS role string
+    _ROLE_MAP = {
+        ('coordinator', 'head'):      'COORDINATOR_HEAD',
+        ('coordinator', 'organizer'): 'COORDINATOR_ORGANIZER',
+        ('coordinator', 'rta'):       'COORDINATOR_RTA',
+    }
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        self._set_session_vars(request)
+        return self.get_response(request)
+
+    def _set_session_vars(self, request):
+        """Set PostgreSQL session variables for RLS."""
+        from django.db import connection
+
+        if connection.vendor != 'postgresql':
+            return
+
+        user = getattr(request, 'user', None)
+        user_id, role, dept_id, station_ids = self._resolve_vars(user)
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT "
+                "set_config('app.current_user_id', %s, true), "
+                "set_config('app.current_role',    %s, true), "
+                "set_config('app.department_id',   %s, true), "
+                "set_config('app.station_ids',     %s, true)",
+                [user_id, role, dept_id, station_ids],
+            )
+
+    def _resolve_vars(self, user):
+        """Resolve (user_id, role, department_id, station_ids) from user."""
+        if user is None or not getattr(user, 'is_authenticated', False):
+            return ('', 'ANONYMOUS', '', '')
+
+        user_id = str(user.pk)
+
+        # Role resolution
+        if user.is_superuser:
+            role = 'SUPERUSER'
+        elif getattr(user, 'role', '') == 'admin':
+            role = 'ADMIN'
+        elif getattr(user, 'role', '') == 'coordinator':
+            position = getattr(user, 'coordinator_position', '') or ''
+            role = self._ROLE_MAP.get(
+                ('coordinator', position.lower()), 'COORDINATOR_HEAD'
+            )
+        else:
+            role = 'EXAMINER'
+
+        # Department
+        dept = getattr(user, 'coordinator_department', None)
+        dept_id = str(dept.pk) if dept else ''
+
+        # Station IDs (for examiners)
+        station_ids = ''
+        if role == 'EXAMINER':
+            from core.models import ExaminerAssignment
+            ids = list(
+                ExaminerAssignment.objects.filter(
+                    examiner=user,
+                ).values_list('station_id', flat=True)
+            )
+            station_ids = ','.join(str(s) for s in ids)
+
+        return (user_id, role, dept_id, station_ids)

@@ -64,8 +64,12 @@ MIDDLEWARE = [
     'core.middleware.ForcePasswordChangeMiddleware',
     # Role-based access control (must be after AuthenticationMiddleware)
     'core.middleware.RoleBasedAccessMiddleware',
+    # Audit log 401/403/404 responses
+    'core.middleware.UnauthorizedAccessMiddleware',
     # Custom session timeout (must be after AuthenticationMiddleware)
     'core.middleware.SessionTimeoutMiddleware',
+    # PostgreSQL Row-Level Security session variables (no-op on SQLite)
+    'core.middleware.RLSSessionMiddleware',
     # Custom security middleware
     'core.middleware.ContentSecurityPolicyMiddleware',
     'core.middleware.ReferrerPolicyMiddleware',
@@ -158,6 +162,31 @@ ILO_THEMES = {
 # Add your reverse-proxy IPs here in production (e.g. ['127.0.0.1', '10.0.0.1'])
 # If empty, X-Forwarded-For is trusted from any source (dev convenience).
 TRUSTED_PROXIES = env.list('TRUSTED_PROXIES', default=[])
+
+# ==========================================================================
+# CELERY (async task queue for audit logging)
+# ==========================================================================
+# Set CELERY_BROKER_URL in .env to enable async audit writes.
+# When unset, audit logs are written synchronously (safe fallback).
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='')
+CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 300  # seconds (5 min; PDF/bulk tasks need headroom)
+CELERY_BEAT_SCHEDULE = {
+    'compute-dashboard-stats': {
+        'task': 'core.compute_dashboard_stats',
+        'schedule': 300,  # every 5 minutes
+    },
+    'cleanup-audit-logs': {
+        'task': 'core.cleanup_old_audit_logs',
+        'schedule': 86400,  # every 24 hours (nightly)
+        'kwargs': {'days': 365},
+    },
+}
 
 # ==========================================================================
 # AUDIT LOGGING

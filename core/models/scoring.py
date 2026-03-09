@@ -34,10 +34,6 @@ class StationScore(models.Model):
     max_score = models.FloatField(null=True, blank=True)
     percentage = models.FloatField(null=True, blank=True)
 
-    # Critical items
-    passed_critical = models.BooleanField(default=True)
-    critical_items_failed = models.TextField(blank=True, default='')
-
     global_rating = models.IntegerField(null=True, blank=True)
     comments = models.TextField(blank=True, default='')
 
@@ -116,16 +112,6 @@ class StationScore(models.Model):
         if self.max_score and self.max_score > 0:
             self.percentage = round((self.total_score / self.max_score) * 100, 2)
         return self.total_score
-
-    def check_critical_items(self, critical_item_ids):
-        failed = []
-        for item_score in self.item_scores.all():
-            if item_score.checklist_item_id in critical_item_ids:
-                if item_score.score < item_score.max_points:
-                    failed.append(item_score.checklist_item_id)
-        self.passed_critical = len(failed) == 0
-        self.critical_items_failed = str(failed) if failed else ''
-        return self.passed_critical
 
 
 class ItemScore(models.Model):

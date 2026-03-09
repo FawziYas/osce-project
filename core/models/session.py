@@ -108,6 +108,9 @@ class SessionStudent(models.Model):
 
     class Meta:
         db_table = 'session_students'
+        permissions = [
+            ('can_view_student_list', 'Can view student lists'),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['session', 'student_number'],

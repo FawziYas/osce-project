@@ -216,6 +216,18 @@ def station_dashboard(request, assignment_id):
     remaining_count = total_count - scored_count
     progress_pct = round((scored_count / total_count * 100), 2) if total_count else 0
 
+    # Find co-examiners assigned to the same station+session
+    co_examiners = list(
+        ExaminerAssignment.objects.filter(
+            session_id=assignment.session_id,
+            station_id=assignment.station_id,
+        ).exclude(
+            examiner_id=request.user.id
+        ).select_related('examiner')
+    )
+    co_examiner = co_examiners[0].examiner if co_examiners else None
+    is_dual_examiner = co_examiner is not None
+
     return render(request, 'examiner/station_dashboard.html', {
         'assignment': assignment,
         'student_list': student_list,
@@ -223,6 +235,8 @@ def station_dashboard(request, assignment_id):
         'remaining_count': remaining_count,
         'total_count': total_count,
         'progress_pct': progress_pct,
+        'co_examiner': co_examiner,
+        'is_dual_examiner': is_dual_examiner,
     })
 
 

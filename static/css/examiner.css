@@ -152,10 +152,6 @@
     background: #fff;
 }
 
-.checklist-item.critical-item {
-    border-left-color: var(--color-danger);
-}
-
 .checklist-item.marked-done {
     background-color: #d4edda;
     border-left-color: var(--color-success);

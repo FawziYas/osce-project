@@ -59,7 +59,7 @@ class ExaminerDB {
         });
     }
     
-    async saveScore(stationId, studentId, itemId, score, isCritical = false) {
+    async saveScore(stationId, studentId, itemId, score) {
         const tx = this.db.transaction('scores', 'readwrite');
         const store = tx.objectStore('scores');
         
@@ -82,7 +82,6 @@ class ExaminerDB {
         // Update item score
         record.items[itemId] = {
             score,
-            isCritical,
             timestamp: Date.now()
         };
         record.synced = false;
@@ -96,7 +95,6 @@ class ExaminerDB {
             studentId,
             itemId,
             score,
-            isCritical,
             timestamp: Date.now()
         });
         
@@ -509,7 +507,6 @@ class MarkingInterface {
         this.syncManager = options.syncManager;
         this.totalMarks = 0;
         this.earnedMarks = 0;
-        this.criticalFailed = false;
     }
     
     async init() {
@@ -549,7 +546,6 @@ class MarkingInterface {
         const item = btn.closest('.checklist-item');
         const itemId = item.dataset.itemId;
         const score = btn.dataset.score === '1' ? 1 : 0;
-        const isCritical = item.classList.contains('critical-item');
         
         // Visual feedback
         item.querySelectorAll('.score-btn').forEach(b => b.classList.remove('active'));
@@ -560,13 +556,7 @@ class MarkingInterface {
         item.classList.add(score === 1 ? 'marked-done' : 'marked-not-done');
         
         // Save to IndexedDB
-        await this.db.saveScore(this.stationId, this.studentId, itemId, score, isCritical);
-        
-        // Check critical failure
-        if (isCritical && score === 0) {
-            this.criticalFailed = true;
-            this.showCriticalWarning();
-        }
+        await this.db.saveScore(this.stationId, this.studentId, itemId, score);
         
         // Update totals
         this.calculateTotals();
@@ -645,19 +635,6 @@ class MarkingInterface {
                 ratingBtn.classList.add('active');
             }
         }
-    }
-    
-    showCriticalWarning() {
-        const toast = document.createElement('div');
-        toast.className = 'alert alert-danger position-fixed bottom-0 start-50 translate-middle-x mb-3';
-        toast.style.zIndex = '9999';
-        toast.innerHTML = `
-            <strong>⚠️ Critical Item Failed!</strong><br>
-            This may affect the overall station pass/fail status.
-        `;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => toast.remove(), 3000);
     }
     
     async updatePendingCount() {
