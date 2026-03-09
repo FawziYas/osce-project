@@ -20,6 +20,9 @@ dj-database-url==2.3.0
 django-redis==5.4.0
 redis==5.2.1
 
+# REST API
+djangorestframework==3.16.1
+
 # Task queue (async audit logging)
 celery[redis]==5.4.0
 

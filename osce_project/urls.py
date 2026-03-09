@@ -23,6 +23,8 @@ urlpatterns = [
     # API routes (examiner at /api/ to match JS fetch paths)
     path('api/', include('examiner.api_urls')),
     path('api/creator/', include('creator.api_urls')),
+    # DRF v2 API with multi-layer authorization
+    path('api/v2/', include('core.api.urls', namespace='api_v2')),
 ]
 
 # Custom error handlers

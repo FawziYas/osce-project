@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third-party apps
     'axes',
+    'rest_framework',
     # Project apps
     'core.apps.CoreConfig',
     'creator.apps.CreatorConfig',
@@ -126,6 +127,22 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'EXCEPTION_HANDLER': 'core.api.exceptions.custom_exception_handler',
+    'DEFAULT_PAGINATION_CLASS': None,
+    'UNAUTHENTICATED_USER': None,
+}
 
 # Session settings
 # Note: Custom middleware (SessionTimeoutMiddleware) sets activity-based timeouts:
