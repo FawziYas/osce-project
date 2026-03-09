@@ -150,6 +150,7 @@ REST_FRAMEWORK = {
 #   - Examiner interface: 5 minutes from last activity
 # This setting is fallback for other paths (admin, etc.)
 SESSION_COOKIE_AGE = 300  # 5 minutes fallback
+SESSION_SAVE_EVERY_REQUEST = True  # Slide expiry on every request (activity-based)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 

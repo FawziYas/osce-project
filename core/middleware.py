@@ -218,13 +218,15 @@ class PermissionsPolicyMiddleware:
 class SessionTimeoutMiddleware:
     """
     Sets different session timeouts based on interface:
-    - Creator interface: 5 minutes from last activity
-    - Examiner interface: 30 minutes from last activity
+    - Creator interface: 8 hours from last activity (full exam day)
+    - Examiner interface: 8 hours from last activity (full exam day)
+    SESSION_SAVE_EVERY_REQUEST = True in settings ensures the expiry slides
+    on every request, so the session stays alive as long as the user is active.
     """
-    
+
     # Session timeout in seconds
-    CREATOR_TIMEOUT = 300  # 5 minutes
-    EXAMINER_TIMEOUT = 1800  # 30 minutes
+    CREATOR_TIMEOUT = 28800   # 8 hours
+    EXAMINER_TIMEOUT = 28800  # 8 hours
     
     def __init__(self, get_response):
         self.get_response = get_response
