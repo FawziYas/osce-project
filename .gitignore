@@ -59,3 +59,5 @@ logs/*.log
 *.tmp
 test_*.txt
 test_*.py
+node_modules/
+frontend/node_modules/
