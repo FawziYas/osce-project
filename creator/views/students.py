@@ -11,6 +11,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 
 from core.models import Exam, ExamSession, SessionStudent, Path
+from core.utils.roles import scope_queryset
 
 
 def validate_registration_number(number):
@@ -226,11 +227,16 @@ def student_list(request):
     """Global student list — all students across all sessions, filterable by Exam/Session.
     
     Requires: core.can_view_student_list permission
-    This permission can be assigned to any user via Django Admin.
+    Dept-scoped: coordinators only see their department's exams and students.
     """
     from uuid import UUID
     
-    all_exams = Exam.objects.filter(is_deleted=False).order_by('name')
+    # Scope exams to user's department
+    all_exams = scope_queryset(
+        request.user,
+        Exam.objects.filter(is_deleted=False).select_related('course__department'),
+        dept_field='course__department',
+    ).order_by('name')
 
     # GET filters
     exam_id = request.GET.get('exam_id', '').strip()
@@ -256,17 +262,18 @@ def student_list(request):
         except (ValueError, ValidationError):
             session_id = ''  # Reset to empty if invalid
 
-    # Sessions for the selected exam (for the session dropdown)
+    # Sessions for the selected exam (for the session dropdown) — scoped by dept
     sessions_for_exam = []
     if valid_exam_id:
-        sessions_for_exam = ExamSession.objects.filter(
-            exam_id=valid_exam_id
-        ).order_by('session_date')
+        sessions_qs = ExamSession.objects.filter(exam_id=valid_exam_id).order_by('session_date')
+        sessions_qs = scope_queryset(request.user, sessions_qs, dept_field='exam__course__department')
+        sessions_for_exam = sessions_qs
 
-    # Build queryset
+    # Build queryset — scoped to user's department
     qs = SessionStudent.objects.select_related(
         'session', 'session__exam', 'path'
     ).filter(session__exam__is_deleted=False)
+    qs = scope_queryset(request.user, qs, dept_field='session__exam__course__department')
 
     # If exam_id is not selected (empty or "Select Exam" placeholder), return empty queryset
     # This ensures "Select Exam" shows no results instead of all students
