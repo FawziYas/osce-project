@@ -240,7 +240,7 @@ def student_list(request):
 
     # Validate exam_id is a valid UUID (ignore if empty or invalid)
     valid_exam_id = None
-    if exam_id and exam_id not in ('Select Exam', 'select exam', ''):
+    if exam_id:
         try:
             UUID(exam_id)  # Validate UUID format
             valid_exam_id = exam_id
@@ -249,7 +249,7 @@ def student_list(request):
 
     # Validate session_id is a valid UUID (ignore if empty or invalid)
     valid_session_id = None
-    if session_id and session_id not in ('Select Session', 'select session', ''):
+    if session_id:
         try:
             UUID(session_id)  # Validate UUID format
             valid_session_id = session_id
@@ -268,16 +268,20 @@ def student_list(request):
         'session', 'session__exam', 'path'
     ).filter(session__exam__is_deleted=False)
 
-    if valid_exam_id:
+    # If exam_id is not selected (empty or "Select Exam" placeholder), return empty queryset
+    # This ensures "Select Exam" shows no results instead of all students
+    if not valid_exam_id:
+        qs = qs.none()  # Return empty queryset
+    else:
         qs = qs.filter(session__exam_id=valid_exam_id)
-    if valid_session_id:
-        qs = qs.filter(session_id=valid_session_id)
-    if status_filter:
-        qs = qs.filter(status=status_filter)
-    if search_q:
-        qs = qs.filter(
-            Q(full_name__icontains=search_q) | Q(student_number__icontains=search_q)
-        )
+        if valid_session_id:
+            qs = qs.filter(session_id=valid_session_id)
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        if search_q:
+            qs = qs.filter(
+                Q(full_name__icontains=search_q) | Q(student_number__icontains=search_q)
+            )
 
     qs = qs.order_by('session__session_date', 'student_number')
 
