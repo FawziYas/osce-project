@@ -9,6 +9,7 @@ urlpatterns = [
     path('station/<uuid:station_id>/checklist/', api.get_station_checklist, name='station_checklist'),
     path('score/start/', api.start_marking, name='start_marking'),
     path('score/<uuid:station_score_id>/item/', api.mark_item, name='mark_item'),
+    path('score/<uuid:station_score_id>/items/', api.batch_mark_items, name='batch_mark_items'),
     path('score/<uuid:station_score_id>/submit/', api.submit_score, name='submit_score'),
     path('score/<uuid:station_score_id>/undo/', api.undo_submit, name='undo_submit'),
     path('sync/', api.sync_offline_data, name='sync'),

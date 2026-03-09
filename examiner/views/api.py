@@ -248,6 +248,66 @@ def mark_item(request, station_score_id):
 
 
 @login_required
+@csrf_exempt
+@require_POST
+def batch_mark_items(request, station_score_id):
+    """Batch-mark multiple checklist items in one request.
+
+    Accepts JSON body:
+        {"items": [{"checklist_item_id": 1, "score": 2.0, "notes": "", "max_points": 2}, ...]}
+
+    Uses bulk_create with update_conflicts for optimal DB performance:
+    one INSERT … ON CONFLICT UPDATE instead of N separate queries.
+    """
+    data, err = _parse_json_body(request)
+    if err:
+        return err
+
+    items = data.get('items')
+    if not items or not isinstance(items, list):
+        return JsonResponse({'error': 'Missing or invalid "items" array'}, status=400)
+
+    score = get_object_or_404(StationScore, pk=station_score_id)
+
+    if score.examiner_id != request.user.id:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+
+    now = utc_timestamp()
+    item_scores = [
+        ItemScore(
+            station_score_id=station_score_id,
+            checklist_item_id=item['checklist_item_id'],
+            score=item.get('score', 0),
+            notes=item.get('notes', ''),
+            max_points=item.get('max_points', 1),
+            marked_at=now,
+        )
+        for item in items
+        if 'checklist_item_id' in item
+    ]
+
+    if not item_scores:
+        return JsonResponse({'error': 'No valid items provided'}, status=400)
+
+    ItemScore.objects.bulk_create(
+        item_scores,
+        update_conflicts=True,
+        unique_fields=['station_score', 'checklist_item'],
+        update_fields=['score', 'notes', 'max_points', 'marked_at'],
+    )
+
+    score.calculate_total()
+    score.updated_at = now
+    score.save()
+
+    return JsonResponse({
+        'success': True,
+        'items_saved': len(item_scores),
+        'total_score': round(score.total_score, 2),
+    })
+
+
+@login_required
 @require_POST
 def submit_score(request, station_score_id):
     """Submit final score for a station."""

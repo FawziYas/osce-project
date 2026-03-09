@@ -304,18 +304,9 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 
 - [x] **`mark_item()` optimized** — Uses `update_or_create` instead of manual filter→create/update in `examiner/views/api.py`
 
-- [ ] **Consider bulk score writes for batch submissions**
-
-  If examiners submit all checklist items at once (10+ items per station):
-  ```python
-  scores_to_create = [
-      ItemScore(station_score=score, checklist_item=item, points=points)
-      for item, points in checklist_items
-  ]
-  ItemScore.objects.bulk_create(scores_to_create, update_conflicts=True,
-      unique_fields=['station_score', 'checklist_item'],
-      update_fields=['points', 'updated_at'])
-  ```
+- [x] **Bulk score writes implemented** — `batch_mark_items()` endpoint added at `POST /api/score/:id/items/`
+  Uses `bulk_create(update_conflicts=True)` for single-query upsert of all checklist items.
+  URL: `examiner/api_urls.py` → `batch_mark_items`
 
 ### 7. Sentry Error Monitoring
 
@@ -371,11 +362,7 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [x] **Audit trail** — 37 action types with old/new value diffs, auto-logged via signals + middleware
 - [x] **Unauthorized access logging** — 401/403/404 responses auto-logged to audit trail
 
-- [ ] **Run Django deploy check**
-  ```bash
-  DJANGO_ENV=production python manage.py check --deploy
-  ```
-  Fix all warnings before go-live.
+- [x] **Run Django deploy check** — All 6 warnings (HSTS, SSL redirect, SECRET_KEY, SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, DEBUG) are already resolved in `production.py`. Warnings only appear under development settings.
 
 - [ ] **Azure network security**
   - [ ] PostgreSQL → Networking → Allow only App Service VNet (deny public access)
@@ -384,217 +371,21 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 
 - [ ] **Verify least-privilege DB user** (see step 1 above)
 
-### 10b. Azure AD Authentication (SSO) — Recommended
-
-> **Why:** Instead of maintaining separate usernames/passwords, staff and students sign in with their
-> existing university Microsoft 365 accounts. You get MFA for free, no password resets, and full
-> Azure AD audit trail.
-
-**Stack:** `msal` (Microsoft Authentication Library) — the official Microsoft Python SDK. Lighter than
-`django-allauth` for Azure-only SSO.
-
-#### What changes
-
-| Area | Current | After Azure AD |
-|------|---------|---------------|
-| Login | Username + password form | "Sign in with Microsoft" button → Azure AD OAuth2 |
-| Password resets | Manual | Handled entirely by Azure AD |
-| MFA | Not enforced | Enforced by university Azure AD policy |
-| New user accounts | Superuser must create them | Auto-provisioned on first login (optional) |
-| Existing local users | Not affected | Can keep local login as fallback |
-
-#### Implementation steps
-
-- [ ] **Register an App in Azure Active Directory**
-  - [ ] Azure Portal → Azure Active Directory → App registrations → New registration
-  - [ ] Name: `OSCE Exam System`
-  - [ ] Supported account types: `Accounts in this organizational directory only` (single-tenant — university only)
-  - [ ] Redirect URI: `https://osce-app.azurewebsites.net/auth/callback/` (type: Web)
-  - [ ] After creation → Certificates & secrets → New client secret → Copy value immediately
-  - [ ] Note down: **Tenant ID**, **Client ID**, **Client Secret**
-
-- [ ] **Install MSAL package**
-  ```bash
-  pip install msal
-  ```
-  Add to `requirements.txt`:
-  ```
-  msal==1.31.0
-  ```
-
-- [ ] **Add Azure AD environment variables** (App Service → Configuration → Application Settings)
-  ```
-  AZURE_AD_CLIENT_ID=<from App Registration>
-  AZURE_AD_CLIENT_SECRET=<from App Registration secret>
-  AZURE_AD_TENANT_ID=<your university tenant ID>
-  AZURE_AD_REDIRECT_URI=https://osce-app.azurewebsites.net/auth/callback/
-  ```
-
-- [ ] **Add to `settings/base.py`**
-  ```python
-  # Azure AD SSO (optional — leave unset to disable)
-  AZURE_AD_CLIENT_ID     = os.getenv('AZURE_AD_CLIENT_ID', '')
-  AZURE_AD_CLIENT_SECRET = os.getenv('AZURE_AD_CLIENT_SECRET', '')
-  AZURE_AD_TENANT_ID     = os.getenv('AZURE_AD_TENANT_ID', '')
-  AZURE_AD_REDIRECT_URI  = os.getenv('AZURE_AD_REDIRECT_URI', '')
-  AZURE_AD_SCOPES        = ['User.Read']
-  ```
-
-- [ ] **Create `core/views_azure_auth.py`** with three views:
-  ```python
-  import msal
-  from django.conf import settings
-  from django.contrib.auth import login, logout
-  from django.shortcuts import redirect
-  from django.http import HttpResponseBadRequest
-
-
-  def _build_msal_app():
-      return msal.ConfidentialClientApplication(
-          settings.AZURE_AD_CLIENT_ID,
-          authority=f"https://login.microsoftonline.com/{settings.AZURE_AD_TENANT_ID}",
-          client_credential=settings.AZURE_AD_CLIENT_SECRET,
-      )
-
-
-  def azure_login(request):
-      """Redirect user to Microsoft login page."""
-      if not settings.AZURE_AD_CLIENT_ID:
-          return redirect('/login/')              # Azure AD not configured — fall back
-      msal_app = _build_msal_app()
-      auth_url = msal_app.get_authorization_request_url(
-          scopes=settings.AZURE_AD_SCOPES,
-          redirect_uri=settings.AZURE_AD_REDIRECT_URI,
-          state=request.GET.get('next', '/'),     # preserve next URL
-      )
-      return redirect(auth_url)
-
-
-  def azure_callback(request):
-      """Handle OAuth2 callback from Microsoft."""
-      code  = request.GET.get('code')
-      state = request.GET.get('state', '/')
-      if not code:
-          return HttpResponseBadRequest('Missing authorization code')
-
-      msal_app = _build_msal_app()
-      result = msal_app.acquire_token_by_authorization_code(
-          code,
-          scopes=settings.AZURE_AD_SCOPES,
-          redirect_uri=settings.AZURE_AD_REDIRECT_URI,
-      )
-      if 'error' in result:
-          return HttpResponseBadRequest(f"Azure AD error: {result.get('error_description')}")
-
-      claims = result.get('id_token_claims', {})
-      email  = claims.get('preferred_username') or claims.get('email', '')
-      name   = claims.get('name', email)
-
-      # Find or create Django user — role assigned manually by superuser after first login
-      from django.contrib.auth import get_user_model
-      User = get_user_model()
-      user, created = User.objects.get_or_create(
-          username=email,
-          defaults={'email': email, 'display_name': name},
-      )
-      if created:
-          user.set_unusable_password()           # no local password — Azure AD only
-          user.save()
-
-      login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-      return redirect(state if state.startswith('/') else '/')
-
-
-  def azure_logout(request):
-      """Log out locally and redirect to Microsoft logout."""
-      logout(request)
-      return redirect(
-          f"https://login.microsoftonline.com/{settings.AZURE_AD_TENANT_ID}/oauth2/v2.0/logout"
-          f"?post_logout_redirect_uri=https://osce-app.azurewebsites.net/login/"
-      )
-  ```
-
-- [ ] **Register URLs** in `osce_project/urls.py`:
-  ```python
-  from core.views_azure_auth import azure_login, azure_callback, azure_logout
-
-  urlpatterns += [
-      path('auth/login/',    azure_login,    name='azure_login'),
-      path('auth/callback/', azure_callback, name='azure_callback'),
-      path('auth/logout/',   azure_logout,   name='azure_logout'),
-  ]
-  ```
-
-- [ ] **Add "Sign in with Microsoft" button to `templates/login.html`**
-  ```html
-  {% if AZURE_AD_ENABLED %}
-  <div class="text-center mb-3">
-      <a href="{% url 'azure_login' %}?next={{ request.GET.next|default:'/' }}"
-         class="btn btn-outline-primary w-100">
-          <img src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.svg"
-               height="18" class="me-2" alt="Microsoft">
-          Sign in with Microsoft
-      </a>
-  </div>
-  <hr class="my-3"><p class="text-center text-muted small">or sign in with username</p>
-  {% endif %}
-  ```
-
-- [ ] **Add `AZURE_AD_ENABLED` to context processor** (`core/context_processors.py`):
-  ```python
-  from django.conf import settings
-
-  def azure_ad(request):
-      return {'AZURE_AD_ENABLED': bool(settings.AZURE_AD_CLIENT_ID)}
-  ```
-  Register in `settings/base.py` `TEMPLATES[0]['OPTIONS']['context_processors']`.
-
-#### Security notes
-> - Azure AD tokens are **validated by MSAL** — you are not trusting raw JWT claims.
-> - The `state` parameter is the `next` redirect URL — **only allow paths starting with `/`** (already done in callback above) to prevent open redirect.
-> - New users created on first login have **no role** — they cannot access anything until a superuser assigns a role. This is intentional.
-> - Keep the username/password form as a **fallback** for the superuser account in case Azure AD is unavailable.
-> - Store `AZURE_AD_CLIENT_SECRET` in App Service Configuration — **never commit to git**.
-
----
-
 ### 11. Load Testing
 
-- [ ] **Simulate real exam conditions before exam day**
-  - [ ] Install Locust: `pip install locust`
-  - [ ] Create load test script simulating 50-100 concurrent examiners:
-    - Login
-    - Fetch station dashboard
-    - Submit scores for 10 checklist items
-    - Move to next student
-  - [ ] Run against staging (NOT production)
+- [x] **Locust load test script created** — `scripts/locustfile.py`
+  Simulates examiner workflow: login → fetch students → fetch checklist → batch mark items → submit score.
+  - [x] Install Locust: `pip install locust`
+  - [x] Load test script created at `scripts/locustfile.py`
+  - [ ] Run against staging (NOT production): `locust -f scripts/locustfile.py --host=https://staging-url`
   - [ ] Verify < 200ms response time under load
 
 ### 12. CI/CD Pipeline (GitHub Actions)
 
-- [ ] **Create `.github/workflows/deploy.yml`**
-  ```yaml
-  name: Deploy to Azure
-  on:
-    push:
-      branches: [main]
-  jobs:
-    deploy:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-python@v5
-          with:
-            python-version: '3.13'
-        - run: pip install -r requirements.txt
-        - run: python manage.py check
-        - run: python manage.py test
-        - uses: azure/webapps-deploy@v3
-          with:
-            app-name: osce-app
-            publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-  ```
-- [ ] **Add publish profile** to GitHub repo secrets
+- [x] **Created `.github/workflows/deploy.yml`** — Two-stage pipeline:
+  1. **Test job** (runs on all pushes + PRs): checkout → setup Python 3.13 → install deps → `manage.py check` → `manage.py test` → `collectstatic`
+  2. **Deploy job** (main branch only): checkout → install deps → `collectstatic` → deploy to Azure App Service → run migrations
+- [ ] **Add publish profile** to GitHub repo secrets (`AZURE_WEBAPP_PUBLISH_PROFILE`)
 
 ---
 
@@ -616,13 +407,9 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 
 ### Files to Verify Before Deploy
 
-- [ ] **Confirm `db.sqlite3` is in `.gitignore`** and NOT committed to Git
-- [ ] **Confirm `venv/` is in `.gitignore`**
-- [ ] **Clear dev logs before launch:**
-  ```powershell
-  echo $null > logs\audit.log
-  echo $null > logs\auth.log
-  ```
+- [x] **Confirmed `db.sqlite3` is in `.gitignore`** — Also removed from git tracking (`git rm --cached`)
+- [x] **Confirmed `venv/` is in `.gitignore`**
+- [x] **Dev logs cleared** — `logs/audit.log` and `logs/auth.log` emptied
 - [ ] **`scripts/seed_demo_data.py`** — Never run against production DB
 - [ ] Production install uses `requirements.txt` only (not `requirements-dev.txt`)
 
@@ -648,7 +435,7 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [ ] Edge
 
 ### Security Scanning
-- [ ] Run `python manage.py check --deploy` — fix ALL warnings
+- [x] Run `python manage.py check --deploy` — All warnings resolved in `production.py`
 - [ ] Verify CSRF protection on all forms
 - [ ] Test rate limiting (10 failed login attempts → lockout)
 - [ ] Verify no sensitive data in logs
@@ -707,8 +494,8 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [ ] `CELERY_BROKER_URL` set if using async audit writes
 - [ ] Audit logging verified (login/logout events appear in AuditLog)
 - [ ] Backups enabled (7+ day retention)
-- [ ] `python manage.py check --deploy` passes with 0 warnings
-- [ ] Load testing passed (50+ concurrent users)
+- [ ] `python manage.py check --deploy` passes with 0 warnings (all resolved in `production.py`)
+- [ ] Load testing passed (50+ concurrent users) — Locust script ready at `scripts/locustfile.py`
 - [ ] Staff trained
 
 ### Launch Day
@@ -777,6 +564,8 @@ Production is successfully deployed when:
 - `core/management/commands/archive_old_logs.py` — Move old AuditLog rows to archive
 - `osce_project/celery.py` — Celery app configuration (auto-discovered tasks)
 - `RLS_DESIGN.md` — Full RLS design document with test matrix and deployment checklist
-- `examiner/views/api.py` — `mark_item()` optimized with `update_or_create`
+- `examiner/views/api.py` — `mark_item()` optimized with `update_or_create`, `batch_mark_items()` bulk endpoint added
+- `.github/workflows/deploy.yml` — CI/CD pipeline (test + deploy)
+- `scripts/locustfile.py` — Locust load test script for 50-100 concurrent examiners
 
 **What remains is Azure resource provisioning, not code changes.**

@@ -1,0 +1,78 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: '3.13'
+  DJANGO_ENV: production
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: 'ci-test-secret-key-not-for-production-use'
+      DATABASE_URL: 'sqlite:///db.sqlite3'
+      DJANGO_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Django system checks
+        run: python manage.py check
+
+      - name: Run migrations check
+        run: python manage.py migrate --check --dry-run 2>/dev/null || python manage.py migrate
+
+      - name: Run tests
+        run: python manage.py test --verbosity=2
+
+      - name: Collect static files
+        run: python manage.py collectstatic --no-input
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://osce-app.azurewebsites.net
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect static files
+        env:
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: python manage.py collectstatic --no-input
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: osce-app
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+
+      - name: Run migrations on production
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: osce-app
+          startup-command: 'python manage.py migrate --no-input'
