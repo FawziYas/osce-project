@@ -10,7 +10,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from core.models.mixins import TimestampMixin
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.views.decorators.http import require_POST
 from creator.api.sessions import _sync_exam_status
 
@@ -24,12 +24,15 @@ from core.utils.cache_utils import (
     invalidate_session_detail, get_session_detail_cache_key,
     SESSION_DETAIL_KEY, SESSION_DETAIL_TTL,
 )
+from core.utils.roles import check_exam_department, check_session_department
 
 
 @login_required
 def live_student_search(request, session_id):
     """AJAX endpoint: real-time student search scoped to a session."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session):
+        return JsonResponse({'results': [], 'error': 'Access denied'}, status=403)
     q = request.GET.get('q', '').strip()
 
     if len(q) < 2:
@@ -60,8 +63,10 @@ def live_student_search(request, session_id):
 
 @login_required
 def session_list(request, exam_id):
-    """List sessions for an exam with search."""
+    """List sessions for an exam with search — dept-scoped."""
     exam = get_object_or_404(Exam, pk=exam_id)
+    if not check_exam_department(request.user, exam):
+        return HttpResponseForbidden('You do not have access to this exam.')
     search_query = request.GET.get('search', '').strip()
     sessions_qs = ExamSession.objects.filter(exam=exam).order_by('-session_date')
     
@@ -82,8 +87,10 @@ def session_list(request, exam_id):
 
 @login_required
 def session_create(request, exam_id):
-    """Create a new exam session."""
+    """Create a new exam session — dept-scoped."""
     exam = get_object_or_404(Exam, pk=exam_id)
+    if not check_exam_department(request.user, exam):
+        return HttpResponseForbidden('You do not have access to this exam.')
 
     if not exam.exam_date:
         messages.warning(request, 'Please set an exam date before creating sessions.')
@@ -145,8 +152,10 @@ def session_create(request, exam_id):
 
 @login_required
 def session_edit(request, session_id):
-    """Edit a session."""
+    """Edit a session — dept-scoped."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
     exam = session.exam
 
     if not exam.exam_date:
@@ -184,8 +193,17 @@ def session_edit(request, session_id):
 
 @login_required
 def session_delete(request, session_id):
-    """Cancel a session."""
+    """Cancel a session — dept-scoped, head coordinator or above only."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
+    # Only head coordinator, admin, or superuser can cancel sessions
+    user = request.user
+    if not (user.is_superuser or getattr(user, 'role', None) == 'admin'
+            or (getattr(user, 'role', None) == 'coordinator'
+                and getattr(user, 'coordinator_position', None) == 'head')):
+        messages.error(request, 'Only head coordinators or admins can cancel sessions.')
+        return redirect('creator:exam_detail', exam_id=str(session.exam_id))
     exam_id = str(session.exam_id)
     session_name = session.name
 
@@ -200,10 +218,12 @@ def session_delete(request, session_id):
 
 @login_required
 def session_detail(request, session_id):
-    """View session details, paths, students."""
+    """View session details, paths, students — dept-scoped."""
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
     
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
     
     # Search and pagination for students
     search_query = request.GET.get('search', '').strip()
@@ -325,7 +345,10 @@ def session_detail(request, session_id):
 
 @login_required
 def download_student_paths_pdf(request, session_id):
-    """Download PDF with students grouped by path."""
+    """Download PDF with students grouped by path — dept-scoped."""
+    session_obj = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session_obj):
+        return HttpResponseForbidden('You do not have access to this session.')
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -486,10 +509,12 @@ def pdf_report_status(request, session_id):
 
 @login_required
 def assign_examiner(request, session_id):
-    """Bulk-assign examiners to all stations of a path (POST only)."""
+    """Bulk-assign examiners to all stations of a path (POST only) — dept-scoped."""
     from django.db import transaction
 
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
 
     if request.method != 'POST':
         return redirect('creator:session_detail', session_id=str(session_id))
@@ -580,8 +605,10 @@ def assign_examiner(request, session_id):
 
 @login_required
 def get_path_stations_for_assignment(request, session_id, path_id):
-    """AJAX endpoint: return HTML partial with station rows for the bulk assignment modal."""
+    """AJAX endpoint: return HTML partial with station rows — dept-scoped."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
     path = get_object_or_404(Path, pk=path_id, session=session, is_deleted=False)
     stations = path.get_stations_in_order()
     all_examiners = Examiner.objects.filter(is_active=True, role='examiner').order_by('full_name')
@@ -624,6 +651,11 @@ def unlock_score_for_correction(request, score_id):
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
     score = get_object_or_404(StationScore, pk=score_id)
+
+    # Enforce department scope on the score's session
+    session_obj = score.session_student.session if score.session_student else None
+    if session_obj and not check_session_department(request.user, session_obj):
+        return JsonResponse({'error': 'You do not have access to this session.'}, status=403)
 
     if score.status != 'submitted':
         return JsonResponse({'error': 'Score is not in submitted state'}, status=400)

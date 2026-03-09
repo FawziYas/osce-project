@@ -540,12 +540,7 @@ Production is successfully deployed when:
 
 ---
 
-## 📝 Implementation Notes
 
-**See also for detailed system documentation:**
-- [RLS_DESIGN.md](RLS_DESIGN.md) — Complete RLS design with test matrix and deployment checklist
-- [prompt3.md](prompt3.md) — RLS design evolution, PostgreSQL schema mapping, policy details
-- [prompt4.md](prompt4.md) — Audit logging system, AuditLogService implementation, signals integration
 
 **Already configured in code (just need Azure services provisioned):**
 - `production.py` — DATABASE_URL (via dj-database-url), REDIS_URL, SENTRY_DSN, security headers, log rotation

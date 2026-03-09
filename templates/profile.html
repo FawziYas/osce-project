@@ -166,6 +166,7 @@
                     <div class="avatar-wrap {% if is_examiner_view %}bg-gradient-primary{% endif %}">
                         <span class="fs-2">{{ request.user.display_name|slice:":1"|upper }}</span>
                     </div>
+                    
                     <div>
                         <div class="fw-bold fs-5">{{ request.user.display_name }}</div>
                         <div class="text-muted small">{{ request.user.username }}</div>
@@ -187,10 +188,11 @@
                     <span class="info-label text-muted small fw-bold">EMAIL</span>
                     <span class="info-value ms-auto">{{ request.user.email }}</span>
                 </div>
-                {% if request.user.department %}
+
+                {% if user.coordinator_department %}
                 <div class="info-row border-bottom py-2">
                     <span class="info-label text-muted small fw-bold">DEPARTMENT</span>
-                    <span class="info-value ms-auto">{{ request.user.department }}</span>
+                    <span class="info-value ms-auto">{{ user.coordinator_department }}</span>
                 </div>
                 {% endif %}
                 <div class="info-row border-bottom py-2">

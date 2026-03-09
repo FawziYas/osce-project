@@ -6,15 +6,18 @@ import string
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 
 from core.models import Exam, ExamSession, Path, Station, ChecklistItem, ExaminerAssignment
+from core.utils.roles import check_path_department, check_session_department
 
 
 @login_required
 def path_detail(request, path_id):
-    """View path details and its stations."""
+    """View path details and its stations — dept-scoped."""
     path = get_object_or_404(Path, pk=path_id)
+    if not check_path_department(request.user, path):
+        return HttpResponseForbidden('You do not have access to this path.')
     stations = Station.objects.filter(path=path, active=True) \
         .prefetch_related('checklist_items') \
         .order_by('station_number')
@@ -54,8 +57,10 @@ def path_detail(request, path_id):
 
 @login_required
 def create_path(request, session_id):
-    """Create a new path, optionally copying stations from another."""
+    """Create a new path, optionally copying stations from another — dept-scoped."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
     exam = session.exam
     other_paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
 
@@ -109,8 +114,10 @@ def create_path(request, session_id):
 
 @login_required
 def edit_path(request, path_id):
-    """Edit an existing path."""
+    """Edit an existing path — dept-scoped."""
     path = get_object_or_404(Path, pk=path_id)
+    if not check_path_department(request.user, path):
+        return HttpResponseForbidden('You do not have access to this path.')
     session = path.session
     exam = session.exam
     other_paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
@@ -137,8 +144,17 @@ def edit_path(request, path_id):
 
 @login_required
 def delete_path(request, path_id):
-    """Hard delete a path and all its stations/checklist items."""
+    """Hard delete a path — dept-scoped, head coordinator or above."""
     path = get_object_or_404(Path, pk=path_id)
+    if not check_path_department(request.user, path):
+        return HttpResponseForbidden('You do not have access to this path.')
+    # Only head coordinator, admin, or superuser can delete paths
+    user = request.user
+    if not (user.is_superuser or getattr(user, 'role', None) == 'admin'
+            or (getattr(user, 'role', None) == 'coordinator'
+                and getattr(user, 'coordinator_position', None) == 'head')):
+        messages.error(request, 'Only head coordinators or admins can delete paths.')
+        return redirect('creator:session_detail', session_id=str(path.session_id))
     session_id = str(path.session_id)
 
     if path.session and path.session.actual_start:
@@ -153,12 +169,14 @@ def delete_path(request, path_id):
 
 @login_required
 def batch_create_paths(request, session_id):
-    """Create multiple paths at once, optionally copying stations."""
+    """Create multiple paths at once — dept-scoped."""
     if request.method != 'POST':
         return redirect('creator:session_detail', session_id=str(session_id))
 
     try:
         session = get_object_or_404(ExamSession, pk=session_id)
+        if not check_session_department(request.user, session):
+            return HttpResponseForbidden('You do not have access to this session.')
         exam = session.exam
 
         path_count = int(request.POST.get('path_count', 1))

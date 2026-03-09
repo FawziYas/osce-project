@@ -26,6 +26,7 @@
         <a href="{% url 'creator:edit_path' path.id %}" class="btn btn-outline-secondary">
             <i class="bi bi-pencil me-1"></i>Edit Path
         </a>
+        {% if request.user.is_superuser or request.user.role == 'admin' or request.user.coordinator_position == 'head' %}
         <form action="{% url 'creator:delete_path' path.id %}" method="post" class="d-inline"
               onsubmit="return confirm('Delete this path and all its stations?');">
             {% csrf_token %}
@@ -33,6 +34,7 @@
                 <i class="bi bi-trash me-1"></i>Delete
             </button>
         </form>
+        {% endif %}
     </div>
 </div>
 
@@ -144,6 +146,7 @@
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 {% if not session_started or request.user.is_superuser %}
+                                {% if request.user.is_superuser or request.user.role == 'admin' or request.user.coordinator_position == 'head' %}
                                 <form action="{% url 'creator:station_delete' station.id %}" method="post" class="d-inline border-start"
                                       onsubmit="return confirm('Delete station {{ station.name|escapejs }}?');">
                                     {% csrf_token %}
@@ -151,6 +154,7 @@
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>
+                                {% endif %}
                                 {% else %}
                                 <button type="button" class="btn btn-sm btn-outline-secondary w-100 rounded-0 rounded-end disabled" title="Cannot delete – session has started" disabled>
                                     <i class="bi bi-lock"></i>

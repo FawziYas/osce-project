@@ -12,20 +12,21 @@ from core.models import (
     Course, Exam, ExamSession, SessionStudent, Station, ChecklistItem,
     StationScore, ItemScore, ILO,
 )
+from core.utils.roles import scope_queryset, check_session_department
 
 
 @login_required
 def reports_index(request):
-    """Reports dashboard – select session and generate reports."""
+    """Reports dashboard – select session and generate reports. Dept-scoped."""
     # Base filter
     sessions_qs = ExamSession.objects.filter(
         exam__is_deleted=False,
     ).select_related('exam', 'exam__course')
     
+    # Department scoping
+    sessions_qs = scope_queryset(request.user, sessions_qs, dept_field='exam__course__department')
+    
     # Permission-based filtering
-    # Only superusers can see all sessions (scheduled, in_progress, completed)
-    # Coordinator and Admin can see only completed sessions
-    # Regular examiners can see only completed sessions
     if not request.user.is_superuser:
         sessions_qs = sessions_qs.filter(status='completed')
     
@@ -44,8 +45,12 @@ def reports_index(request):
 
 @login_required
 def reports_scoresheets(request, session_id):
-    """Print-ready score sheets for a session with pagination, search, and print_all mode."""
+    """Print-ready score sheets for a session — dept-scoped."""
     session = get_object_or_404(ExamSession, pk=session_id)
+    
+    # Department scoping
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
     
     # Access control: non-superusers can only view completed sessions
     if not request.user.is_superuser and session.status != 'completed':
@@ -152,9 +157,13 @@ def reports_scoresheets(request, session_id):
 
 @login_required
 def reports_student_scoresheet(request, student_id):
-    """Print-ready score sheet for a single student."""
+    """Print-ready score sheet for a single student — dept-scoped."""
     student = get_object_or_404(SessionStudent, pk=student_id)
     session = get_object_or_404(ExamSession, pk=student.session_id)
+    
+    # Department scoping
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
     
     # Access control: non-superusers can only view completed sessions
     if not request.user.is_superuser and session.status != 'completed':
@@ -236,7 +245,7 @@ def reports_student_scoresheet(request, student_id):
 @login_required
 def export_ilo_scores_xlsx(request, session_id):
     """
-    Generate an XLSX workbook for a session.
+    Generate an XLSX workbook for a session. Dept-scoped.
     Sheet layout — rows = students, columns = ILOs.
     Each cell = average of examiner scores for that student / ILO.
     """
@@ -248,6 +257,10 @@ def export_ilo_scores_xlsx(request, session_id):
         ExamSession.objects.select_related('exam', 'exam__course'),
         pk=session_id,
     )
+
+    # Department scoping
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
 
     # Access control
     if not request.user.is_superuser and session.status != 'completed':

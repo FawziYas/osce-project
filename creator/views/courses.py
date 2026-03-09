@@ -5,9 +5,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Max
+from django.http import HttpResponseForbidden
 
 from core.models import Course, ILO, Theme
 from core.models.department import Department
+from core.utils.roles import (
+    scope_queryset, check_course_department, is_global, is_coordinator,
+    get_user_department,
+)
 
 
 # =============================================================================
@@ -16,18 +21,32 @@ from core.models.department import Department
 
 @login_required
 def course_list(request):
-    """List all courses."""
-    courses = Course.objects.order_by('year_level', 'code').all()
+    """List courses — scoped to user's department for coordinators."""
+    courses = scope_queryset(request.user, Course.objects.all(), dept_field='department')
+    courses = courses.order_by('year_level', 'code')
     return render(request, 'creator/courses/list.html', {'courses': courses})
 
 
 @login_required
 def course_create(request):
-    """Create a new course."""
-    departments = Department.objects.order_by('name')
+    """Create a new course — coordinators can only create in their department."""
+    user = request.user
+    user_dept = get_user_department(user)
+
+    # Coordinators only see their department; globals see all
+    if user_dept:
+        departments = Department.objects.filter(pk=user_dept.pk)
+    else:
+        departments = Department.objects.order_by('name')
+
     if request.method == 'POST':
         osce_mark_raw = request.POST.get('osce_mark', '').strip()
         dept_id = request.POST.get('department', '').strip()
+
+        # Coordinator can only create in their own department
+        if is_coordinator(user) and user_dept and dept_id and str(dept_id) != str(user_dept.pk):
+            return HttpResponseForbidden('You can only create courses in your own department.')
+
         course = Course.objects.create(
             code=request.POST['code'],
             name=request.POST['name'],
@@ -44,8 +63,10 @@ def course_create(request):
 
 @login_required
 def course_detail(request, course_id):
-    """View course details and ILOs."""
+    """View course details and ILOs — dept-scoped."""
     course = get_object_or_404(Course, pk=course_id)
+    if not check_course_department(request.user, course):
+        return HttpResponseForbidden('You do not have access to this course.')
     ilos = ILO.objects.filter(course_id=course_id).order_by('number')
     return render(request, 'creator/courses/detail.html', {
         'course': course,
@@ -55,9 +76,16 @@ def course_detail(request, course_id):
 
 @login_required
 def course_edit(request, course_id):
-    """Edit a course."""
+    """Edit a course — dept-scoped."""
     course = get_object_or_404(Course, pk=course_id)
-    departments = Department.objects.order_by('name')
+    if not check_course_department(request.user, course):
+        return HttpResponseForbidden('You do not have access to this course.')
+
+    user_dept = get_user_department(request.user)
+    if user_dept:
+        departments = Department.objects.filter(pk=user_dept.pk)
+    else:
+        departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
         course.code = request.POST['code']
@@ -81,8 +109,10 @@ def course_edit(request, course_id):
 
 @login_required
 def ilo_create(request, course_id):
-    """Create a new ILO for a course."""
+    """Create a new ILO for a course — dept-scoped."""
     course = get_object_or_404(Course, pk=course_id)
+    if not check_course_department(request.user, course):
+        return HttpResponseForbidden('You do not have access to this course.')
 
     if request.method == 'POST':
         max_num = ILO.objects.filter(course_id=course_id).aggregate(
@@ -109,8 +139,10 @@ def ilo_create(request, course_id):
 
 @login_required
 def ilo_edit(request, ilo_id):
-    """Edit an ILO."""
+    """Edit an ILO — dept-scoped."""
     ilo = get_object_or_404(ILO, pk=ilo_id)
+    if not check_course_department(request.user, ilo.course):
+        return HttpResponseForbidden('You do not have access to this ILO.')
 
     if request.method == 'POST':
         ilo.description = request.POST['description']

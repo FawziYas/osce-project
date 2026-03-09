@@ -65,8 +65,18 @@ def get_session_students(request, session_id):
 @login_required
 @require_GET
 def get_station_checklist(request, station_id):
-    """Get station info and all checklist items for marking."""
+    """Get station info and all checklist items for marking.
+    Verifies the examiner is assigned to a session containing this station."""
     station = get_object_or_404(Station, pk=station_id)
+
+    # Verify examiner has an assignment to this station (or is staff/superuser)
+    if not request.user.is_staff and not request.user.is_superuser:
+        has_assignment = ExaminerAssignment.objects.filter(
+            station=station,
+            examiner=request.user,
+        ).exists()
+        if not has_assignment:
+            return JsonResponse({'error': 'Not assigned to this station'}, status=403)
 
     items = ChecklistItem.objects.filter(
         station_id=station_id,

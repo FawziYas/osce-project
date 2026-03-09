@@ -8,14 +8,18 @@ from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Max
+from django.http import HttpResponseForbidden
 
 from core.models import ILO, Station, ChecklistItem, Path, ExamSession
+from core.utils.roles import check_path_department, check_station_department
 
 
 @login_required
 def station_create(request, path_id):
-    """Create a new station within a path – simple form builder."""
+    """Create a new station within a path — dept-scoped."""
     path = get_object_or_404(Path, pk=path_id)
+    if not check_path_department(request.user, path):
+        return HttpResponseForbidden('You do not have access to this path.')
     exam = path.exam
     ilos = ILO.objects.filter(course_id=exam.course_id).order_by('number')
     max_num = Station.objects.filter(path=path).aggregate(m=Max('station_number'))['m'] or 0
@@ -110,8 +114,10 @@ def station_create(request, path_id):
 
 @login_required
 def station_detail(request, station_id):
-    """View station details and checklist."""
+    """View station details and checklist — dept-scoped."""
     station = get_object_or_404(Station, pk=station_id)
+    if not check_station_department(request.user, station):
+        return HttpResponseForbidden('You do not have access to this station.')
     items = ChecklistItem.objects.filter(station=station).order_by('item_number')
     parent_path = station.path
     parent_session = parent_path.session if parent_path else None
@@ -127,8 +133,10 @@ def station_detail(request, station_id):
 
 @login_required
 def station_edit(request, station_id):
-    """Edit a station and its checklist – simple form builder."""
+    """Edit a station and its checklist — dept-scoped."""
     station = get_object_or_404(Station, pk=station_id)
+    if not check_station_department(request.user, station):
+        return HttpResponseForbidden('You do not have access to this station.')
     path = station.path
     exam = path.exam if path else None
     ilos = ILO.objects.filter(
@@ -222,8 +230,20 @@ def station_edit(request, station_id):
 
 @login_required
 def station_delete(request, station_id):
-    """Hard delete a station – blocked if any session has already started, unless superuser."""
+    """Hard delete a station — dept-scoped, head coordinator or above."""
     station = get_object_or_404(Station, pk=station_id)
+    if not check_station_department(request.user, station):
+        return HttpResponseForbidden('You do not have access to this station.')
+    # Only head coordinator, admin, or superuser can delete stations
+    user = request.user
+    if not (user.is_superuser or getattr(user, 'role', None) == 'admin'
+            or (getattr(user, 'role', None) == 'coordinator'
+                and getattr(user, 'coordinator_position', None) == 'head')):
+        path_id = str(station.path_id) if station.path_id else None
+        messages.error(request, 'Only head coordinators or admins can delete stations.')
+        if path_id:
+            return redirect('creator:path_detail', path_id=path_id)
+        return redirect('creator:exam_list')
     path_id = str(station.path_id) if station.path_id else None
     name = station.name
 

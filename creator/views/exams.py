@@ -8,13 +8,17 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 
 from core.models import (
     Course, Exam, ExamSession, Path, Station, ChecklistItem,
     SessionStudent, Department,
 )
 from core.utils.naming import generate_path_name
+from core.utils.roles import (
+    scope_queryset, check_exam_department, is_global, is_coordinator,
+    get_user_department,
+)
 
 
 def _can_delete_exam(user):
@@ -26,24 +30,27 @@ def _can_delete_exam(user):
     role = getattr(user, 'role', None)
     if role == 'admin':
         return True
-    if role == 'coordinator' and getattr(user, 'position', None) == 'head':
+    if role == 'coordinator' and getattr(user, 'coordinator_position', None) == 'head':
         return True
     return False
 
 
 @login_required
 def exam_list(request):
-    """List all exams with search and pagination."""
+    """List exams — scoped to user's department for coordinators."""
     search_query = request.GET.get('search', '').strip()
-    exams_qs = Exam.objects.filter(is_deleted=False).select_related('course').order_by('-created_at')
+    exams_qs = Exam.objects.filter(is_deleted=False).select_related('course', 'course__department').order_by('-created_at')
+    # Department scoping
+    exams_qs = scope_queryset(request.user, exams_qs, dept_field='course__department')
+
     if search_query:
         exams_qs = exams_qs.filter(
             name__icontains=search_query
-        ) | Exam.objects.filter(
-            is_deleted=False, course__name__icontains=search_query
-        ).select_related('course') | Exam.objects.filter(
-            is_deleted=False, department__icontains=search_query
-        ).select_related('course')
+        ) | exams_qs.filter(
+            course__name__icontains=search_query
+        ) | exams_qs.filter(
+            department__icontains=search_query
+        )
         exams_qs = exams_qs.order_by('-created_at').distinct()
 
     page_num = request.GET.get('page', 1)
@@ -56,7 +63,7 @@ def exam_list(request):
     # Deleted exams visible to superuser and admin only
     can_see_deleted = request.user.is_superuser or getattr(request.user, 'role', None) == 'admin'
     deleted_exams = (
-        Exam.objects.filter(is_deleted=True).select_related('course').order_by('-deleted_at')
+        Exam.objects.filter(is_deleted=True).select_related('course', 'course__department').order_by('-deleted_at')
         if can_see_deleted else []
     )
     return render(request, 'creator/exams/list.html', {
@@ -71,9 +78,16 @@ def exam_list(request):
 
 @login_required
 def exam_wizard(request):
-    """Multi-step exam creation wizard – Exam → Sessions → Paths."""
-    courses = Course.objects.order_by('code')
-    departments = Department.objects.order_by('name')
+    """Multi-step exam creation wizard — dept-scoped."""
+    user = request.user
+    user_dept = get_user_department(user)
+
+    # Scope courses and departments to user's department
+    courses = scope_queryset(user, Course.objects.all(), dept_field='department').order_by('code')
+    if user_dept:
+        departments = Department.objects.filter(pk=user_dept.pk)
+    else:
+        departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
         # ---------- Exam ----------
@@ -187,8 +201,10 @@ def exam_create(request):
 
 @login_required
 def exam_detail(request, exam_id):
-    """View exam, sessions, and overview stats."""
+    """View exam, sessions, and overview stats — dept-scoped."""
     exam = get_object_or_404(Exam, pk=exam_id)
+    if not check_exam_department(request.user, exam):
+        return HttpResponseForbidden('You do not have access to this exam.')
     sessions = ExamSession.objects.filter(exam=exam).order_by('session_date')
     stations = Station.objects.filter(exam=exam, active=True)
     
@@ -211,10 +227,17 @@ def exam_detail(request, exam_id):
 
 @login_required
 def exam_edit(request, exam_id):
-    """Edit an exam."""
+    """Edit an exam — dept-scoped."""
     exam = get_object_or_404(Exam, pk=exam_id)
-    courses = Course.objects.order_by('code')
-    departments = Department.objects.order_by('name')
+    if not check_exam_department(request.user, exam):
+        return HttpResponseForbidden('You do not have access to this exam.')
+
+    user_dept = get_user_department(request.user)
+    courses = scope_queryset(request.user, Course.objects.all(), dept_field='department').order_by('code')
+    if user_dept:
+        departments = Department.objects.filter(pk=user_dept.pk)
+    else:
+        departments = Department.objects.order_by('name')
 
     # Check if any sessions are active or completed (date lock)
     active_or_completed_sessions = ExamSession.objects.filter(
@@ -278,13 +301,16 @@ def exam_edit(request, exam_id):
 
 @login_required
 def exam_delete(request, exam_id):
-    """Soft-delete a draft/ready exam. Superuser, Admin, and Coordinator-Head only."""
+    """Soft-delete a draft/ready exam. Superuser, Admin, and Coordinator-Head only.
+    Also enforces department scope."""
     if not _can_delete_exam(request.user):
         return JsonResponse({'success': False, 'message': 'Permission denied.'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
     try:
         exam = get_object_or_404(Exam, pk=exam_id)
+        if not check_exam_department(request.user, exam):
+            return JsonResponse({'success': False, 'message': 'You do not have access to this exam.'}, status=403)
         if exam.status not in ('draft', 'ready'):
             return JsonResponse({
                 'success': False,
@@ -299,13 +325,16 @@ def exam_delete(request, exam_id):
 
 @login_required
 def exam_archive(request, exam_id):
-    """Archive an in-progress or completed exam. Superuser, Admin, and Coordinator-Head only."""
+    """Archive an in-progress or completed exam. Superuser, Admin, and Coordinator-Head only.
+    Also enforces department scope."""
     if not _can_delete_exam(request.user):
         return JsonResponse({'success': False, 'message': 'Permission denied.'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
     try:
         exam = get_object_or_404(Exam, pk=exam_id)
+        if not check_exam_department(request.user, exam):
+            return JsonResponse({'success': False, 'message': 'You do not have access to this exam.'}, status=403)
         if exam.status not in ('in_progress', 'completed'):
             return JsonResponse({
                 'success': False,

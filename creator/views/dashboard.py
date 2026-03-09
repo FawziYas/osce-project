@@ -9,23 +9,36 @@ from django.db.models import Q
 
 from core.models import Course, Exam, ExamSession
 from core.utils.audit import log_action
+from core.utils.roles import scope_queryset
 
 
 @login_required
 def dashboard(request):
-    """Main creator dashboard – overview of exams and courses."""
-    courses = Course.objects.all()
-    exams = Exam.objects.filter(is_deleted=False) \
-        .select_related('course') \
-        .order_by('-created_at')[:10]
+    """Main creator dashboard – overview of exams and courses. Dept-scoped."""
+    courses = scope_queryset(request.user, Course.objects.all(), dept_field='department')
+    exams = scope_queryset(
+        request.user,
+        Exam.objects.filter(is_deleted=False).select_related('course'),
+        dept_field='course__department',
+    ).order_by('-created_at')[:10]
+
+    # Stats scoped to user's department
+    all_exams = scope_queryset(
+        request.user,
+        Exam.objects.all(),
+        dept_field='course__department',
+    )
+    all_sessions = scope_queryset(
+        request.user,
+        ExamSession.objects.filter(exam__is_deleted=False),
+        dept_field='exam__course__department',
+    )
 
     stats = {
-        'exams': Exam.objects.filter(is_deleted=False).count(),
-        'archived_exams': Exam.objects.filter(is_deleted=True).count(),
-        'active_sessions': ExamSession.objects.filter(
-            exam__is_deleted=False, status='in_progress'
-        ).count(),
-        'draft_exams': Exam.objects.filter(status='draft', is_deleted=False).count(),
+        'exams': all_exams.filter(is_deleted=False).count(),
+        'archived_exams': all_exams.filter(is_deleted=True).count(),
+        'active_sessions': all_sessions.filter(status='in_progress').count(),
+        'draft_exams': all_exams.filter(status='draft', is_deleted=False).count(),
     }
 
     return render(request, 'creator/dashboard.html', {
