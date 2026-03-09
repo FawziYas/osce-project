@@ -17,6 +17,20 @@ from core.models import (
 from core.utils.naming import generate_path_name
 
 
+def _can_delete_exam(user):
+    """Return True if the user may soft-delete or archive an exam.
+    Allowed: Superuser, Admin, Coordinator-Head.
+    """
+    if user.is_superuser:
+        return True
+    role = getattr(user, 'role', None)
+    if role == 'admin':
+        return True
+    if role == 'coordinator' and getattr(user, 'position', None) == 'head':
+        return True
+    return False
+
+
 @login_required
 def exam_list(request):
     """List all exams with search and pagination."""
@@ -51,6 +65,7 @@ def exam_list(request):
         'paginator': paginator,
         'search_query': search_query,
         'deleted_exams': deleted_exams,
+        'can_delete_exam': _can_delete_exam(request.user),
     })
 
 
@@ -190,6 +205,7 @@ def exam_detail(request, exam_id):
         'sessions': sessions,
         'total_students': total_students,
         'can_delete_sessions': can_delete_sessions,
+        'can_delete_exam': _can_delete_exam(request.user),
     })
 
 
@@ -262,7 +278,9 @@ def exam_edit(request, exam_id):
 
 @login_required
 def exam_delete(request, exam_id):
-    """Soft-delete a draft/ready exam."""
+    """Soft-delete a draft/ready exam. Superuser, Admin, and Coordinator-Head only."""
+    if not _can_delete_exam(request.user):
+        return JsonResponse({'success': False, 'message': 'Permission denied.'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
     try:
@@ -281,7 +299,9 @@ def exam_delete(request, exam_id):
 
 @login_required
 def exam_archive(request, exam_id):
-    """Archive an in-progress or completed exam."""
+    """Archive an in-progress or completed exam. Superuser, Admin, and Coordinator-Head only."""
+    if not _can_delete_exam(request.user):
+        return JsonResponse({'success': False, 'message': 'Permission denied.'}, status=403)
     if request.method != 'POST':
         return JsonResponse({'success': False, 'message': 'POST required'}, status=405)
     try:

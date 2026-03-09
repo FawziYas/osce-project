@@ -37,6 +37,8 @@ GET  /api/courses/:courseId/exams/              → Admin, Superuser,
                                                    Coordinator (own dept only)
 GET  /api/exams/:examId/                        → Admin, Superuser,
                                                    Coordinator (own dept only)
+DELETE /api/exams/:examId/                      → Admin, Superuser,
+                                                   Coordinator-Head (own dept only)
 GET  /api/exams/:examId/sessions/               → Admin, Superuser,
                                                    Coordinator (own dept only)
 GET  /api/sessions/:sessionId/paths/            → Admin, Superuser,

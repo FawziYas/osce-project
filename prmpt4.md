@@ -48,7 +48,7 @@ DepartmentList      → render only for Admin / Superuser
 DepartmentCard      → show Edit/Delete only to Admin / Superuser
 CoordinatorPanel    → render for Coordinator (own dept) + Admin + Superuser
 CourseCard          → show Edit/Delete to Coordinator (own dept) + Admin
-ExamCard            → show Edit/Delete to Coordinator (own dept) + Admin
+ExamCard            → show Edit/Delete to Coordinator-Head (own dept) + Admin + Superuser
 SessionPanel        → show "Assign Path / Examiner" to Coordinator + Admin
 PathView            → render for Coordinator (own dept) + Admin + Superuser
                       NEVER render for Examiner

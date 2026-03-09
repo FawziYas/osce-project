@@ -62,14 +62,16 @@
                         <a href="{% url 'creator:exam_detail' exam.id %}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
                         <a href="{% url 'creator:exam_edit' exam.id %}" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
                         <a href="{% url 'creator:session_create' exam.id %}" class="btn btn-outline-success" title="Add Session"><i class="bi bi-calendar-plus"></i></a>
-                        {% if exam.status == 'draft' or exam.status == 'ready' %}
-                            <button type="button" class="btn btn-outline-danger" title="Delete Exam"
-                                    data-bs-toggle="modal" data-bs-target="#deleteExamModal"
-                                    data-exam-id="{{ exam.id }}" data-exam-name="{{ exam.name }}"><i class="bi bi-trash"></i></button>
-                        {% elif exam.status == 'in_progress' or exam.status == 'completed' %}
-                            <button type="button" class="btn btn-outline-warning" title="Archive Exam"
-                                    data-bs-toggle="modal" data-bs-target="#archiveExamModal"
-                                    data-exam-id="{{ exam.id }}" data-exam-name="{{ exam.name }}"><i class="bi bi-archive"></i></button>
+                        {% if can_delete_exam %}
+                            {% if exam.status == 'draft' or exam.status == 'ready' %}
+                                <button type="button" class="btn btn-outline-danger" title="Delete Exam"
+                                        data-bs-toggle="modal" data-bs-target="#deleteExamModal"
+                                        data-exam-id="{{ exam.id }}" data-exam-name="{{ exam.name }}"><i class="bi bi-trash"></i></button>
+                            {% elif exam.status == 'in_progress' or exam.status == 'completed' %}
+                                <button type="button" class="btn btn-outline-warning" title="Archive Exam"
+                                        data-bs-toggle="modal" data-bs-target="#archiveExamModal"
+                                        data-exam-id="{{ exam.id }}" data-exam-name="{{ exam.name }}"><i class="bi bi-archive"></i></button>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </td>

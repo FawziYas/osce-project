@@ -218,7 +218,7 @@ All tables have `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`.
 | SELECT    | `is_global_role()` → all; `is_coordinator()` → `exam_department_id(id) = app_department_id()` |
 | INSERT    | `is_global_role()` or coordinator (own dept) |
 | UPDATE    | `is_global_role()` or coordinator (own dept) |
-| DELETE    | `is_global_role()` or coordinator (own dept) |
+| DELETE    | `is_global_role()` or coordinator (own dept) — **Django view further restricts soft-delete/archive to Superuser, Admin, and Coordinator-Head only** |
 
 ### 4.4 exam_sessions
 
