@@ -20,12 +20,14 @@
         </p>
     </div>
     <div class="btn-group">
+        {% if can_edit_course %}
         <a href="{% url 'creator:course_edit' course.id %}" class="btn btn-outline-secondary">
             <i class="bi bi-pencil me-1"></i>Edit
         </a>
         <a href="{% url 'creator:ilo_create' course.id %}" class="btn btn-primary">
             <i class="bi bi-plus-lg me-1"></i>Add ILO
         </a>
+        {% endif %}
     </div>
 </div>
 
@@ -82,7 +84,9 @@
                 </td>
                 <td>
                     <div class="btn-group btn-group-sm">
+                        {% if can_edit_course %}
                         <a href="{% url 'creator:ilo_edit' ilo.id %}" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                        {% endif %}
                         <a href="{% url 'creator:library_list' %}?ilo={{ ilo.id }}" class="btn btn-outline-primary" title="Library Items"><i class="bi bi-collection"></i></a>
                     </div>
                 </td>
@@ -92,7 +96,9 @@
                 <td colspan="7" class="text-center text-muted py-5">
                     <i class="bi bi-bullseye fs-1 d-block mb-2"></i>
                     No ILOs defined for this course.<br>
+                    {% if can_edit_course %}
                     <a href="{% url 'creator:ilo_create' course.id %}" class="btn btn-primary mt-3"><i class="bi bi-plus-lg me-1"></i>Add First ILO</a>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

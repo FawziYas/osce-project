@@ -11,7 +11,8 @@ from core.models import Course, ILO, Theme
 from core.models.department import Department
 from core.utils.roles import (
     scope_queryset, check_course_department, is_global, is_coordinator,
-    get_user_department,
+    get_user_department, is_head_coordinator, admin_or_superuser_required,
+    head_or_admin_required,
 )
 
 
@@ -24,12 +25,20 @@ def course_list(request):
     """List courses — scoped to user's department for coordinators."""
     courses = scope_queryset(request.user, Course.objects.all(), dept_field='department')
     courses = courses.order_by('year_level', 'code')
-    return render(request, 'creator/courses/list.html', {'courses': courses})
+    user = request.user
+    can_add_course = user.is_superuser or getattr(user, 'role', None) == 'admin'
+    can_edit_course = can_add_course or is_head_coordinator(user)
+    return render(request, 'creator/courses/list.html', {
+        'courses': courses,
+        'can_add_course': can_add_course,
+        'can_edit_course': can_edit_course,
+    })
 
 
 @login_required
+@admin_or_superuser_required
 def course_create(request):
-    """Create a new course — coordinators can only create in their department."""
+    """Create a new course — admin and superuser only."""
     user = request.user
     user_dept = get_user_department(user)
 
@@ -68,15 +77,21 @@ def course_detail(request, course_id):
     if not check_course_department(request.user, course):
         return HttpResponseForbidden('You do not have access to this course.')
     ilos = ILO.objects.filter(course_id=course_id).order_by('number')
+    user = request.user
+    can_add_course = user.is_superuser or getattr(user, 'role', None) == 'admin'
+    can_edit_course = can_add_course or is_head_coordinator(user)
     return render(request, 'creator/courses/detail.html', {
         'course': course,
         'ilos': ilos,
+        'can_add_course': can_add_course,
+        'can_edit_course': can_edit_course,
     })
 
 
 @login_required
+@head_or_admin_required
 def course_edit(request, course_id):
-    """Edit a course — dept-scoped."""
+    """Edit a course — head coordinator, admin and superuser only."""
     course = get_object_or_404(Course, pk=course_id)
     if not check_course_department(request.user, course):
         return HttpResponseForbidden('You do not have access to this course.')
@@ -108,8 +123,9 @@ def course_edit(request, course_id):
 # =============================================================================
 
 @login_required
+@head_or_admin_required
 def ilo_create(request, course_id):
-    """Create a new ILO for a course — dept-scoped."""
+    """Create a new ILO for a course — head coordinator, admin and superuser only."""
     course = get_object_or_404(Course, pk=course_id)
     if not check_course_department(request.user, course):
         return HttpResponseForbidden('You do not have access to this course.')
@@ -138,8 +154,9 @@ def ilo_create(request, course_id):
 
 
 @login_required
+@head_or_admin_required
 def ilo_edit(request, ilo_id):
-    """Edit an ILO — dept-scoped."""
+    """Edit an ILO — head coordinator, admin and superuser only."""
     ilo = get_object_or_404(ILO, pk=ilo_id)
     if not check_course_department(request.user, ilo.course):
         return HttpResponseForbidden('You do not have access to this ILO.')
