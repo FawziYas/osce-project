@@ -228,19 +228,39 @@ def student_list(request):
     Requires: core.can_view_student_list permission
     This permission can be assigned to any user via Django Admin.
     """
+    from uuid import UUID
+    
     all_exams = Exam.objects.filter(is_deleted=False).order_by('name')
 
     # GET filters
-    exam_id = request.GET.get('exam_id', '')
-    session_id = request.GET.get('session_id', '')
+    exam_id = request.GET.get('exam_id', '').strip()
+    session_id = request.GET.get('session_id', '').strip()
     search_q = request.GET.get('q', '').strip()
-    status_filter = request.GET.get('status', '')
+    status_filter = request.GET.get('status', '').strip()
+
+    # Validate exam_id is a valid UUID (ignore if empty or invalid)
+    valid_exam_id = None
+    if exam_id and exam_id not in ('Select Exam', 'select exam', ''):
+        try:
+            UUID(exam_id)  # Validate UUID format
+            valid_exam_id = exam_id
+        except (ValueError, ValidationError):
+            exam_id = ''  # Reset to empty if invalid
+
+    # Validate session_id is a valid UUID (ignore if empty or invalid)
+    valid_session_id = None
+    if session_id and session_id not in ('Select Session', 'select session', ''):
+        try:
+            UUID(session_id)  # Validate UUID format
+            valid_session_id = session_id
+        except (ValueError, ValidationError):
+            session_id = ''  # Reset to empty if invalid
 
     # Sessions for the selected exam (for the session dropdown)
     sessions_for_exam = []
-    if exam_id:
+    if valid_exam_id:
         sessions_for_exam = ExamSession.objects.filter(
-            exam_id=exam_id
+            exam_id=valid_exam_id
         ).order_by('session_date')
 
     # Build queryset
@@ -248,10 +268,10 @@ def student_list(request):
         'session', 'session__exam', 'path'
     ).filter(session__exam__is_deleted=False)
 
-    if exam_id:
-        qs = qs.filter(session__exam_id=exam_id)
-    if session_id:
-        qs = qs.filter(session_id=session_id)
+    if valid_exam_id:
+        qs = qs.filter(session__exam_id=valid_exam_id)
+    if valid_session_id:
+        qs = qs.filter(session_id=valid_session_id)
     if status_filter:
         qs = qs.filter(status=status_filter)
     if search_q:
@@ -276,8 +296,8 @@ def student_list(request):
         'page_obj': page_obj,
         'all_exams': all_exams,
         'sessions_for_exam': sessions_for_exam,
-        'selected_exam_id': exam_id,
-        'selected_session_id': session_id,
+        'selected_exam_id': exam_id,  # Pass original exam_id for form preservation
+        'selected_session_id': session_id,  # Pass original session_id for form preservation
         'search_q': search_q,
         'status_filter': status_filter,
         'status_choices': status_choices,
