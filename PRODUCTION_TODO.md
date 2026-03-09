@@ -384,6 +384,180 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 
 - [ ] **Verify least-privilege DB user** (see step 1 above)
 
+### 10b. Azure AD Authentication (SSO) — Recommended
+
+> **Why:** Instead of maintaining separate usernames/passwords, staff and students sign in with their
+> existing university Microsoft 365 accounts. You get MFA for free, no password resets, and full
+> Azure AD audit trail.
+
+**Stack:** `msal` (Microsoft Authentication Library) — the official Microsoft Python SDK. Lighter than
+`django-allauth` for Azure-only SSO.
+
+#### What changes
+
+| Area | Current | After Azure AD |
+|------|---------|---------------|
+| Login | Username + password form | "Sign in with Microsoft" button → Azure AD OAuth2 |
+| Password resets | Manual | Handled entirely by Azure AD |
+| MFA | Not enforced | Enforced by university Azure AD policy |
+| New user accounts | Superuser must create them | Auto-provisioned on first login (optional) |
+| Existing local users | Not affected | Can keep local login as fallback |
+
+#### Implementation steps
+
+- [ ] **Register an App in Azure Active Directory**
+  - [ ] Azure Portal → Azure Active Directory → App registrations → New registration
+  - [ ] Name: `OSCE Exam System`
+  - [ ] Supported account types: `Accounts in this organizational directory only` (single-tenant — university only)
+  - [ ] Redirect URI: `https://osce-app.azurewebsites.net/auth/callback/` (type: Web)
+  - [ ] After creation → Certificates & secrets → New client secret → Copy value immediately
+  - [ ] Note down: **Tenant ID**, **Client ID**, **Client Secret**
+
+- [ ] **Install MSAL package**
+  ```bash
+  pip install msal
+  ```
+  Add to `requirements.txt`:
+  ```
+  msal==1.31.0
+  ```
+
+- [ ] **Add Azure AD environment variables** (App Service → Configuration → Application Settings)
+  ```
+  AZURE_AD_CLIENT_ID=<from App Registration>
+  AZURE_AD_CLIENT_SECRET=<from App Registration secret>
+  AZURE_AD_TENANT_ID=<your university tenant ID>
+  AZURE_AD_REDIRECT_URI=https://osce-app.azurewebsites.net/auth/callback/
+  ```
+
+- [ ] **Add to `settings/base.py`**
+  ```python
+  # Azure AD SSO (optional — leave unset to disable)
+  AZURE_AD_CLIENT_ID     = os.getenv('AZURE_AD_CLIENT_ID', '')
+  AZURE_AD_CLIENT_SECRET = os.getenv('AZURE_AD_CLIENT_SECRET', '')
+  AZURE_AD_TENANT_ID     = os.getenv('AZURE_AD_TENANT_ID', '')
+  AZURE_AD_REDIRECT_URI  = os.getenv('AZURE_AD_REDIRECT_URI', '')
+  AZURE_AD_SCOPES        = ['User.Read']
+  ```
+
+- [ ] **Create `core/views_azure_auth.py`** with three views:
+  ```python
+  import msal
+  from django.conf import settings
+  from django.contrib.auth import login, logout
+  from django.shortcuts import redirect
+  from django.http import HttpResponseBadRequest
+
+
+  def _build_msal_app():
+      return msal.ConfidentialClientApplication(
+          settings.AZURE_AD_CLIENT_ID,
+          authority=f"https://login.microsoftonline.com/{settings.AZURE_AD_TENANT_ID}",
+          client_credential=settings.AZURE_AD_CLIENT_SECRET,
+      )
+
+
+  def azure_login(request):
+      """Redirect user to Microsoft login page."""
+      if not settings.AZURE_AD_CLIENT_ID:
+          return redirect('/login/')              # Azure AD not configured — fall back
+      msal_app = _build_msal_app()
+      auth_url = msal_app.get_authorization_request_url(
+          scopes=settings.AZURE_AD_SCOPES,
+          redirect_uri=settings.AZURE_AD_REDIRECT_URI,
+          state=request.GET.get('next', '/'),     # preserve next URL
+      )
+      return redirect(auth_url)
+
+
+  def azure_callback(request):
+      """Handle OAuth2 callback from Microsoft."""
+      code  = request.GET.get('code')
+      state = request.GET.get('state', '/')
+      if not code:
+          return HttpResponseBadRequest('Missing authorization code')
+
+      msal_app = _build_msal_app()
+      result = msal_app.acquire_token_by_authorization_code(
+          code,
+          scopes=settings.AZURE_AD_SCOPES,
+          redirect_uri=settings.AZURE_AD_REDIRECT_URI,
+      )
+      if 'error' in result:
+          return HttpResponseBadRequest(f"Azure AD error: {result.get('error_description')}")
+
+      claims = result.get('id_token_claims', {})
+      email  = claims.get('preferred_username') or claims.get('email', '')
+      name   = claims.get('name', email)
+
+      # Find or create Django user — role assigned manually by superuser after first login
+      from django.contrib.auth import get_user_model
+      User = get_user_model()
+      user, created = User.objects.get_or_create(
+          username=email,
+          defaults={'email': email, 'display_name': name},
+      )
+      if created:
+          user.set_unusable_password()           # no local password — Azure AD only
+          user.save()
+
+      login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+      return redirect(state if state.startswith('/') else '/')
+
+
+  def azure_logout(request):
+      """Log out locally and redirect to Microsoft logout."""
+      logout(request)
+      return redirect(
+          f"https://login.microsoftonline.com/{settings.AZURE_AD_TENANT_ID}/oauth2/v2.0/logout"
+          f"?post_logout_redirect_uri=https://osce-app.azurewebsites.net/login/"
+      )
+  ```
+
+- [ ] **Register URLs** in `osce_project/urls.py`:
+  ```python
+  from core.views_azure_auth import azure_login, azure_callback, azure_logout
+
+  urlpatterns += [
+      path('auth/login/',    azure_login,    name='azure_login'),
+      path('auth/callback/', azure_callback, name='azure_callback'),
+      path('auth/logout/',   azure_logout,   name='azure_logout'),
+  ]
+  ```
+
+- [ ] **Add "Sign in with Microsoft" button to `templates/login.html`**
+  ```html
+  {% if AZURE_AD_ENABLED %}
+  <div class="text-center mb-3">
+      <a href="{% url 'azure_login' %}?next={{ request.GET.next|default:'/' }}"
+         class="btn btn-outline-primary w-100">
+          <img src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.svg"
+               height="18" class="me-2" alt="Microsoft">
+          Sign in with Microsoft
+      </a>
+  </div>
+  <hr class="my-3"><p class="text-center text-muted small">or sign in with username</p>
+  {% endif %}
+  ```
+
+- [ ] **Add `AZURE_AD_ENABLED` to context processor** (`core/context_processors.py`):
+  ```python
+  from django.conf import settings
+
+  def azure_ad(request):
+      return {'AZURE_AD_ENABLED': bool(settings.AZURE_AD_CLIENT_ID)}
+  ```
+  Register in `settings/base.py` `TEMPLATES[0]['OPTIONS']['context_processors']`.
+
+#### Security notes
+> - Azure AD tokens are **validated by MSAL** — you are not trusting raw JWT claims.
+> - The `state` parameter is the `next` redirect URL — **only allow paths starting with `/`** (already done in callback above) to prevent open redirect.
+> - New users created on first login have **no role** — they cannot access anything until a superuser assigns a role. This is intentional.
+> - Keep the username/password form as a **fallback** for the superuser account in case Azure AD is unavailable.
+> - Store `AZURE_AD_CLIENT_SECRET` in App Service Configuration — **never commit to git**.
+
+---
+
 ### 11. Load Testing
 
 - [ ] **Simulate real exam conditions before exam day**
