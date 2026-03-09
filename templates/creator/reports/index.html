@@ -110,21 +110,6 @@
     </div>
 
     <div class="col-md-6 col-lg-4">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body text-center py-4">
-                <i class="bi bi-file-earmark-pdf fs-1 text-danger mb-3"></i>
-                <h5 class="card-title">Score Sheets</h5>
-                <p class="card-text text-muted small">
-                    Print-ready score sheets with all student details
-                </p>
-                <button type="button" class="btn btn-danger" onclick="generateScoreSheets()" disabled id="btnScoreSheets">
-                    <i class="bi bi-printer me-1"></i>Print View
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-lg-4">
         <div class="card h-100 shadow-sm ">
             <div class="card-body text-center py-4">
                 <i class="bi bi-mortarboard fs-1 text-success mb-3"></i>
@@ -322,7 +307,7 @@ function loadSessionData() {
     selectedSessionId = select.value;
 
     const btns = ['btnRefresh', 'btnViewResults', 'btnStudentResults', 'btnStationAnalysis',
-                  'btnExaminerSummary', 'btnItemAnalysis', 'btnScoreSheets', 'btnRawData', 'btnIloScores'];
+                  'btnExaminerSummary', 'btnItemAnalysis', 'btnRawData', 'btnIloScores'];
 
     if (!selectedSessionId) {
         btns.forEach(id => document.getElementById(id).disabled = true);
@@ -336,7 +321,6 @@ function loadSessionData() {
     document.getElementById('btnStudentResults').disabled = false;
     document.getElementById('btnStationAnalysis').disabled = false;
     document.getElementById('btnExaminerSummary').disabled = false;
-    document.getElementById('btnScoreSheets').disabled = false;
     document.getElementById('btnIloScores').disabled = false;
     document.getElementById('btnRefresh').disabled = false;
     
@@ -352,12 +336,11 @@ function loadSessionData() {
 }
 
 function viewResults() {
-    // Load and display results when button is clicked
     if (!selectedSessionId) {
         alert('Please select a session first');
         return;
     }
-    fetchSessionData(1, '');
+    window.open(`/creator/reports/session/${selectedSessionId}/results/`, '_blank');
 }
 
 function fetchSessionData(page = 1, search = '') {
@@ -582,11 +565,6 @@ function generateStudentResults(format) {
     if (!selectedSessionId) return;
     const endpoint = format === 'xlsx' ? 'students/xlsx' : 'students/csv';
     window.location.href = `/api/creator/reports/session/${selectedSessionId}/${endpoint}`;
-}
-
-function generateScoreSheets() {
-    if (!selectedSessionId) return;
-    window.open(`/creator/reports/session/${selectedSessionId}/scoresheets`, '_blank');
 }
 
 function exportIloScores() {

@@ -44,6 +44,22 @@ def reports_index(request):
 
 
 @login_required
+def reports_session_results(request, session_id):
+    """Dedicated full-page results table for a session — opens in a new tab."""
+    session = get_object_or_404(ExamSession, pk=session_id)
+
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
+
+    if not request.user.is_superuser and session.status != 'completed':
+        return HttpResponseForbidden('Only completed sessions are available for viewing.')
+
+    return render(request, 'creator/reports/session_results.html', {
+        'session': session,
+    })
+
+
+@login_required
 def reports_scoresheets(request, session_id):
     """Print-ready score sheets for a session — dept-scoped."""
     session = get_object_or_404(ExamSession, pk=session_id)
@@ -222,21 +238,60 @@ def reports_student_scoresheet(request, student_id):
                 'formatted': f"{examiner_name}:\n{score.comments}"
             })
     
-    student_data = [{
+    # Build per-station rows for the new print template
+    station_rows = []
+    for st in student_stations:
+        scores_for_station = score_map_all.get(st.id, [])
+        st_max = ChecklistItem.objects.filter(station=st).aggregate(
+            total=Sum('points')
+        )['total'] or 0
+
+        if scores_for_station:
+            # Average if multiple examiners
+            avg = sum(s.total_score or 0 for s in scores_for_station) / len(scores_for_station)
+            examiner_names = '\n'.join(
+                (s.examiner.full_name if s.examiner else 'Unknown') for s in scores_for_station
+            )
+            comment = ' | '.join(
+                s.comments.strip() for s in scores_for_station if s.comments and s.comments.strip()
+            ) or ''
+            station_rows.append({
+                'number': st.station_number,
+                'name': st.name,
+                'examiner': examiner_names,
+                'score': round(avg, 2),
+                'max_score': st_max,
+                'comment': comment,
+                'marked': True,
+            })
+        else:
+            station_rows.append({
+                'number': st.station_number,
+                'name': st.name,
+                'examiner': '—',
+                'score': None,
+                'max_score': st_max,
+                'comment': '',
+                'marked': False,
+            })
+
+    exam_weight = float(session.exam.exam_weight or 1)
+    weighted_score = round(_total / max_possible * exam_weight , 2) if exam_weight and max_possible else None
+
+    student_info = {
         'student': student,
-        'stations': student_stations,
-        'scores': score_map_all,
+        'station_rows': station_rows,
         'total_score': round(_total, 2),
         'max_score': max_possible,
         'percentage_display': round(_pct, 2),
         'passed': _pct >= 60,
-        'comments_with_examiner': comments_with_examiner,
-    }]
+        'exam_weight': exam_weight,
+        'weighted_score': weighted_score,
+    }
 
-    return render(request, 'creator/reports/scoresheets.html', {
+    return render(request, 'creator/reports/student_scoresheet.html', {
         'session': session,
-        'students': student_data,
-        'single_student': True,
+        'student_info': student_info,
     })
 
 

@@ -429,28 +429,16 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [ ] Test offline sync workflow on tablets
 
 ### Browser Compatibility
-- [ ] Chrome (desktop & tablet)
-- [ ] Safari (iPad — common for OSCE tablets)
-- [ ] Firefox
-- [ ] Edge
+- [x] Chrome (desktop & tablet)
+- [x] Safari (iPad — common for OSCE tablets)
+- [x] Firefox
+- [x] Edge
 
 ### Security Scanning
 - [x] Run `python manage.py check --deploy` — All warnings resolved in `production.py`
 - [ ] Verify CSRF protection on all forms
 - [ ] Test rate limiting (10 failed login attempts → lockout)
 - [ ] Verify no sensitive data in logs
-
----
-
-## 🎓 Training & Handoff
-
-- [ ] Train coordinators on creator interface
-- [ ] Train examiners on tablet interface
-- [ ] Conduct dry run with real exam scenario (full stations, real timer, real devices)
-- [ ] Transfer access credentials securely
-- [ ] Document who has access to what
-- [ ] Define support plan during exams
-
 ---
 
 ## 📊 Database Security — What's at Risk
