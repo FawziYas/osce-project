@@ -6,7 +6,6 @@
 <div class="page-header d-flex justify-content-between align-items-center">
     <div>
         <h1><i class="bi bi-people me-2"></i>Student Lists</h1>
-        <p class="text-muted mb-0">All students across all exam sessions</p>
     </div>
 </div>
 
@@ -112,14 +111,10 @@
                     <td>
                         {% if student.status == 'registered' %}
                             <span class="badge bg-secondary">Registered</span>
-                        {% elif student.status == 'checked_in' %}
-                            <span class="badge bg-info text-dark">Checked In</span>
                         {% elif student.status == 'in_progress' %}
                             <span class="badge bg-primary">In Progress</span>
                         {% elif student.status == 'completed' %}
                             <span class="badge bg-success">Completed</span>
-                        {% elif student.status == 'absent' %}
-                            <span class="badge bg-danger">Absent</span>
                         {% else %}
                             <span class="badge bg-light text-dark">{{ student.status|title }}</span>
                         {% endif %}

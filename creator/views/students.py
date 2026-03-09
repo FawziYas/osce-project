@@ -290,10 +290,8 @@ def student_list(request):
 
     status_choices = [
         ('registered', 'Registered'),
-        ('checked_in', 'Checked In'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
-        ('absent', 'Absent'),
     ]
 
     return render(request, 'creator/students/list.html', {
