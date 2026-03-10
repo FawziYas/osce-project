@@ -146,10 +146,10 @@ REST_FRAMEWORK = {
 
 # Session settings
 # Note: Custom middleware (SessionTimeoutMiddleware) sets activity-based timeouts:
-#   - Creator interface: 5 minutes from last activity
-#   - Examiner interface: 5 minutes from last activity
+#   - Creator interface (admin/coordinator/superuser): 10 minutes from last activity
+#   - Examiner interface: 20 minutes from last activity
 # This setting is fallback for other paths (admin, etc.)
-SESSION_COOKIE_AGE = 300  # 5 minutes fallback
+SESSION_COOKIE_AGE = 1200  # 20 minutes fallback
 SESSION_SAVE_EVERY_REQUEST = True  # Slide expiry on every request (activity-based)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'

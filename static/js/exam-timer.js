@@ -10,11 +10,67 @@ class ExamTimer {
         this.elementId = elementId;
         this.interval = null;
         this.isRunning = false;
+        this.soundPlayed = {
+            oneMinute: false,
+            thirtySeconds: false,
+            expiry: false
+        };
         this.callbacks = {
             onTick: null,
             onWarning: null,
             onExpiry: null
         };
+        this.audioContext = null; // Lazy-initialized on first start() to satisfy browser autoplay policy
+    }
+
+    /**
+     * Initialize Web Audio API context for sound generation.
+     * Must be called from within a user-gesture handler (e.g. start()).
+     */
+    initAudioContext() {
+        if (this.audioContext) return;
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioContext();
+        } catch(e) {
+            console.warn('Web Audio API not supported:', e);
+        }
+    }
+
+    /**
+     * Play a beep sound using Web Audio API.
+     * Resumes the AudioContext first in case the browser suspended it.
+     */
+    playBeep(frequency = 1000, duration = 500) {
+        if (!this.audioContext) return;
+        
+        const doPlay = () => {
+            try {
+                const ctx = this.audioContext;
+                const oscillator = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration / 1000);
+                
+                oscillator.start(ctx.currentTime);
+                oscillator.stop(ctx.currentTime + duration / 1000);
+            } catch(e) {
+                console.warn('Error playing beep:', e);
+            }
+        };
+
+        if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume().then(doPlay).catch(e => console.warn('AudioContext resume failed:', e));
+        } else {
+            doPlay();
+        }
     }
 
     /**
@@ -22,6 +78,12 @@ class ExamTimer {
      */
     start() {
         if (this.isRunning) return;
+
+        // Initialize (or resume) AudioContext inside a user-gesture handler
+        this.initAudioContext();
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+            this.audioContext.resume();
+        }
         
         this.isRunning = true;
         this.render();
@@ -61,6 +123,11 @@ class ExamTimer {
     reset() {
         this.stop();
         this.remaining = this.duration;
+        this.soundPlayed = {
+            oneMinute: false,
+            thirtySeconds: false,
+            expiry: false
+        };
         this.render();
         this.removeWarningClass();
     }
@@ -95,6 +162,13 @@ class ExamTimer {
         if (this.remaining === 60) {
             timerWidget.classList.add('warning');
             timerWidget.classList.remove('danger');
+            
+            // Play beep sound on first occurrence
+            if (!this.soundPlayed.oneMinute) {
+                this.playBeep(800, 400); // 800Hz, 400ms
+                this.soundPlayed.oneMinute = true;
+            }
+            
             if (this.callbacks.onWarning) {
                 this.callbacks.onWarning('1 minute remaining');
             }

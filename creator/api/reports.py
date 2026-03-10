@@ -33,8 +33,11 @@ def get_session_summary(request, session_id):
     from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
     
     try:
-        session = get_object_or_404(ExamSession, pk=session_id)
-        
+        session = get_object_or_404(
+            ExamSession.objects.select_related('exam'), pk=session_id
+        )
+        exam_weight = float(session.exam.exam_weight or 0)
+
         # Get all students and apply search filter
         search_query = request.GET.get('search', '').strip()
         students_qs = SessionStudent.objects.filter(session=session).order_by('full_name')
@@ -81,7 +84,7 @@ def get_session_summary(request, session_id):
         completed_students = 0
         total_percentage = 0
         passed_count = 0
-        pass_threshold = 60
+        pass_threshold = 70
 
         student_data = []
         # P3: Pre-fetch all paths to avoid N+1 per student
@@ -109,13 +112,24 @@ def get_session_summary(request, session_id):
 
             percentage = (total_score / max_score * 100) if max_score > 0 else 0
 
-            if total_score > 0 or max_score > 0:
-                completed_students += 1
-                total_percentage += percentage
-                if percentage >= pass_threshold:
-                    passed_count += 1
+            # A student is "completed" only if ALL their stations have a submitted score
+            scored_stations = sum(1 for v in student_scores.values() if v is not None)
+            total_stations = len(student_scores)
+            is_completed = total_stations > 0 and scored_stations == total_stations
 
             path = path_map.get(student.path_id) if student.path_id else None
+
+            weighted_score = round(total_score / max_score * exam_weight, 2) if exam_weight and max_score > 0 else None
+            if exam_weight and weighted_score is not None:
+                passed = weighted_score >= exam_weight * 0.70
+            else:
+                passed = percentage >= pass_threshold
+
+            if is_completed:
+                completed_students += 1
+                total_percentage += percentage
+                if passed:
+                    passed_count += 1
 
             student_data.append({
                 'id': str(student.id),
@@ -126,7 +140,8 @@ def get_session_summary(request, session_id):
                 'total_score': round(total_score, 2),
                 'max_score': round(max_score, 2),
                 'percentage': round(percentage, 2),
-                'passed': percentage >= pass_threshold,
+                'weighted_score': weighted_score,
+                'passed': passed,
             })
 
         avg_percentage = (total_percentage / completed_students) if completed_students > 0 else 0
@@ -137,6 +152,7 @@ def get_session_summary(request, session_id):
             'data': {
                 'session_id': str(session_id),
                 'session_name': session.name,
+                'exam_weight': exam_weight,
                 'total_students': page_obj.paginator.count,
                 'completed_students': completed_students,
                 'average_percentage': round(avg_percentage, 2),
@@ -214,8 +230,8 @@ def _student_rows(students, station_headers, station_info_map):
             row.append(score_val)
 
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
-        pass_fail = 'PASS' if percentage >= 60 else 'FAIL'
-        row.extend([round(total_score, 2), round(max_score, 2), round(percentage, 2), pass_fail])
+        pass_fail = 'PASS' if percentage >= 70 else 'FAIL'
+        row.extend([round(total_score, 2), round(max_score, 2), pass_fail])
         yield row, total_score, max_score, percentage, pass_fail
 
 
@@ -233,7 +249,7 @@ def export_students_csv(request, session_id):
 
     headers = ['Student Number', 'Full Name', 'Path']
     headers.extend([f"St.{h['number']}: {h['name']}" for h in station_headers])
-    headers.extend(['Total Score', 'Max Score', 'Percentage', 'Pass/Fail'])
+    headers.extend(['Total Score', 'Max Score', 'Pass/Fail'])
     writer.writerow(headers)
 
     for row, *_ in _student_rows(students, station_headers, station_info_map):
@@ -252,7 +268,10 @@ def export_students_xlsx(request, session_id):
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(
+        ExamSession.objects.select_related('exam'), pk=session_id
+    )
+    exam_weight = float(session.exam.exam_weight or 0)
     students = list(SessionStudent.objects.filter(session=session).order_by('full_name'))
     _, station_headers, station_info_map = _build_station_info(session_id)
 
@@ -266,7 +285,8 @@ def export_students_xlsx(request, session_id):
 
     base_headers = ['Student Number', 'Full Name', 'Path']
     station_cols = [f"St.{h['number']}: {h['name']}" for h in station_headers]
-    end_headers = ['Total Score', 'Max Score', 'Percentage', 'Pass/Fail', 'Comments']
+    weighted_header = [f'Weighted Score (/{exam_weight})'] if exam_weight else []
+    end_headers = ['Total Score', 'Max Score'] + weighted_header + ['Pass/Fail', 'Comments']
     all_headers = base_headers + station_cols + end_headers
 
     # Title rows
@@ -280,10 +300,11 @@ def export_students_xlsx(request, session_id):
     ws['A2'] = f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     ws['A2'].alignment = Alignment(horizontal='center')
 
+    weighted_fill = PatternFill(start_color='1A3A5C', end_color='1A3A5C', fill_type='solid')
     for col_num, header in enumerate(all_headers, 1):
         cell = ws.cell(row=4, column=col_num)
         cell.value = header
-        cell.fill = header_fill
+        cell.fill = weighted_fill if exam_weight and header.startswith('Weighted') else header_fill
         cell.font = header_font
         cell.alignment = header_alignment
 
@@ -329,7 +350,13 @@ def export_students_xlsx(request, session_id):
             row.append(score_val)
 
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
-        pass_fail = 'PASS' if percentage >= 60 else 'FAIL'
+        weighted_score = round(total_score / max_score * exam_weight, 2) if exam_weight and max_score > 0 else None
+        # Pass if weighted score >= 70% of exam_weight, or raw percentage >= 70% when no weight
+        if exam_weight and weighted_score is not None:
+            passed = weighted_score >= exam_weight * 0.70
+        else:
+            passed = percentage >= 70
+        pass_fail = 'PASS' if passed else 'FAIL'
         
         # Build comments with examiner names
         comments_list = []
@@ -342,7 +369,8 @@ def export_students_xlsx(request, session_id):
         
         comments_text = "\n---\n".join(comments_list) if comments_list else ""
         
-        row.extend([round(total_score, 2), round(max_score, 2), round(percentage, 2), pass_fail, comments_text])
+        weighted_cols = [weighted_score] if exam_weight else []
+        row.extend([round(total_score, 2), round(max_score, 2)] + weighted_cols + [pass_fail, comments_text])
         
         # Write row to worksheet
         for col_idx, value in enumerate(row, 1):
@@ -351,31 +379,45 @@ def export_students_xlsx(request, session_id):
             cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
         
         # Color-code pass/fail
-        pf_cell = ws.cell(row=row_num, column=len(row) - 1)
+        pf_col_idx = len(all_headers) - 1  # Pass/Fail is second-to-last (before Comments)
+        pf_cell = ws.cell(row=row_num, column=pf_col_idx)
         if pass_fail == 'PASS':
             pf_cell.font = Font(color='006100', bold=True)
             pf_cell.fill = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
         else:
             pf_cell.font = Font(color='9C0006', bold=True)
             pf_cell.fill = PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid')
+
+        # Highlight weighted score column
+        if exam_weight:
+            ws_col_idx = pf_col_idx - 1  # Weighted Score is just before Pass/Fail
+            ws_cell = ws.cell(row=row_num, column=ws_col_idx)
+            ws_cell.font = Font(bold=True, color='1A1A2E')
+            ws_cell.fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
         
         row_num += 1
 
-    # Auto-adjust column widths
-    for col_idx, col in enumerate(ws.columns, 1):
-        max_len = 0
-        for cell in col:
-            try:
-                if hasattr(cell, 'value') and cell.value and len(str(cell.value)) > max_len:
-                    max_len = len(str(cell.value))
-            except Exception:
-                pass
-        col_letter = get_column_letter(col_idx)
-        # Make comments column wider
-        if col_letter == get_column_letter(len(all_headers)):
-            ws.column_dimensions[col_letter].width = 50
-        else:
-            ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
+    # Column widths: fixed per column type
+    num_base = len(base_headers)          # Student #, Full Name, Path
+    num_station = len(station_cols)        # One per station
+    # base columns
+    ws.column_dimensions['A'].width = 16  # Student Number
+    ws.column_dimensions['B'].width = 28  # Full Name
+    ws.column_dimensions['C'].width = 14  # Path
+    # station score columns — narrow numeric
+    for i in range(num_station):
+        ws.column_dimensions[get_column_letter(num_base + 1 + i)].width = 10
+    # end columns
+    end_start = num_base + num_station + 1
+    ws.column_dimensions[get_column_letter(end_start)].width = 13      # Total Score
+    ws.column_dimensions[get_column_letter(end_start + 1)].width = 13  # Max Score
+    if exam_weight:
+        ws.column_dimensions[get_column_letter(end_start + 2)].width = 18  # Weighted Score
+        ws.column_dimensions[get_column_letter(end_start + 3)].width = 10  # Pass/Fail
+        ws.column_dimensions[get_column_letter(end_start + 4)].width = 50  # Comments
+    else:
+        ws.column_dimensions[get_column_letter(end_start + 2)].width = 10  # Pass/Fail
+        ws.column_dimensions[get_column_letter(end_start + 3)].width = 50  # Comments
 
     buf = BytesIO()
     wb.save(buf)

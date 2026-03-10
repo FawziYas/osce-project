@@ -128,6 +128,7 @@
 const SESSION_ID = '{{ session.id }}';
 let currentPage = 1;
 let currentSearch = '';
+let examWeight = 0;
 
 document.addEventListener('DOMContentLoaded', function () {
     fetchSessionData(1, '');
@@ -153,6 +154,7 @@ function fetchSessionData(page, search) {
             document.getElementById('loadingSpinner').style.display = 'none';
             if (data.success) {
                 const d = data.data;
+                examWeight = d.exam_weight || 0;
                 updateStats(d);
                 updateResultsTable(d.students || [], d.station_headers || []);
                 updatePagination(d.pagination);
@@ -204,7 +206,7 @@ function updateResultsTable(students, headers) {
 
     let headerHtml = '<th>Student #</th><th>Name</th><th>Path</th>';
     headers.forEach(h => { headerHtml += `<th title="${h.name}">St.${h.number}</th>`; });
-    headerHtml += '<th>Total / Max</th><th>%</th><th>Actions</th>';
+    headerHtml += `<th>Total / Max</th>${examWeight ? '<th>Weighted</th>' : ''}<th>Actions</th>`;
     theadRow.innerHTML = headerHtml;
 
     if (!students.length) {
@@ -225,13 +227,7 @@ function updateResultsTable(students, headers) {
             <td><span class="badge bg-secondary">${s.path_name || 'N/A'}</span></td>
             ${stationCols}
             <td><strong>${s.total_score || 0}</strong> <span class="text-muted">/ ${s.max_score || 0}</span></td>
-            <td>
-                <div class="progress" style="height:20px;width:80px;">
-                    <div class="progress-bar ${s.passed ? 'bg-success' : 'bg-danger'}" style="width:${s.percentage || 0}%">
-                        ${(s.percentage || 0).toFixed(0)}%
-                    </div>
-                </div>
-            </td>
+            ${examWeight ? `<td><strong class="${s.passed ? 'text-success' : 'text-danger'}">${s.weighted_score !== null && s.weighted_score !== undefined ? s.weighted_score : '-'}</strong><small class="text-muted">/${examWeight}</small></td>` : ''}
             <td>
                 <button class="btn btn-sm btn-outline-secondary" onclick="printStudentSheet('${s.id}')" title="Print Score Sheet">
                     <i class="bi bi-printer"></i>

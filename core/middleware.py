@@ -218,15 +218,13 @@ class PermissionsPolicyMiddleware:
 class SessionTimeoutMiddleware:
     """
     Sets different session timeouts based on interface:
-    - Creator interface: 8 hours from last activity (full exam day)
-    - Examiner interface: 8 hours from last activity (full exam day)
-    SESSION_SAVE_EVERY_REQUEST = True in settings ensures the expiry slides
-    on every request, so the session stays alive as long as the user is active.
+    - Creator interface (admin/coordinator/superuser): 10 minutes from last activity
+    - Examiner interface: 20 minutes from last activity
     """
-
+    
     # Session timeout in seconds
-    CREATOR_TIMEOUT = 28800   # 8 hours
-    EXAMINER_TIMEOUT = 28800  # 8 hours
+    CREATOR_TIMEOUT = 600   # 10 minutes (admin, coordinator, superuser)
+    EXAMINER_TIMEOUT = 1200  # 20 minutes (examiner)
     
     def __init__(self, get_response):
         self.get_response = get_response
@@ -236,10 +234,10 @@ class SessionTimeoutMiddleware:
         if request.user.is_authenticated:
             # Determine timeout based on URL path
             if request.path.startswith('/creator/'):
-                # Creator interface - 10 minute timeout
+                # Creator interface (admin/coordinator/superuser) - 10 minute timeout
                 request.session.set_expiry(self.CREATOR_TIMEOUT)
             elif request.path.startswith('/examiner/'):
-                # Examiner interface - 30 minute timeout
+                # Examiner interface - 20 minute timeout
                 request.session.set_expiry(self.EXAMINER_TIMEOUT)
             # For other paths (admin, etc.), use Django's default
         
