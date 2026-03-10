@@ -269,6 +269,10 @@ def marking_interface(request, assignment_id, student_id):
     )
     student = get_object_or_404(SessionStudent, pk=student_id)
 
+    # Redirect dry stations to dry marking page
+    if assignment.station and assignment.station.is_dry:
+        return redirect('examiner:dry_marking', assignment_id=assignment_id, student_id=student_id)
+
     if assignment.examiner_id != request.user.id:
         messages.error(request, 'You are not assigned to this station.')
         return redirect('examiner:home')
@@ -370,4 +374,65 @@ def marking_interface(request, assignment_id, student_id):
         'co_examiner_score': co_examiner_score,
         'both_finalized': both_finalized,
         'final_avg': final_avg,
+    })
+
+
+@login_required
+def dry_marking(request, assignment_id, student_id):
+    """Dry OSCE self-evaluation page — student answers MCQ/Essay, no score visible."""
+    assignment = get_object_or_404(
+        ExaminerAssignment.objects.select_related(
+            'station', 'session', 'session__exam'),
+        pk=assignment_id
+    )
+    student = get_object_or_404(SessionStudent, pk=student_id)
+
+    if assignment.examiner_id != request.user.id:
+        messages.error(request, 'You are not assigned to this station.')
+        return redirect('examiner:home')
+
+    if str(student.session_id) != str(assignment.session_id):
+        messages.error(request, 'Student is not in this exam session.')
+        return redirect('examiner:station_dashboard', assignment_id=assignment_id)
+
+    # Get or create station score
+    score = StationScore.objects.filter(
+        session_student=student,
+        station_id=assignment.station_id,
+        examiner=request.user,
+    ).first()
+
+    if not score:
+        score = StationScore.objects.create(
+            session_student=student,
+            station_id=assignment.station_id,
+            examiner=request.user,
+            max_score=assignment.station.get_max_score() if assignment.station else 0,
+            started_at=TimestampMixin.utc_timestamp(),
+            status='in_progress',
+        )
+
+    # Saved item scores
+    saved_item_scores = {}
+    for is_obj in ItemScore.objects.filter(station_score=score):
+        saved_item_scores[is_obj.checklist_item_id] = {
+            'score': is_obj.score,
+            'max_points': is_obj.max_points,
+            'notes': is_obj.notes,
+        }
+
+    review_mode = score.status == 'submitted'
+    duration = assignment.station.duration_minutes if assignment.station else 8
+
+    return render(request, 'examiner/Dry_marking.html', {
+        'assignment': assignment,
+        'student': student,
+        'score': score,
+        'saved_item_scores_json': json.dumps(saved_item_scores),
+        'max_score': assignment.station.get_max_score() if assignment.station else 0,
+        'duration': duration,
+        'review_mode': review_mode,
+        'within_undo_window': False,
+        'score_status': score.status,
+        'saved_comments': score.comments or '',
     })

@@ -66,8 +66,10 @@ urlpatterns = [
 
     # ── Stations ───────────────────────────────────────────────────────────
     path('paths/<uuid:path_id>/stations/new/', stations.station_create, name='station_create'),
+    path('paths/<uuid:path_id>/stations/new-dry/', stations.station_create_dry, name='station_create_dry'),
     path('stations/<uuid:station_id>/', stations.station_detail, name='station_detail'),
     path('stations/<uuid:station_id>/edit/', stations.station_edit, name='station_edit'),
+    path('stations/<uuid:station_id>/edit-dry/', stations.station_edit_dry, name='station_edit_dry'),
     path('stations/<uuid:station_id>/delete/', stations.station_delete, name='station_delete'),
 
     # ── Checklist Library ──────────────────────────────────────────────────

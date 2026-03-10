@@ -1,0 +1,1873 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}{% if station %}Edit Station{% else %}New Station{% endif %} - OSCE Creator{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Station Builder - Original Design */
+    .station-builder {
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    
+    .builder-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+    
+    .builder-card-header {
+        background: linear-gradient(135deg, #03903e 0%, #12ca71 100%);
+        color: white;
+        padding: 1rem 1.5rem;
+    }
+    
+    .builder-card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Checklist Item Card */
+    .checklist-item-card {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1rem 1rem 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .checklist-item-card:hover {
+        border-color: #0d6efd;
+        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.15);
+    }
+    
+    .checklist-item-card.dragging {
+        opacity: 0.5;
+        border-style: dashed;
+    }
+    
+    .item-number-badge {
+        position: absolute;
+        top: -10px;
+        left: 12px;
+        background: #0d6efd;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .item-drag-handle {
+        cursor: grab;
+        color: #adb5bd;
+        padding: 0.6rem;
+        margin-right: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        min-height: 36px;
+        border-radius: 8px;
+        user-select: none;
+    }
+    
+    .item-drag-handle:active {
+        cursor: grabbing;
+    }
+
+    .item-drag-handle:hover {
+        background: rgba(13, 110, 253, 0.08);
+        color: #0d6efd;
+    }
+    
+    .item-description-input {
+        border: none;
+        background: transparent;
+        font-size: 1rem;
+        width: 100%;
+        padding: 0.5rem 0;
+    }
+    
+    .item-description-input:focus {
+        outline: none;
+        border-bottom: 2px solid #0d6efd;
+    }
+    
+    /* Item Options Grid */
+    .item-options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    @media (max-width: 768px) {
+        .item-options-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .option-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .option-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        white-space: nowrap;
+        min-width: 50px;
+    }
+    
+    /* Points Quick Select */
+    .points-quick-select {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    
+    .points-chip {
+        padding: 4px 10px;
+        border: 1px solid #dee2e6;
+        background: white;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.15s;
+    }
+    
+    .points-chip:hover {
+        background: #e9ecef;
+    }
+    
+    .points-chip.active {
+        background: #198754;
+        color: white;
+        border-color: #198754;
+    }
+    
+    .points-custom-input {
+        width: 55px;
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        text-align: center;
+    }
+    
+    /* Question Type Selector */
+    .question-type-select {
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: white;
+        min-width: 170px;
+    }
+    
+    /* ILO Selector */
+    .ilo-select {
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: white;
+        flex: 1;
+        max-width: 200px;
+    }
+    
+    /* MCQ Editor */
+    .mcq-editor {
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: #f0f7ff;
+        border: 1px solid #b6d4fe;
+        border-radius: 8px;
+    }
+
+    .mcq-option-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        margin-bottom: 6px;
+        transition: border-color 0.15s, background 0.15s;
+        background: white;
+    }
+    .mcq-option-row:hover {
+        border-color: #ced4da;
+    }
+    .mcq-option-row.correct {
+        border-color: #198754;
+        background: #f0fff4;
+    }
+    .option-correct-indicator {
+        font-size: 1.1rem;
+        color: #ced4da;
+        flex-shrink: 0;
+        transition: color 0.15s;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+    }
+    .option-correct-indicator:hover {
+        color: #198754;
+    }
+    .mcq-option-row.correct .option-correct-indicator {
+        color: #198754;
+    }
+    .option-letter {
+        min-width: 22px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #6c757d;
+        flex-shrink: 0;
+    }
+    .mcq-option-row.correct .option-letter {
+        color: #198754;
+    }
+    .mcq-option-input {
+        font-size: 0.85rem;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding-left: 2px !important;
+        flex-grow: 1;
+    }
+    .mcq-option-input:focus {
+        outline: 2px solid #86b7fe;
+        border-radius: 4px;
+        background: white !important;
+    }
+    .correct-badge {
+        display: none;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #198754;
+        white-space: nowrap;
+        padding: 2px 7px;
+        background: #d1fae5;
+        border-radius: 20px;
+        flex-shrink: 0;
+    }
+    .mcq-option-row.correct .correct-badge {
+        display: inline-block;
+    }
+    .remove-option-btn {
+        flex-shrink: 0;
+        color: #adb5bd;
+        border: none;
+        background: transparent;
+        padding: 2px 5px;
+        border-radius: 4px;
+        line-height: 1;
+        transition: color 0.15s;
+    }
+    .remove-option-btn:hover {
+        color: #dc3545;
+    }
+    .add-option-btn {
+        font-size: 0.75rem;
+        padding: 3px 10px;
+    }
+    
+    /* Essay Editor */
+    .essay-editor {
+        display: none;
+        margin-top: 8px;
+        padding: 10px;
+        background: #f0fff4;
+        border: 1px solid #a3cfbb;
+        border-radius: 6px;
+    }
+    
+    .essay-editor.visible {
+        display: block;
+    }
+    
+    .essay-key-answer {
+        width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 0.85rem;
+        resize: vertical;
+        min-height: 60px;
+        background: white;
+    }
+    
+    .essay-key-answer:focus {
+        outline: none;
+        border-color: #198754;
+        box-shadow: 0 0 0 2px rgba(25,135,84,0.15);
+    }
+    
+    /* Item Action Buttons */
+    .item-actions {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        gap: 4px;
+    }
+    
+    .item-action-btn {
+        background: none;
+        border: none;
+        padding: 0.25rem 0.4rem;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    
+    .item-action-btn:hover {
+        opacity: 1;
+        background: rgba(0,0,0,0.08);
+    }
+    
+    .item-action-btn.duplicate-btn {
+        color: #0d6efd;
+    }
+    
+    .item-action-btn.duplicate-btn:hover {
+        background: rgba(13, 110, 253, 0.1);
+    }
+    
+    .item-action-btn.delete-btn {
+        color: #dc3545;
+    }
+    
+    .item-action-btn.delete-btn:hover {
+        background: rgba(220, 53, 69, 0.1);
+    }
+
+    .item-action-btn.fold-btn {
+        color: #6c757d;
+    }
+    .item-action-btn.fold-btn:hover {
+        background: rgba(108, 117, 125, 0.1);
+    }
+    .item-action-btn.fold-btn .bi {
+        transition: transform 0.2s ease;
+        display: inline-block;
+    }
+    .checklist-item-card.collapsed .item-action-btn.fold-btn .bi {
+        transform: rotate(180deg);
+    }
+    /* Collapsible item body */
+    .checklist-item-card.collapsed .item-body {
+        display: none;
+    }
+    
+    /* Section Header */
+    .section-header-card {
+        background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        margin-top: 1rem;
+        position: relative;
+        cursor: grab;
+    }
+    
+    .section-header-card:first-child {
+        margin-top: 0;
+    }
+    
+    .section-header-card:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .section-header-card.dragging {
+        opacity: 0.5;
+    }
+    
+    .section-header-card .section-title-input {
+        background: transparent;
+        border: none;
+        border-bottom: 1px dashed rgba(255,255,255,0.4);
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        width: 100%;
+        padding: 0.25rem 0;
+    }
+    
+    .section-header-card .section-title-input::placeholder {
+        color: rgba(255,255,255,0.6);
+    }
+    
+    .section-header-card .section-title-input:focus {
+        outline: none;
+        border-bottom: 2px solid white;
+    }
+    
+    .section-header-card .item-actions {
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    
+    .section-header-card .item-action-btn {
+        color: rgba(255,255,255,0.7);
+    }
+    
+    .section-header-card .item-action-btn:hover {
+        color: white;
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .section-header-card .item-drag-handle {
+        color: rgba(255,255,255,0.5);
+    }
+    
+    /* Add Section Button */
+    .add-section-btn {
+        background: #495057;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+    
+    .add-section-btn:hover {
+        background: #343a40;
+    }
+
+    /* Image Upload Zone */
+    .img-upload-zone {
+        margin: 8px 0 4px 0;
+        border: 2px dashed #d0d7de;
+        border-radius: 10px;
+        min-height: 74px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.8rem;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 14px;
+        background: #f8f9fa;
+    }
+    .img-upload-zone:hover {
+        border-color: #0d6efd;
+        background: #f0f7ff;
+        color: #0d6efd;
+    }
+    .img-upload-zone.drag-over {
+        border-color: #0d6efd;
+        background: #e8f2ff;
+        box-shadow: 0 0 0 3px rgba(13,110,253,.12);
+    }
+    .img-upload-zone.has-image {
+        border-color: #198754;
+        background: #f0fff4;
+        cursor: default;
+        min-height: unset;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+    }
+    /* Placeholder (empty state) */
+    .img-zone-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        pointer-events: none;
+        text-align: center;
+    }
+    .img-zone-placeholder .zone-icon { font-size: 1.5rem; opacity: 0.45; }
+    .img-zone-placeholder .zone-text { font-size: 0.8rem; font-weight: 600; color: #495057; }
+    .img-zone-placeholder .zone-hint { font-size: 0.7rem; color: #adb5bd; margin-top: 1px; }
+    .has-image .img-zone-placeholder { display: none; }
+    /* Preview (filled state) */
+    .img-preview-main {
+        display: none;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+    }
+    .has-image .img-preview-main { display: flex; }
+    .img-preview-thumb {
+        width: 80px;
+        height: 64px;
+        object-fit: contain;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        flex-shrink: 0;
+        background: #fff;
+        display: block;
+    }
+    .img-preview-details {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .img-preview-name {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #212529;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .img-preview-dims { font-size: 0.7rem; color: #6c757d; }
+    .img-preview-actions { display: flex; gap: 6px; margin-top: 5px; }
+    .img-preview-actions button {
+        font-size: 0.72rem;
+        padding: 3px 10px;
+        border-radius: 5px;
+        border: 1.5px solid;
+        background: white;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.15s;
+    }
+    .replace-img-btn { border-color: #0d6efd; color: #0d6efd; }
+    .replace-img-btn:hover { background: #0d6efd; color: white; }
+    .remove-img-btn { border-color: #dc3545; color: #dc3545; }
+    .remove-img-btn:hover { background: #dc3545; color: white; }
+    .img-upload-error {
+        font-size: 0.73rem;
+        color: #842029;
+        margin-top: 5px;
+        display: none;
+        padding: 5px 8px;
+        background: #fff5f5;
+        border-radius: 6px;
+        border: 1px solid #f5c2c7;
+    }
+    
+    /* Add Item Button */
+    .add-item-btn {
+        width: 100%;
+        padding: 1rem;
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        background: transparent;
+        color: #6c757d;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    
+    .add-item-btn:hover {
+        border-color: #0d6efd;
+        color: #0d6efd;
+        background: rgba(13, 110, 253, 0.05);
+    }
+    
+    /* Quick Add Section */
+    .quick-add-section {
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Summary Footer */
+    .builder-summary {
+        background: #e7f1ff;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #b6d4fe;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .summary-stat {
+        text-align: center;
+    }
+    
+    .summary-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+    
+    .summary-stat-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+
+    /* Validation flash toast */
+    #validationToast {
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-12px);
+        z-index: 9999;
+        min-width: 300px;
+        max-width: 90vw;
+        text-align: center;
+        border-radius: 10px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #validationToast.vt-show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        pointer-events: auto;
+    }
+    .field-invalid {
+        outline: 2px solid #dc3545 !important;
+        border-color: #dc3545 !important;
+        border-radius: 4px;
+        animation: shake 0.35s ease;
+    }
+    @keyframes shake {
+        0%,100%{transform:translateX(0)}
+        25%{transform:translateX(-6px)}
+        75%{transform:translateX(6px)}
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+            {% if path %}
+            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' path.session_id %}">Session</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:path_detail' path.id %}">Path {{ path.name }}</a></li>
+            {% endif %}
+            <li class="breadcrumb-item active">{% if station %}Edit{% else %}New{% endif %} Station</li>
+        </ol>
+    </nav>
+</div>
+
+<form method="POST" id="stationForm" enctype="multipart/form-data">
+    {% csrf_token %}
+<div class="station-builder">
+    
+    <!-- Station Info Card -->
+    <div class="builder-card">
+        <div class="builder-card-header">  
+            <h5 class="mb-0">
+                <i class="bi bi-info-circle me-2"></i>Dry Station Details
+            </h5>
+        </div>
+        <div class="builder-card-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label fw-bold">Station Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-lg" name="name" 
+                           value="{% if station %}{{ station.name }}{% endif %}"
+                           placeholder="e.g., Cardiovascular Examination" required>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Scenario </label>
+                    <textarea class="form-control" name="scenario" rows="2"
+                              placeholder="Describe the clinical scenario...">{% if station %}{{ station.scenario }}{% endif %}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Examiner Instructions</label>
+                    <textarea class="form-control" name="instructions" rows="2"
+                              placeholder="Notes for the examiner...">{% if station %}{{ station.instructions }}{% endif %}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Checklist Items Card -->
+    <div class="builder-card">
+        <div class="builder-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-2">
+                <i class="bi bi-list-check me-2"></i>Checklist Items
+            </h5>
+            <span class="badge bg-white text-primary" id="itemCountBadge">0 items</span>
+        </div>
+        <div class="builder-card-body">
+            
+            <!-- Quick Add Textarea -->
+            <div class="quick-add-section">
+                <label class="form-label fw-bold mb-2">
+                    <i class="bi bi-lightning-charge me-1"></i>Quick Add (paste multiple items)
+                </label>
+                <textarea class="form-control mb-2" id="quickAddText" rows="3"
+                          placeholder="Paste checklist items here, one per line..."></textarea>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <button type="button" class="btn btn-warning btn-sm" onclick="quickAddItems()">
+                        <i class="bi bi-plus-lg me-1"></i>Add All Lines
+                    </button>
+                    <small class="text-muted">Default: MCQ</small>
+                </div>
+            </div>
+            
+            <!-- Add Item Button -->
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="add-item-btn flex-grow-1" onclick="addNewItem()">
+                    <i class="bi bi-plus-circle fs-5"></i>
+                    <span>Add Checklist Item</span>
+                </button>
+                <button type="button" class="add-section-btn" onclick="addSection()">
+                    <i class="bi bi-folder-plus me-1"></i>Add Section
+                </button>
+            </div>
+            
+            <!-- Checklist Items Container -->
+            <div id="checklistContainer">
+                <!-- Items will be added here dynamically -->
+            </div>
+            
+        </div>
+        
+        <!-- Summary Footer -->
+        <div class="builder-summary">
+            <div class="summary-stat">
+                <div class="summary-stat-value" id="totalItems">0</div>
+                <div class="summary-stat-label">Items</div>
+            </div>
+            <div class="summary-stat">
+                <div class="summary-stat-value" id="totalPoints">0</div>
+                <div class="summary-stat-label">Max Points</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="d-flex justify-content-between align-items-center">
+        <a href="{{ cancel_url }}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-arrow-left me-1"></i>Cancel
+        </a>
+        <div>
+            <button type="button" class="btn btn-outline-primary btn-lg me-2" onclick="previewChecklist()">
+                <i class="bi bi-eye me-1"></i>Preview
+            </button>
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                <i class="bi bi-check-lg me-1"></i>
+                {% if station %}Update Station{% else %}Create Station{% endif %}
+            </button>
+        </div>
+    </div>
+    
+</div>
+
+<!-- Hidden input to store checklist data -->
+<input type="hidden" name="checklist_data" id="checklistDataInput">
+</form>
+
+<!-- Validation Flash Toast -->
+<div id="validationToast" class="alert alert-danger shadow" role="alert">
+    <i class="bi bi-exclamation-circle-fill me-2"></i>
+    <span id="validationToastMsg"></span>
+</div>
+
+<!-- Item Template -->
+<template id="itemTemplate">
+    <div class="checklist-item-card" data-type="item">
+        <span class="item-number-badge">1</span>
+        <div class="item-actions">
+            <button type="button" class="item-action-btn fold-btn" onclick="toggleItemFold(this)" title="Collapse/expand">
+                <i class="bi bi-chevron-up"></i>
+            </button>
+            <button type="button" class="item-action-btn duplicate-btn" onclick="duplicateItem(this)" title="Duplicate item">
+                <i class="bi bi-files"></i>
+            </button>
+            <button type="button" class="item-action-btn delete-btn" onclick="deleteItem(this)" title="Remove item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        
+        <div class="d-flex align-items-start">
+            <span class="item-drag-handle" title="Drag to reorder">
+                <i class="bi bi-grip-vertical fs-5"></i>
+            </span>
+            
+            <div class="flex-grow-1">
+                <input type="text" class="item-description-input" 
+                       placeholder="Enter checklist item description..."
+                       onchange="updateSummary()">
+
+                <div class="item-body">
+                <!-- Image Upload Zone (optional) -->
+                <div class="img-upload-zone" role="button" tabindex="0"
+                     onclick="triggerImageUpload(this)"
+                     onkeydown="if(event.key==='Enter'||event.key===' ')triggerImageUpload(this)"
+                     ondragover="event.preventDefault();this.classList.add('drag-over')"
+                     ondragleave="this.classList.remove('drag-over')"
+                     ondrop="handleImageDrop(this,event)">
+                    <span class="img-zone-placeholder">
+                        <i class="bi bi-image zone-icon"></i>
+                        <span class="zone-text">Supporting image <span class="text-muted fw-normal">(optional)</span></span>
+                        <span class="zone-hint">Click or drag &amp; drop · JPEG, PNG, WebP · max 2 MB</span>
+                    </span>
+                    <div class="img-preview-main">
+                        <img class="img-preview-thumb" src="" alt="Preview">
+                        <div class="img-preview-details">
+                            <span class="img-preview-name"></span>
+                            <span class="img-preview-dims"></span>
+                            <div class="img-preview-actions">
+                                <button type="button" class="replace-img-btn"
+                                        onclick="event.stopPropagation();replaceImage(this)">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Replace
+                                </button>
+                                <button type="button" class="remove-img-btn"
+                                        onclick="event.stopPropagation();removeImage(this)">
+                                    <i class="bi bi-trash me-1"></i>Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="img-upload-error"></div>
+                <input type="file" class="img-file-input" style="display:none"
+                       accept=".jpg,.jpeg,.png,.webp" onchange="handleImageChange(this)">
+                
+                <div class="item-options-grid">
+                    <!-- Question Type (LEFT) -->
+                    <div class="option-group">
+                        <span class="option-label">Type:</span>
+                        <select class="question-type-select" onchange="updateQuestionType(this)">
+                            <option value="mcq">&#10067; MCQ</option>
+                            <option value="essay">&#128221; Essay / Answer Box</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Points (RIGHT) -->
+                    <div class="option-group">
+                        <span class="option-label">Points:</span>
+                        <div class="points-quick-select">
+                            <span class="points-chip" data-pts="0.5" onclick="setPoints(this, 0.5)">0.5</span>
+                            <span class="points-chip" data-pts="0.75" onclick="setPoints(this, 0.75)">0.75</span>
+                            <span class="points-chip" data-pts="1" onclick="setPoints(this, 1)">1</span>
+                            <span class="points-chip" data-pts="2" onclick="setPoints(this, 2)">2</span>
+                            <span class="points-chip" data-pts="3" onclick="setPoints(this, 3)">3</span>
+                            <input type="number" class="points-custom-input" placeholder="custom" 
+                                   min="0" max="20" step="0.25" oninput="setCustomPoints(this)" onchange="setCustomPoints(this)">
+                        </div>
+                    </div>
+                    
+                    <!-- ILO -->
+                    <div class="option-group">
+                        <span class="option-label">ILO:</span>
+                        <select class="ilo-select">
+                            <option value="">— None —</option>
+                            {% for ilo in ilos %}
+                            <option value="{{ ilo.id }}">{{ ilo.number }}. {{ ilo.description|truncatechars:43 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- MCQ Editor -->
+                <div class="mcq-editor">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="fw-bold text-primary"><i class="bi bi-list-ol me-1"></i>Answer Options <span class="text-muted fw-normal">— click a row to mark correct</span></small>
+                        <button type="button" class="btn btn-outline-primary add-option-btn" onclick="addMcqOption(this)">
+                            <i class="bi bi-plus-sm"></i> Add Option
+                        </button>
+                    </div>
+                    <div class="mcq-options-list">
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">A.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option A...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">B.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option B...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">C.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option C...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">D.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option D...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Essay Editor -->
+                <div class="essay-editor">
+                    <small class="fw-bold text-success d-block mb-1"><i class="bi bi-key me-1"></i>Key Answer <span class="text-muted fw-normal">(model answer for marking)</span></small>
+                    <textarea class="essay-key-answer" placeholder="Enter the expected model answer..."></textarea>
+                </div>
+                </div><!-- /.item-body -->
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Section Template -->
+<template id="sectionTemplate">
+    <div class="section-header-card" data-type="section">
+        <div class="item-actions">
+            <button type="button" class="item-action-btn delete-btn" onclick="deleteSection(this)" title="Remove section">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="item-drag-handle me-2" title="Drag to reorder">
+                <i class="bi bi-grip-vertical fs-5"></i>
+            </span>
+            <i class="bi bi-folder me-2"></i>
+            <input type="text" class="section-title-input" placeholder="Section name (e.g., History Taking)">
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Question type handlers
+function updateQuestionType(select) {
+    const card = select.closest('.checklist-item-card');
+    const mcqEditor = card.querySelector('.mcq-editor');
+    const essayEditor = card.querySelector('.essay-editor');
+    if (select.value === 'mcq') {
+        mcqEditor.style.display = '';
+        essayEditor.classList.remove('visible');
+    } else {
+        mcqEditor.style.display = 'none';
+        essayEditor.classList.add('visible');
+    }
+}
+
+function selectCorrect(row) {
+    const card = row.closest('.checklist-item-card');
+    card.querySelectorAll('.mcq-option-row').forEach(r => {
+        r.classList.remove('correct');
+        r.querySelector('.mcq-correct-radio').checked = false;
+        r.querySelector('.option-correct-indicator i').className = 'bi bi-circle';
+    });
+    row.classList.add('correct');
+    row.querySelector('.mcq-correct-radio').checked = true;
+    row.querySelector('.option-correct-indicator i').className = 'bi bi-check-circle-fill';
+}
+
+function fixMcqRadioNames(card) {
+    const id = card.dataset.itemId;
+    card.querySelectorAll('.mcq-correct-radio').forEach((radio, i) => {
+        radio.name = `mcq_correct_${id}`;
+        radio.value = i;
+        // Sync .correct class and icon with checked state
+        const row = radio.closest('.mcq-option-row');
+        if (radio.checked) {
+            row.classList.add('correct');
+            row.querySelector('.option-correct-indicator i').className = 'bi bi-check-circle-fill';
+        } else {
+            row.classList.remove('correct');
+            row.querySelector('.option-correct-indicator i').className = 'bi bi-circle';
+        }
+    });
+    updateOptionLetters(card);
+}
+
+function updateOptionLetters(card) {
+    card.querySelectorAll('.mcq-option-row').forEach((row, i) => {
+        row.querySelector('.option-letter').textContent = String.fromCharCode(65 + i) + '.';
+    });
+}
+
+function addMcqOption(btn) {
+    const card = btn.closest('.checklist-item-card');
+    const list = card.querySelector('.mcq-options-list');
+    const count = list.querySelectorAll('.mcq-option-row').length;
+    if (count >= 6) return;
+    const letter = String.fromCharCode(65 + count);
+    const id = card.dataset.itemId;
+    const row = document.createElement('div');
+    row.className = 'mcq-option-row';
+    row.innerHTML = `
+        <input type="radio" class="mcq-correct-radio" style="display:none" name="mcq_correct_${id}" value="${count}">
+        <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+        <span class="option-letter">${letter}.</span>
+        <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option ${letter}...">
+        <span class="correct-badge">✓ Correct</span>
+        <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+    `;
+    list.appendChild(row);
+}
+
+function removeMcqOption(btn) {
+    const card = btn.closest('.checklist-item-card');
+    const list = card.querySelector('.mcq-options-list');
+    if (list.querySelectorAll('.mcq-option-row').length <= 2) return;
+    btn.closest('.mcq-option-row').remove();
+    fixMcqRadioNames(card);
+}
+
+function getMcqData(card) {
+    const options = [];
+    let correctIndex = -1;
+    card.querySelectorAll('.mcq-option-row').forEach((row, i) => {
+        options.push(row.querySelector('.mcq-option-input').value.trim());
+        if (row.querySelector('.mcq-correct-radio').checked) correctIndex = i;
+    });
+    return { options, correct_index: correctIndex };
+}
+
+function getKeyAnswer(card) {
+    const ta = card.querySelector('.essay-key-answer');
+    return ta ? ta.value.trim() : '';
+}
+
+let itemCounter = 0;
+let sectionCounter = 0;
+
+function addSection(title = '') {
+    const container = document.getElementById('checklistContainer');
+    const template = document.getElementById('sectionTemplate');
+    const clone = template.content.cloneNode(true);
+    
+    sectionCounter++;
+    const sectionCard = clone.querySelector('.section-header-card');
+    sectionCard.dataset.sectionId = sectionCounter;
+    
+    const titleInput = clone.querySelector('.section-title-input');
+    titleInput.value = title;
+    
+    container.appendChild(clone);
+    
+    const addedSection = container.lastElementChild;
+    setupDragDrop(addedSection);
+    
+    if (!title) {
+        addedSection.querySelector('.section-title-input').focus();
+    }
+}
+
+function deleteSection(btn) {
+    const card = btn.closest('.section-header-card');
+    card.style.transform = 'translateX(100%)';
+    card.style.opacity = '0';
+    setTimeout(() => { card.remove(); }, 200);
+}
+
+function addNewItem(description = '', points = null, qtype = 'mcq', iloId = '', mcqOptions = null, correctIndex = -1, keyAnswer = '', imageUrl = null, dbId = null, startCollapsed = false) {
+    const container = document.getElementById('checklistContainer');
+    const template = document.getElementById('itemTemplate');
+    const clone = template.content.cloneNode(true);
+    
+    itemCounter++;
+    const itemCard = clone.querySelector('.checklist-item-card');
+    itemCard.dataset.itemId = itemCounter;
+    if (dbId) itemCard.dataset.dbId = String(dbId);
+    // Assign a unique name to this item's file input
+    const imgFileInput = clone.querySelector('.img-file-input');
+    if (imgFileInput) imgFileInput.name = 'item_image_' + itemCounter;
+    
+    const descInput = clone.querySelector('.item-description-input');
+    descInput.value = description;
+    
+    const pointsChips = clone.querySelectorAll('.points-chip');
+    let pointsSet = false;
+    pointsChips.forEach(chip => {
+        chip.classList.remove('active');
+        if (points !== null && parseFloat(chip.dataset.pts) === points) {
+            chip.classList.add('active');
+            pointsSet = true;
+        }
+    });
+    if (!pointsSet && points !== null && points !== undefined) {
+        clone.querySelector('.points-custom-input').value = points;
+    }
+    
+    clone.querySelector('.question-type-select').value = qtype;
+    clone.querySelector('.ilo-select').value = iloId || '';
+    
+    container.appendChild(clone);
+    
+    const addedCard = container.lastElementChild;
+    if (startCollapsed) {
+        addedCard.classList.add('collapsed');
+    }
+    
+    // Set radio button group names
+    fixMcqRadioNames(addedCard);
+    
+    // Apply question type visibility
+    const typeSelect = addedCard.querySelector('.question-type-select');
+    updateQuestionType(typeSelect);
+    
+    // Restore MCQ options if provided
+    if (qtype === 'mcq' && mcqOptions && mcqOptions.length > 0) {
+        const list = addedCard.querySelector('.mcq-options-list');
+        list.innerHTML = '';
+        mcqOptions.forEach((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            const isCorrect = i === correctIndex;
+            const row = document.createElement('div');
+            row.className = 'mcq-option-row' + (isCorrect ? ' correct' : '');
+            row.innerHTML = `
+                <input type="radio" class="mcq-correct-radio" style="display:none"
+                       name="mcq_correct_${itemCounter}" value="${i}"
+                       ${isCorrect ? 'checked' : ''}>
+                <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-${isCorrect ? 'check-circle-fill' : 'circle'}"></i></span>
+                <span class="option-letter">${letter}.</span>
+                <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option ${letter}..." value="${opt.replace(/"/g, '&quot;')}">
+                <span class="correct-badge">✓ Correct</span>
+                <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+            `;
+            list.appendChild(row);
+        });
+    } else if (qtype === 'mcq') {
+        // Default 4 options — fix radio names
+        fixMcqRadioNames(addedCard);
+    }
+    
+    // Restore essay key answer if provided
+    if (qtype === 'essay' && keyAnswer) {
+        addedCard.querySelector('.essay-key-answer').value = keyAnswer;
+    }
+    
+    setupDragDrop(addedCard);
+    
+    // Restore existing image preview when editing a station
+    if (imageUrl) {
+        showImagePreview(addedCard, imageUrl, 'Existing image', null, null);
+    }
+    
+    if (!description) {
+        addedCard.querySelector('.item-description-input').focus();
+    }
+    
+    renumberItems();
+    updateSummary();
+}
+
+function deleteItem(btn) {
+    const card = btn.closest('.checklist-item-card');
+    card.style.transform = 'translateX(100%)';
+    card.style.opacity = '0';
+    setTimeout(() => {
+        card.remove();
+        renumberItems();
+        updateSummary();
+    }, 200);
+}
+
+function toggleItemFold(btn) {
+    btn.closest('.checklist-item-card').classList.toggle('collapsed');
+}
+
+function duplicateItem(btn) {
+    const card = btn.closest('.checklist-item-card');
+    
+    const description = card.querySelector('.item-description-input').value;
+    const points = getItemPoints(card);
+    const qtype = card.querySelector('.question-type-select').value;
+    const iloId = card.querySelector('.ilo-select').value;
+    const mcqData = qtype === 'mcq' ? getMcqData(card) : null;
+    const keyAnswer = qtype === 'essay' ? getKeyAnswer(card) : '';
+    
+    const container = document.getElementById('checklistContainer');
+    const cards = Array.from(container.querySelectorAll('.checklist-item-card'));
+    const currentIndex = cards.indexOf(card);
+    
+    addNewItem(
+        description, points, qtype, iloId,
+        mcqData ? mcqData.options : null,
+        mcqData ? mcqData.correct_index : -1,
+        keyAnswer
+    );
+    
+    const newCard = container.lastElementChild;
+    const nextCard = cards[currentIndex + 1];
+    if (nextCard) {
+        container.insertBefore(newCard, nextCard);
+    }
+    
+    newCard.style.backgroundColor = '#d1e7dd';
+    setTimeout(() => { newCard.style.backgroundColor = ''; }, 500);
+    
+    newCard.querySelector('.item-description-input').focus();
+    newCard.querySelector('.item-description-input').select();
+    
+    renumberItems();
+}
+
+function quickAddItems() {
+    const textarea = document.getElementById('quickAddText');
+    const lines = textarea.value.split('\n').filter(line => line.trim());
+    
+    lines.forEach(line => {
+        addNewItem(line.trim(), null, 'mcq', '');
+    });
+    
+    textarea.value = '';
+}
+
+function setPoints(chip, value) {
+    const card = chip.closest('.checklist-item-card');
+    card.querySelectorAll('.points-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    card.querySelector('.points-custom-input').value = '';
+    updateSummary();
+}
+
+function setCustomPoints(input) {
+    const card = input.closest('.checklist-item-card');
+    card.querySelectorAll('.points-chip').forEach(c => c.classList.remove('active'));
+    updateSummary();
+}
+
+function getItemPoints(card) {
+    const activeChip = card.querySelector('.points-chip.active');
+    if (activeChip) {
+        return parseFloat(activeChip.dataset.pts);
+    }
+    const customInput = card.querySelector('.points-custom-input');
+    const customVal = parseFloat(customInput.value);
+    return isNaN(customVal) ? null : customVal;
+}
+
+function renumberItems() {
+    let itemNum = 0;
+    document.querySelectorAll('#checklistContainer > div').forEach((card) => {
+        if (card.dataset.type === 'item') {
+            itemNum++;
+            card.querySelector('.item-number-badge').textContent = itemNum;
+        }
+    });
+}
+
+function updateSummary() {
+    const items = document.querySelectorAll('.checklist-item-card');
+    let totalPoints = 0;
+    items.forEach(item => { totalPoints += getItemPoints(item); });
+    document.getElementById('totalItems').textContent = items.length;
+    document.getElementById('totalPoints').textContent = totalPoints % 1 === 0 ? totalPoints : totalPoints.toFixed(2);
+    document.getElementById('itemCountBadge').textContent = `${items.length} items`;
+}
+
+// ── Image Upload ──────────────────────────────────────────────────────────────
+
+function triggerImageUpload(zone) {
+    if (zone.classList.contains('has-image')) return; // Use Replace button instead
+    const card = zone.closest('.checklist-item-card');
+    if (!card) return;
+    card.querySelector('.img-file-input').click();
+}
+
+function handleImageChange(fileInput) {
+    const card = fileInput.closest('.checklist-item-card');
+    const errorEl = card.querySelector('.img-upload-error');
+    const file = fileInput.files[0];
+
+    errorEl.style.display = 'none';
+    if (!file) return;
+
+    // Client-side validation mirrors backend
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        errorEl.textContent = 'Only JPEG, PNG, or WebP files are allowed.';
+        errorEl.style.display = 'block';
+        fileInput.value = '';
+        return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+        errorEl.textContent = `File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 2 MB.`;
+        errorEl.style.display = 'block';
+        fileInput.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            if (img.width < 100 || img.height < 100) {
+                errorEl.textContent = `Image too small (${img.width}×${img.height}px). Minimum 100×100px.`;
+                errorEl.style.display = 'block';
+                fileInput.value = '';
+                return;
+            }
+            if (img.width > 4000 || img.height > 4000) {
+                errorEl.textContent = `Image too large (${img.width}×${img.height}px). Maximum 4000×4000px.`;
+                errorEl.style.display = 'block';
+                fileInput.value = '';
+                return;
+            }
+            showImagePreview(card, e.target.result, file.name, img.width, img.height);
+            // Clear any "image removed" flag
+            delete card.dataset.imageRemoved;
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function showImagePreview(card, src, name, w, h) {
+    // Extract filename from URL for existing images (no dimensions provided)
+    if (!w && !h) {
+        try {
+            const urlPath = src.split('?')[0];
+            const extracted = decodeURIComponent(urlPath.split('/').pop());
+            if (extracted) name = extracted;
+        } catch(e) {}
+    }
+    const zone = card.querySelector('.img-upload-zone');
+    zone.querySelector('.img-preview-thumb').src = src;
+    zone.querySelector('.img-preview-name').textContent = name;
+    zone.querySelector('.img-preview-dims').textContent = (w && h) ? `${w} × ${h} px` : '';
+    zone.classList.add('has-image');
+    zone.style.cursor = 'default';
+}
+
+function handleImageDrop(zone, e) {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (zone.classList.contains('has-image')) return;
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const card = zone.closest('.checklist-item-card');
+    if (!card) return;
+    try {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const fileInput = card.querySelector('.img-file-input');
+        fileInput.files = dt.files;
+        handleImageChange(fileInput);
+    } catch(err) {
+        // DataTransfer not supported (older browsers) — ignore silently
+    }
+}
+
+function replaceImage(btn) {
+    const card = btn.closest('.checklist-item-card');
+    const zone = card.querySelector('.img-upload-zone');
+    zone.classList.remove('has-image');
+    zone.style.cursor = '';
+    card.querySelector('.img-file-input').click();
+}
+
+function removeImage(btn) {
+    const card = btn.closest('.checklist-item-card');
+    const zone = card.querySelector('.img-upload-zone');
+    zone.querySelector('.img-preview-thumb').src = '';
+    zone.querySelector('.img-preview-name').textContent = '';
+    zone.querySelector('.img-preview-dims').textContent = '';
+    zone.classList.remove('has-image');
+    card.querySelector('.img-file-input').value = '';
+    card.dataset.imageRemoved = 'true';
+    delete card.dataset.dbId; // Don't restore old image
+}
+
+// ── Drag and Drop ─────────────────────────────────────────────────────────────
+function setupDragDrop(element) {
+    element.draggable = true;
+    element.dataset.dragReady = '0';
+
+    const dragHandle = element.querySelector('.item-drag-handle');
+    if (dragHandle) {
+        dragHandle.addEventListener('pointerdown', () => {
+            element.dataset.dragReady = '1';
+        });
+    }
+
+    element.addEventListener('pointerup', () => {
+        element.dataset.dragReady = '0';
+    });
+    element.addEventListener('pointercancel', () => {
+        element.dataset.dragReady = '0';
+    });
+
+    element.addEventListener('dragstart', handleDragStart);
+    element.addEventListener('dragend', handleDragEnd);
+    element.addEventListener('dragover', handleDragOver);
+    element.addEventListener('drop', handleDrop);
+}
+
+let draggedItem = null;
+
+function handleDragStart(e) {
+    if (this.dataset.dragReady !== '1') {
+        e.preventDefault();
+        e.dataTransfer.effectAllowed = 'none';
+        return false;
+    }
+
+    draggedItem = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    this.dataset.dragReady = '0';
+    this.classList.remove('dragging');
+    draggedItem = null;
+    renumberItems();
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    const container = document.getElementById('checklistContainer');
+    const afterElement = getDragAfterElement(container, e.clientY);
+    
+    if (afterElement == null) {
+        container.appendChild(draggedItem);
+    } else {
+        container.insertBefore(draggedItem, afterElement);
+    }
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.checklist-item-card:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// ── Validation helpers ───────────────────────────────────────────────────────
+function showValidationFlash(message, type = 'danger') {
+    const toast = document.getElementById('validationToast');
+    toast.className = `alert alert-${type} shadow`;
+    document.getElementById('validationToastMsg').textContent = message;
+    toast.classList.add('vt-show');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => {
+        toast.classList.remove('vt-show');
+    }, 2000);
+}
+
+function markInvalid(el) {
+    if (!el) return;
+    el.classList.add('field-invalid');
+    const remove = () => {
+        el.classList.remove('field-invalid');
+        ['input', 'change', 'click'].forEach(ev => el.removeEventListener(ev, remove));
+    };
+    ['input', 'change', 'click'].forEach(ev => el.addEventListener(ev, remove));
+}
+
+function markGroupInvalid(container) {
+    if (!container) return;
+    container.classList.add('field-invalid');
+    const remove = () => {
+        container.classList.remove('field-invalid');
+        ['click', 'input', 'change'].forEach(ev => container.removeEventListener(ev, remove));
+    };
+    ['click', 'input', 'change'].forEach(ev => container.addEventListener(ev, remove));
+}
+
+// ── Form Submission ───────────────────────────────────────────────────────
+document.getElementById('stationForm').addEventListener('submit', function(e) {
+    const items = [];
+    let currentSection = null;
+    let itemNumber = 0;
+    const itemCardMap = {};
+
+    const allItemCards = [...document.querySelectorAll('#checklistContainer > div[data-type="item"]')];
+    if (allItemCards.length === 0) {
+        e.preventDefault();
+        showValidationFlash('Add at least one checklist item before saving.');
+        return false;
+    }
+
+    // Description
+    const emptyDescCards = allItemCards.filter(c => !c.querySelector('.item-description-input').value.trim());
+    if (emptyDescCards.length > 0) {
+        e.preventDefault();
+        emptyDescCards.forEach(card => { card.classList.remove('collapsed'); markInvalid(card.querySelector('.item-description-input')); });
+        emptyDescCards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        emptyDescCards[0].querySelector('.item-description-input').focus();
+        showValidationFlash(emptyDescCards.length === 1
+            ? 'Missing description.'
+            : `${emptyDescCards.length} items missing a description.`);
+        return false;
+    }
+
+    // Question type
+    const missingQTypeCards = allItemCards.filter(c => {
+        const q = c.querySelector('.question-type-select');
+        return !q || !String(q.value || '').trim();
+    });
+    if (missingQTypeCards.length > 0) {
+        e.preventDefault();
+        missingQTypeCards.forEach(card => { card.classList.remove('collapsed'); markInvalid(card.querySelector('.question-type-select')); });
+        missingQTypeCards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        missingQTypeCards[0].querySelector('.question-type-select').focus();
+        showValidationFlash(missingQTypeCards.length === 1
+            ? 'Question type is required.'
+            : `${missingQTypeCards.length} items missing a question type.`);
+        return false;
+    }
+
+    // MCQ options
+    const emptyOptCards = allItemCards.filter(c => {
+        if (c.querySelector('.question-type-select').value !== 'mcq') return false;
+        return [...c.querySelectorAll('.mcq-option-input')].some(inp => !inp.value.trim());
+    });
+    if (emptyOptCards.length > 0) {
+        e.preventDefault();
+        emptyOptCards.forEach(card => {
+            card.classList.remove('collapsed');
+            card.querySelectorAll('.mcq-option-input').forEach(inp => { if (!inp.value.trim()) markInvalid(inp); });
+        });
+        emptyOptCards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const firstEmpty = [...emptyOptCards[0].querySelectorAll('.mcq-option-input')].find(inp => !inp.value.trim());
+        if (firstEmpty) firstEmpty.focus();
+        showValidationFlash(emptyOptCards.length === 1
+            ? 'All MCQ options are required.'
+            : `${emptyOptCards.length} items have empty MCQ options.`);
+        return false;
+    }
+
+    // Build items
+    document.querySelectorAll('#checklistContainer > div').forEach((card) => {
+        if (card.dataset.type === 'section') {
+            currentSection = card.querySelector('.section-title-input').value.trim() || null;
+        } else if (card.dataset.type === 'item') {
+            const description = card.querySelector('.item-description-input').value.trim();
+            if (description) {
+                itemNumber++;
+                itemCardMap[itemNumber] = card;
+                const qtype = card.querySelector('.question-type-select').value;
+                const iloId = card.querySelector('.ilo-select').value || null;
+                const itemData = {
+                    item_id: card.dataset.itemId,
+                    db_id: card.dataset.dbId || null,
+                    item_number: itemNumber,
+                    description: description,
+                    points: getItemPoints(card),
+                    scoring_type: qtype,
+                    ilo_id: iloId,
+                    section: currentSection
+                };
+                if (qtype === 'mcq') {
+                    const mcq = getMcqData(card);
+                    itemData.mcq_options = mcq.options;
+                    itemData.correct_index = mcq.correct_index;
+                } else {
+                    itemData.key_answer = getKeyAnswer(card);
+                }
+                items.push(itemData);
+            }
+        }
+    });
+
+    // Points
+    const missingPointsItems = items.filter(item => item.points === null || item.points === undefined);
+    if (missingPointsItems.length > 0) {
+        e.preventDefault();
+        missingPointsItems.forEach(item => {
+            const card = itemCardMap[item.item_number];
+            card.classList.remove('collapsed');
+            markGroupInvalid(card.querySelector('.points-quick-select'));
+        });
+        itemCardMap[missingPointsItems[0].item_number].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showValidationFlash(missingPointsItems.length === 1
+            ? 'Points are required.'
+            : `${missingPointsItems.length} items missing points.`);
+        return false;
+    }
+
+    // Answers
+    const missingAnswerItems = items.filter(item => {
+        if (item.scoring_type === 'mcq') return item.correct_index === -1;
+        return !item.key_answer || !item.key_answer.trim();
+    });
+    if (missingAnswerItems.length > 0) {
+        e.preventDefault();
+        missingAnswerItems.forEach(item => {
+            const card = itemCardMap[item.item_number];
+            card.classList.remove('collapsed');
+            if (item.scoring_type === 'mcq') {
+                markGroupInvalid(card.querySelector('.mcq-options-container') || card.querySelector('.mcq-correct-section'));
+            } else {
+                markInvalid(card.querySelector('.key-answer-input'));
+            }
+        });
+        itemCardMap[missingAnswerItems[0].item_number].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showValidationFlash(missingAnswerItems.length === 1
+            ? 'Answer is required.'
+            : `${missingAnswerItems.length} items missing an answer.`);
+        return false;
+    }
+
+    // ILO
+    const missingIloItems = items.filter(item => !item.ilo_id || !String(item.ilo_id).trim());
+    if (missingIloItems.length > 0) {
+        e.preventDefault();
+        missingIloItems.forEach(item => {
+            const card = itemCardMap[item.item_number];
+            card.classList.remove('collapsed');
+            markInvalid(card.querySelector('.ilo-select'));
+        });
+        itemCardMap[missingIloItems[0].item_number].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        showValidationFlash(missingIloItems.length === 1
+            ? 'ILO assignment is required.'
+            : `${missingIloItems.length} items missing ILO assignment.`, 'warning');
+        return false;
+    }
+
+    document.getElementById('checklistDataInput').value = JSON.stringify(items);
+});
+
+// Preview Function - Mirrors real examiner marking interface
+function previewChecklist() {
+    const cards = document.querySelectorAll('#checklistContainer > div');
+    const hasItems = Array.from(cards).some(c => c.dataset.type === 'item');
+    if (!hasItems) {
+        alert('Add at least one checklist item to preview.');
+        return;
+    }
+
+    const stationName = document.querySelector('input[name="name"]').value || 'Untitled Station';
+    const duration = '8';
+    
+    let previewHtml = `<html><head><title>Examiner Preview — ${stationName}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F3F4F6;padding-bottom:100px}
+        .evaluation-header{background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);color:white;padding:12px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.3)}
+        .station-name-large{font-size:1rem;font-weight:700;color:white;letter-spacing:0.3px;flex:1;text-align:center}
+        .header-title{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+        .header-back-btn{display:flex;align-items:center;gap:4px;color:rgba(255,255,255,0.7);font-size:0.82rem;text-decoration:none;background:rgba(255,255,255,0.08);padding:4px 10px;border-radius:6px}
+        .header-title-spacer{width:60px}
+        .header-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+        .info-labels{display:flex;gap:16px;flex-wrap:wrap}
+        .info-label{display:flex;gap:6px;align-items:baseline}
+        .label-text{font-size:0.68rem;text-transform:uppercase;letter-spacing:0.8px;opacity:0.5;font-weight:600}
+        .label-value{font-size:0.85rem;font-weight:600;color:white}
+        .timer-widget{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.1);padding:6px 12px;border-radius:8px;font-family:'SF Mono',Monaco,monospace;font-size:1.4rem;font-weight:700;color:white;border:2px solid transparent}
+        .content-wrapper{max-width:800px;margin:0 auto;padding:12px 12px 0}
+        .demo-note{background:#fefce8;border:1.5px solid #fde047;padding:8px 14px;margin-bottom:10px;border-radius:8px;font-size:0.78rem;color:#713f12;display:flex;align-items:center;gap:6px}
+        .section-divider{display:flex;align-items:center;margin:24px 0 12px}
+        .section-label{display:inline-flex;align-items:center;gap:8px;font-size:0.78rem;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:1.5px;background:linear-gradient(135deg,#0d9488,#0f766e);padding:8px 36px 8px 18px;clip-path:polygon(0 0,calc(100% - 16px) 0,100% 50%,calc(100% - 16px) 100%,0 100%);box-shadow:2px 2px 8px rgba(13,148,136,0.3);white-space:nowrap}
+        .section-line{flex:1;height:10px;background:linear-gradient(to right,#0d9488 0%,#5eead4 40%,#99f6e4 70%,transparent 100%);border-radius:0 100px 100px 0;opacity:0.6}
+        .question-card{background:#fff;border:2px solid #E5E7EB;border-radius:12px;margin-bottom:10px;overflow:hidden;transition:all 0.3s;box-shadow:0 1px 2px rgba(0,0,0,0.06)}
+        .question-card.answered{border-color:#10B981;background:#F0FDF4}
+        .question-header{display:flex;justify-content:space-between;align-items:center;padding:6px 14px;background:#F9FAFB;border-bottom:1px solid #F3F4F6}
+        .question-header-inner{display:flex;align-items:flex-start;gap:8px;width:100%}
+        .question-number-badge{background:#494a4d;color:white;padding:2px 8px;border-radius:6px;font-size:0.7rem;font-weight:600;white-space:nowrap;margin-top:2px}
+        .question-body{flex:1;line-height:1.6}
+        .question-text-inline{font-size:1rem;line-height:1.6;color:#000;font-weight:500;display:inline}
+        .marks-badge{display:inline-flex;align-items:center;font-size:0.65rem;font-weight:700;padding:0.1rem 0.45rem;border-radius:9999px;gap:3px;vertical-align:middle;margin-left:6px;white-space:nowrap;background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+        .evaluation-buttons{display:grid;gap:6px;padding:8px 12px;background:#F9FAFB;border-top:1px solid #E5E7EB}
+        .eval-btn{padding:6px;font-size:0.82rem;font-weight:700;border:2px solid #D1D5DB;border-radius:6px;background:white;color:#374151;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:48px;transition:all 0.1s}
+        .eval-btn:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+        .eval-btn.active{border-color:#0d9488;background:#0d9488;color:white}
+        .eval-btn.score-zero.active{background:#EF4444;border-color:#EF4444}
+        .eval-btn.full-pts.active{background:#10B981;border-color:#10B981}
+        .eval-btn-icon{font-size:1rem}
+        .eval-btn-label{font-size:0.78rem;line-height:1.2;text-align:center}
+        .bottom-actions{position:fixed;bottom:0;left:0;right:0;background:white;padding:12px 16px;border-top:2px solid #E5E7EB;z-index:200}
+        .action-buttons{max-width:800px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .btn-back{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#F3F4F6;border-radius:10px;color:#374151;font-size:1.2rem;text-decoration:none;border:2px solid #E5E7EB}
+        .footer-total{display:flex;align-items:center;gap:10px}
+        .total-mark{font-size:1.1rem;font-weight:600}
+        .student-mark{font-size:1.5rem;font-weight:900;color:#111827}
+        .mark-max{font-size:0.95rem;opacity:0.6;margin-left:4px;font-weight:600}
+        .btn-submit{padding:12px 28px;background:linear-gradient(135deg,#0d9488,#0f766e);color:white;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px}
+        .progress-wrap{background:white;border-bottom:1px solid #E5E7EB;padding:8px 16px}
+        .progress-row{display:flex;justify-content:space-between;font-size:0.75rem;color:#6B7280;margin-bottom:4px}
+        .progress-bar{height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden}
+        .progress-fill{height:100%;background:#10B981;transition:width 0.3s}
+    </style></head><body>
+    <header class="evaluation-header">
+        <div class="header-title">
+            <a class="header-back-btn"><i class="bi bi-chevron-left"></i></a>
+            <div class="station-name-large">${stationName}</div>
+            <div class="header-title-spacer"></div>
+        </div>
+        <div class="header-top">
+            <div class="info-labels">
+                <div class="info-label"><span class="label-text">Student:</span><span class="label-value">Student Name</span></div>
+                <div class="info-label"><span class="label-text">Reg No:</span><span class="label-value">11844785</span></div>
+                <div class="info-label"><span class="label-text">Evaluator:</span><span class="label-value">Dr. Fawzi Yasin</span></div>
+            </div>
+            <div class="timer-widget"><i class="bi bi-clock"></i><span>${duration}:00</span></div>
+        </div>
+    </header>
+    <div class="progress-wrap">
+        <div class="progress-row"><span>Progress</span><span><span id="markedCount">0</span>/<span id="totalItems">0</span> marked</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+    <div class="content-wrapper">
+        <div class="demo-note"><i class="bi bi-hand-index"></i> Preview only — tap buttons to simulate marking</div>
+        <div id="checklistArea">`;
+    
+    let totalPts = 0;
+    let itemNum = 0;
+
+    cards.forEach((card) => {
+        if (card.dataset.type === 'section') {
+            const sectionTitle = card.querySelector('.section-title-input').value || 'Untitled Section';
+            previewHtml += `<div class="section-divider"><div class="section-label"><i class="bi bi-folder2-open"></i> ${sectionTitle}</div><div class="section-line"></div></div>`;
+        } else if (card.dataset.type === 'item') {
+            const desc = card.querySelector('.item-description-input').value || '(No description)';
+            const pts = getItemPoints(card) ?? 0;
+            const qtype = card.querySelector('.question-type-select').value;
+
+            // Collect image if available
+            const imgThumb = card.querySelector('.img-preview-thumb');
+            const rawSrc = imgThumb ? imgThumb.src : '';
+            const imgSrc = rawSrc && rawSrc !== window.location.href && !rawSrc.endsWith('/') ? rawSrc : '';
+            const imgHtml = imgSrc
+                ? `<div style="padding:8px 16px 4px"><img src="${imgSrc}" style="max-width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;background:#f8fafc;display:block" alt="Question image"></div>`
+                : '';
+
+            totalPts += pts;
+            itemNum++;
+
+            let answerHtml = '';
+            if (qtype === 'mcq') {
+                const mcq = getMcqData(card);
+                answerHtml = `<div style="padding:8px 12px;background:#F9FAFB;border-top:1px solid #E5E7EB">`;
+                mcq.options.forEach((opt, i) => {
+                    const letter = String.fromCharCode(65 + i);
+                    const isCorrect = i === mcq.correct_index;
+                    answerHtml += `<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;border:2px solid ${isCorrect ? '#10B981' : '#E5E7EB'};margin-bottom:4px;background:${isCorrect ? '#F0FDF4' : 'white'};font-size:0.88rem">
+                        <input type="radio" name="preview_mcq_${itemNum}" value="${i}" onclick="markMcq(${itemNum},${i},${i === mcq.correct_index ? pts : 0},${pts})">
+                        <span style="font-weight:700;color:#6c757d;min-width:18px">${letter}.</span>
+                        <span>${opt || '(empty)'}</span>
+                        ${isCorrect ? '<span style="margin-left:auto;font-size:0.7rem;color:#10B981;font-weight:700">✓ CORRECT</span>' : ''}
+                    </label>`;
+                });
+                answerHtml += `</div>`;
+            } else {
+                const key = getKeyAnswer(card);
+                answerHtml = `<div style="padding:8px 12px;background:#F9FAFB;border-top:1px solid #E5E7EB">
+                    <div style="font-size:0.75rem;font-weight:700;color:#198754;margin-bottom:4px"><i class="bi bi-key"></i> Key Answer</div>
+                    <div style="background:#f0fff4;border:1px solid #a3cfbb;padding:6px 10px;border-radius:6px;font-size:0.88rem;color:#155724">${key || '<em style="color:#6c757d">No key answer entered</em>'}</div>
+                    <textarea style="width:100%;margin-top:8px;padding:6px 8px;border:1px solid #dee2e6;border-radius:4px;font-size:0.85rem;resize:vertical;min-height:50px" placeholder="Student answer..." oninput="markEssay(${itemNum},this.value.trim() ? ${pts} : 0,${pts})"></textarea>
+                </div>`;
+            }
+
+            previewHtml += `<div class="question-card" id="item-${itemNum}">
+                <div class="question-header"><div class="question-header-inner">
+                    <span class="question-number-badge">${qtype === 'mcq' ? 'MCQ' : 'SAQ'} ${itemNum}</span>
+                    <div class="question-body">
+                        <span class="question-text-inline">${desc}</span>
+                        <span class="marks-badge"><i class="bi bi-star-fill"></i> ${pts} pt${pts !== 1 ? 's' : ''}</span>
+                    </div>
+                </div></div>
+                ${imgHtml}
+                ${answerHtml}
+            </div>`;
+        }
+    });
+
+    previewHtml += `</div></div>
+    <div class="bottom-actions"><div class="action-buttons">
+        <a class="btn-back"><i class="bi bi-arrow-left"></i></a>
+        <div class="footer-total"><div class="total-mark"><span class="student-mark" id="currentScore">0.00</span><span class="mark-max">/${totalPts.toFixed(2)}</span></div></div>
+        <button class="btn-submit"><i class="bi bi-check-circle"></i> Submit Evaluation</button>
+    </div></div>
+    <` + `script>
+    let scores = {};
+    const totalItems = ${itemNum};
+    document.getElementById('totalItems').textContent = totalItems;
+    function updateScore() {
+        let cur = 0, marked = 0;
+        for (let id in scores) { cur += scores[id]; marked++; }
+        document.getElementById('currentScore').textContent = cur.toFixed(2);
+        document.getElementById('markedCount').textContent = marked;
+        document.getElementById('progressFill').style.width = (marked / totalItems * 100) + '%';
+    }
+    function markMcq(itemId, optIdx, score, maxPts) {
+        scores[itemId] = score;
+        document.getElementById('item-' + itemId).classList.add('answered');
+        updateScore();
+    }
+    function markEssay(itemId, score, maxPts) {
+        scores[itemId] = score;
+        document.getElementById('item-' + itemId).classList.toggle('answered', score > 0);
+        updateScore();
+    }
+    <` + `/script></body></html>`;
+
+    const previewWindow = window.open('', 'Preview', 'width=540,height=750');
+    previewWindow.document.write(previewHtml);
+    previewWindow.document.close();
+}
+
+// Initialize existing items if editing
+const existingItems = {{ existing_items_json|safe }};
+if (existingItems && existingItems.length > 0) {
+    document.addEventListener('DOMContentLoaded', function() {
+        let lastSection = null;
+        existingItems.forEach(item => {
+            if (item.category && item.category !== lastSection) {
+                addSection(item.category);
+                lastSection = item.category;
+            }
+            const qtype = (item.rubric_type === 'essay') ? 'essay' : 'mcq';
+            const rubricLevels = item.rubric_levels || null;
+            const mcqOptions = (qtype === 'mcq' && rubricLevels) ? (rubricLevels.options || null) : null;
+            const correctIndex = (qtype === 'mcq' && rubricLevels) ? (rubricLevels.correct_index ?? -1) : -1;
+            const keyAnswer = (qtype === 'essay') ? (item.expected_response || '') : '';
+            addNewItem(
+                item.description,
+                item.points,
+                qtype,
+                item.ilo_id ? String(item.ilo_id) : '',
+                mcqOptions,
+                correctIndex,
+                keyAnswer,
+                item.image_url || null,
+                item.db_id || null,
+                true
+            );
+        });
+    });
+}
+</script>
+{% endblock %}

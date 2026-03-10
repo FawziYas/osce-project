@@ -131,6 +131,7 @@ class Station(TimestampMixin):
 
     duration_minutes = models.IntegerField(default=8)
     active = models.BooleanField(default=True, db_index=True)
+    is_dry = models.BooleanField(default=False, db_index=True)
 
     # Soft delete
     is_deleted = models.BooleanField(default=False, db_index=True)
@@ -233,6 +234,12 @@ class ChecklistItem(TimestampMixin):
     rubric_levels = models.JSONField(null=True, blank=True)
 
     expected_response = models.TextField(blank=True, default='')
+    image = models.ImageField(
+        upload_to='question_images/',
+        null=True,
+        blank=True,
+        validators=[],  # validated in view/API to avoid double-validation
+    )
 
     class Meta:
         db_table = 'checklist_items'

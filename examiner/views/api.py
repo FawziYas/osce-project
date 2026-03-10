@@ -94,11 +94,13 @@ def get_station_checklist(request, station_id):
             'rubric_levels': None,
             'ilo_name': item.ilo.theme_name if item.ilo else None,
             'ilo_number': item.ilo.number if item.ilo else None,
+            'image_url': request.build_absolute_uri(item.image.url) if item.image else None,
         }
 
         # Parse rubric levels
         if item.rubric_levels:
-            if isinstance(item.rubric_levels, list):
+            if isinstance(item.rubric_levels, (list, dict)):
+                # JSONField already deserialized to Python object
                 response['rubric_levels'] = item.rubric_levels
             else:
                 try:

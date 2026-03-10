@@ -29,6 +29,9 @@ celery[redis]==5.4.0
 # Error tracking (production)
 sentry-sdk[django]==2.19.2
 
+# Image upload validation
+python-magic-bin==0.4.14
+
 # Excel, PDF, Arabic support
 openpyxl==3.1.5
 et_xmlfile==2.0.0

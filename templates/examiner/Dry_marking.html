@@ -1,7 +1,7 @@
 {% extends 'examiner/base_examiner.html' %}
 {% load static %}
 
-{% block title %}{{ student.full_name }} - Station {{ assignment.station.station_number }}{% endblock %}
+{% block title %}{{ student.full_name }} - Station {{ assignment.station.station_number }} (Dry){% endblock %}
 
 {% block body_class %}examiner-body evaluation-page{% endblock %}
 
@@ -9,12 +9,60 @@
 <link rel="stylesheet" href="{% static 'css/examiner-evaluation.css' %}">
 <script src="{% static 'js/exam-timer.js' %}"></script>
 <style>
-/* Compact scroll header behavior */
+/* ── Dry OSCE Self-Evaluation Styles ── */
+.dry-mcq-options { display:flex; flex-direction:column; gap:10px; margin-top:12px; padding:0 16px 14px; }
+.dry-mcq-option {
+    display:flex; align-items:center; gap:12px;
+    background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px;
+    padding:14px 18px; cursor:pointer; transition:all .2s;
+    color:#1e293b; font-size:0.95rem; box-shadow:0 1px 2px rgba(0,0,0,0.05);
+}
+.dry-mcq-option:hover { border-color:#93c5fd; background:#eff6ff; box-shadow:0 2px 6px rgba(59, 130, 246, 0.15); }
+.dry-mcq-option.selected { border-color:#3b82f6; background:#dbeafe; box-shadow:0 2px 8px rgba(59, 130, 246, 0.25); }
+.dry-mcq-option.selected .mcq-radio { background:#3b82f6; border-color:#3b82f6; }
+.dry-mcq-option.selected .mcq-radio::after { content:''; display:block; width:8px; height:8px; border-radius:50%; background:#fff; }
+.mcq-radio {
+    width:20px; height:20px; min-width:20px; border-radius:50%;
+    border:2px solid #cbd5e1; background:#fff;
+    display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.mcq-option-letter {
+    font-weight:700; color:#64748b; min-width:20px; text-align:center;
+}
+.dry-mcq-option.selected .mcq-option-letter { color:#1d4ed8; }
+
+.dry-essay-area {
+    width:100%; min-height:120px; background:#fbfbfdbc; border:2px solid #4d5155;
+    border-radius:14px; padding:14px; color:#1e293b; font-size:1rem;
+    resize:vertical; outline:none; transition:border-color .2s;
+    font-family:inherit; margin:4px 16px 14px; width:calc(100% - 32px);
+}
+.dry-essay-area:focus { border-color:#3b82f6; }
+.dry-essay-area::placeholder { color:#94a3b8; }
+
+.dry-badge {
+    display:inline-flex; align-items:center; gap:4px;
+    background:#7c3aed33; color:#a78bfa; border:1px solid #7c3aed55;
+    border-radius:6px; padding:2px 8px; font-size:0.75rem; font-weight:600;
+}
+
+/* Question image attached to checklist items */
+.question-img-wrap {
+    padding:8px 16px 0;
+}
+.question-img {
+    width:100%; max-height:280px; object-fit:contain;
+    border-radius:10px; border:1px solid #e2e8f0;
+    background:#f8fafc; display:block;
+}
+
+/* ── Compact scroll header ── */
 .evaluation-header {
     transition: padding .25s ease, box-shadow .25s ease;
 }
 .evaluation-header .header-top {
     overflow: hidden;
+    /* height is set by JS so the transition is pixel-accurate (no max-height jank) */
     opacity: 1;
     transition: height .3s cubic-bezier(.4,0,.2,1), opacity .25s ease;
     will-change: height, opacity;
@@ -29,23 +77,18 @@
     opacity: 0;
     pointer-events: none;
 }
-
-/* Left group: back btn + student name sit side by side as ONE grid cell */
-.hdr-left-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-
-/* True absolute centering — left group and timer stay at edges, station
-   is pinned to the exact horizontal middle of the header regardless of
-   how wide the left or right side is. */
+/* True absolute centering */
 .evaluation-header.hdr-compact .header-title {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
+}
+/* Station name stays visible, shrinks in compact mode */
+.station-name-large {
+    transition: font-size .25s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .evaluation-header.hdr-compact .station-name-large {
     position: absolute;
@@ -59,26 +102,24 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-/* Student name: hidden in normal mode, appears beside back-btn in compact */
-.hdr-compact-student-near-back {
+/* Student name hidden by default, shows in compact */
+.hdr-compact-student {
     display: none;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.88);
+    color: #fff;
     white-space: nowrap;
-    border-left: 1px solid rgba(255,255,255,0.35);
-    padding-left: 10px;
+    flex-shrink: 0;
+    margin-left: 16px;
+   
 }
-
-.evaluation-header.hdr-compact .hdr-compact-student-near-back {
-    display: inline-flex;
-    align-items: center;
+.evaluation-header.hdr-compact .hdr-compact-student {
+    display: block;
 }
-
-.compact-timer-inline {
+/* Compact inline timer (hidden until scrolled) */
+.hdr-compact-timer {
     display: none;
-    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-family: 'SF Mono','Monaco','Consolas',monospace;
     font-size: 1.2rem;
     font-weight: 700;
     color: #fff;
@@ -92,44 +133,36 @@
     gap: 4px;
     margin-left: auto;
 }
-.evaluation-header.hdr-compact .compact-timer-inline {
-    display: inline-flex;
+.evaluation-header.hdr-compact .hdr-compact-timer {
+    display: flex;
 }
-.evaluation-header:not(.hdr-compact) .compact-timer-inline {
+.evaluation-header:not(.hdr-compact) .hdr-compact-timer {
     display: none !important;
 }
-.evaluation-header.hdr-compact .timer-widget {
-    display: none;
-}
 
-/* Mirror warning/danger colors on compact timer */
-.compact-timer-inline.warning {
+/* Mirror warning/danger colors from main timer */
+.hdr-compact-timer.warning {
     background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
     border-color: #fff59d;
     box-shadow: 0 0 12px rgba(255, 152, 0, 0.6);
     animation: pulse-warning 1.5s ease-in-out infinite;
 }
-.compact-timer-inline.danger {
+.hdr-compact-timer.danger {
     background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
     border-color: #ff9999;
     box-shadow: 0 0 16px rgba(244, 67, 54, 0.8);
     animation: pulse-danger 0.8s ease-in-out infinite;
 }
 
-
 /* ── Mobile compact header ── */
 @media (max-width: 575px) {
-    /* Hide label text, keep only chevron icon so back nav still works */
-    .evaluation-header.hdr-compact .back-btn-text {
-        display: none;
-    }
     /* Give station name more horizontal room */
     .evaluation-header.hdr-compact .station-name-large {
         max-width: 55%;
         font-size: 0.82rem;
     }
     /* Smaller timer badge */
-    .evaluation-header.hdr-compact .compact-timer-inline {
+    .evaluation-header.hdr-compact .hdr-compact-timer {
         font-size: 0.95rem;
         padding: 3px 7px;
     }
@@ -152,22 +185,14 @@
 {% block content %}
 <!-- Sticky Header -->
 <header class="evaluation-header" id="eval-header">
-    <!-- Row 1: [Back btn + Student name] | Station Name (centered) | Timer -->
     <div class="header-title">
-        <div class="hdr-left-group">
-            <a href="{% url 'examiner:station_dashboard' assignment.id %}" class="header-back-btn">
-                <i class="bi bi-chevron-left"></i>
-                <span class="back-btn-text">Back to Dashboard</span>
-            </a>
-            <span class="hdr-compact-student-near-back" data-full-name="{{ student.full_name }}">{{ student.full_name }}</span>
-        </div>
-        <div class="station-name-large">{{ assignment.station.name }}</div>
-        <span class="compact-timer-inline" id="timer-inline">
+        <span class="hdr-compact-student" data-full-name="{{ student.full_name }}">{{ student.full_name }}</span>
+        <div class="station-name-large">{{ assignment.station.name }} <span class="dry-badge"><i class="bi bi-pencil-square"></i> Dry OSCE</span></div>
+        <span class="hdr-compact-timer" id="compact-timer-inline">
             <i class="bi bi-clock"></i>
             <span>{{ duration }}:00</span>
         </span>
     </div>
-    <!-- Row 2: Info labels | Timer -->
     <div class="header-top">
         <div class="header-left">
             <div class="info-labels">
@@ -180,8 +205,8 @@
                     <span class="label-value">{{ student.student_number }}</span>
                 </div>
                 <div class="info-label">
-                    <span class="label-text">Evaluator:</span>
-                    <span class="label-value">{{ request.user.display_name }}</span>
+                    <span class="label-text">Mode:</span>
+                    <span class="label-value">Self-Evaluation</span>
                 </div>
             </div>
         </div>
@@ -197,17 +222,6 @@
 <div class="container-fluid py-3 px-2">
     <div class="content-wrapper">
 
-    <!-- Review / Lock Banner -->
-    {% if score.unlocked_for_correction %}
-    <div style="background:#1e293b; border:2px solid #22c55e; border-radius:12px; padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
-        <i class="bi bi-unlock-fill" style="font-size:1.4rem; color:#22c55e;"></i>
-        <div>
-            <div style="color:#22c55e; font-weight:700; font-size:0.95rem;">Unlocked for Correction</div>
-            <div style="color:#94a3b8; font-size:0.82rem;">A coordinator has allowed you to correct this evaluation. Re-submit when done.</div>
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Case Scenario Card (populated from API) -->
     <div class="case-card" id="case-card" style="display: none;">
         <h3 class="case-title">
@@ -221,52 +235,27 @@
     <div id="checklist-container" class="questions-container">
         <div class="loading-container">
             <div class="loading-spinner"></div>
-            <p style="color: #6B7280; margin-top: 12px;">Loading evaluation checklist...</p>
+            <p style="color: #6B7280; margin-top: 12px;">Loading questions...</p>
         </div>
     </div>
 
-    <!-- Feedback Section -->
-    <div class="feedback-section">
-        <div class="feedback-title">
-            <i class="bi bi-chat-square-text"></i>
-            Comments (Optional)
-        </div>
-        <textarea id="comments" class="feedback-textarea"
-                  placeholder="Add feedback for this student's performance..."
-                  {% if review_mode %}readonly style="opacity:0.7; cursor:not-allowed;"{% endif %}>{{ saved_comments }}</textarea>
     </div>
 
-    </div> <!-- /content-wrapper -->
-
-    <!-- Bottom Actions -->
+    <!-- Bottom Actions — NO score display -->
     <div class="bottom-actions">
         <div class="action-buttons">
-            <a href="{% url 'examiner:station_dashboard' assignment.id %}"
-               class="btn-back" id="back-btn">
-                <i class="bi bi-arrow-left"></i>
-            </a>
+            <div></div>
 
             <div></div>
 
             <div class="footer-total">
-                <div class="total-mark" id="footer-total-mark"><span class="student-mark">0.00</span><span class="mark-max">/{{ max_score }}</span></div>
                 {% if review_mode %}
                 <div id="locked-footer" style="display:flex; align-items:center; gap:8px; background:#f59e0b22; border:1px solid #f59e0b66; border-radius:10px; padding:8px 16px; color:#f59e0b; font-weight:600; font-size:0.9rem;">
                     <i class="bi bi-lock-fill"></i> Submitted
                 </div>
                 {% else %}
-                {% if within_undo_window %}
-                <div id="undo-banner" style="display:flex; align-items:center; gap:8px; background:#0ea5e922; border:1px solid #0ea5e966; border-radius:10px; padding:8px 14px; color:#0ea5e9; font-weight:600; font-size:0.85rem;">
-                    <i class="bi bi-check-circle-fill"></i>
-                    <span>Submitted &mdash; still editable within grace period</span>
-                </div>
-                {% endif %}
                 <button type="button" class="btn-submit" onclick="submitScore()" id="submit-btn">
-                    {% if within_undo_window %}
-                    <i class="bi bi-arrow-repeat me-2"></i>Re-submit Evaluation
-                    {% else %}
-                    <i class="bi bi-check-circle me-2"></i>Submit Evaluation
-                    {% endif %}
+                    <i class="bi bi-check-circle me-2"></i>Submit Answers
                 </button>
                 {% endif %}
             </div>
@@ -277,9 +266,9 @@
 <!-- Back-navigation Warning Modal -->
 <div id="back-warn-modal" class="confirm-modal" style="display: none;">
     <div class="confirm-content">
-        <h3 class="confirm-title">Evaluation Not Submitted</h3>
+        <h3 class="confirm-title">Answers Not Submitted</h3>
         <p class="confirm-message">
-            Your evaluation has <strong>not been submitted</strong> yet. If you go back now, the marks you entered may not be saved.
+            Your answers have <strong>not been submitted</strong> yet. If you go back now, your progress may not be saved.
         </p>
         <div class="confirm-buttons">
             <button class="confirm-btn cancel" onclick="closeBackWarnModal()">
@@ -292,12 +281,30 @@
     </div>
 </div>
 
-<!-- Confirmation Modal (hidden by default) -->
+<!-- Unanswered Warning Modal -->
+<div id="warn-modal" class="confirm-modal" style="display: none;">
+    <div class="confirm-content">
+        <h3 class="confirm-title" style="color:#f59e0b;">
+            <i class="bi bi-exclamation-triangle me-2"></i>Unanswered Questions
+        </h3>
+        <p class="confirm-message" id="warn-message"></p>
+        <div class="confirm-buttons">
+            <button class="confirm-btn cancel" onclick="closeWarnModal()">
+                <i class="bi bi-arrow-left me-2"></i>Go Back &amp; Answer
+            </button>
+            <button class="confirm-btn confirm" onclick="closeWarnModal(); showConfirmModal();" style="background:#f59e0b;">
+                <i class="bi bi-send me-2"></i>Submit Anyway
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
 <div id="confirm-modal" class="confirm-modal" style="display: none;">
     <div class="confirm-content">
-        <h3 class="confirm-title">Submit Evaluation?</h3>
+        <h3 class="confirm-title">Submit Answers?</h3>
         <p class="confirm-message" id="confirm-message">
-            Are you sure you want to submit this evaluation? This action cannot be undone.
+            Are you sure you want to submit your answers? This action cannot be undone.
         </p>
         <div class="confirm-buttons">
             <button class="confirm-btn cancel" onclick="closeConfirmModal()">
@@ -315,12 +322,10 @@
         stationScoreId: "{{ score.id }}",
         stationId: "{{ assignment.station_id }}",
         studentId: "{{ student.id }}",
-        maxScore: {{ max_score }},
         duration: {{ duration }},
         savedItemScores: {{ saved_item_scores_json|safe }},
         csrfToken: "{{ csrf_token }}",
         reviewMode: {{ review_mode|yesno:'true,false' }},
-        withinUndoWindow: {{ within_undo_window|yesno:'true,false' }},
         scoreStatus: "{{ score_status }}"
     };
 </script>
@@ -329,12 +334,12 @@
 {% block scripts %}
 <script>
 // ============================================================================
-// STATE MANAGEMENT
+// STATE
 // ============================================================================
 
 let examTimer = null;
 let checklistItems = [];
-let evaluations = {}; // { itemId: "done" | "partial" | "not-done" | null }
+let evaluations = {};   // { itemId: { score, maxPoints } }
 let stationData = null;
 let scoreIsSubmitted = MARKING_DATA.scoreStatus === 'submitted';
 let _backNavHref = null;
@@ -342,7 +347,7 @@ let oneMinuteBeepPlayed = false;
 let _audioCtx = null;
 
 // Pre-unlock AudioContext on first user gesture so the beep works whether
-// the header is compact or not (scroll alone does not count as a user gesture).
+// the header is compact or not.
 (function () {
     function _ensureAudioUnlocked() {
         if (!_audioCtx) {
@@ -361,71 +366,43 @@ let _audioCtx = null;
 // ============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('=== Examiner Evaluation Interface Loaded ===');
-    console.log('MARKING_DATA:', MARKING_DATA);
-
-    // Initialize timer
     initializeTimer();
-
-    // Enable compact shrinking header
     initScrollHeader();
-
-    // Shorten student name to first + last on mobile
     shortenNameOnMobile();
-
-    // Load checklist data
     loadChecklist();
-
-    // Back button guard
     setupBackButton();
 
-    // Warn on browser back/close when evaluation is not yet submitted
     if (!MARKING_DATA.reviewMode && !scoreIsSubmitted) {
         window.addEventListener('beforeunload', function(e) {
-            if (!scoreIsSubmitted) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
+            if (!scoreIsSubmitted) { e.preventDefault(); e.returnValue = ''; }
         });
     }
 });
 
 function initializeTimer() {
-    if (!MARKING_DATA.duration) {
-        console.warn('No duration provided');
-        return;
-    }
-
+    if (!MARKING_DATA.duration) return;
     examTimer = new ExamTimer(MARKING_DATA.duration, 'timer');
-
-    // Start timer automatically
     examTimer.start();
-
-    // Set up warning callbacks
-    examTimer.on('warning', (message) => {
-        console.log('Timer warning:', message);
-        if (message === '1 minute remaining' && !oneMinuteBeepPlayed) {
+    examTimer.on('warning', (m) => {
+        console.log('Timer warning:', m);
+        if (m === '1 minute remaining' && !oneMinuteBeepPlayed) {
             oneMinuteBeepPlayed = true;
             playBeep();
         }
     });
-
-    examTimer.on('expiry', () => {
-        console.log('Timer expired');
-    });
-
-    // Sync compact timer text + warning/danger visual state
+    examTimer.on('expiry', () => console.log('Timer expired'));
+    // Sync compact timer display + warning/danger classes
     const mainTimerEl = document.getElementById('timer');
-    const compactTimerEl = document.getElementById('timer-inline');
+    const compactTimerEl = document.getElementById('compact-timer-inline');
     const compactTimerText = compactTimerEl ? compactTimerEl.querySelector('span:last-child') : null;
     const timerWidget = document.getElementById('timer-widget');
 
     if (mainTimerEl && compactTimerText) {
-        const textObs = new MutationObserver(() => {
+        const obs = new MutationObserver(() => {
             compactTimerText.textContent = mainTimerEl.textContent;
             maybePlayOneMinuteBeep(mainTimerEl.textContent);
         });
-        textObs.observe(mainTimerEl, { childList: true, characterData: true, subtree: true });
+        obs.observe(mainTimerEl, { childList: true, characterData: true, subtree: true });
         compactTimerText.textContent = mainTimerEl.textContent;
         maybePlayOneMinuteBeep(mainTimerEl.textContent);
     }
@@ -482,7 +459,7 @@ function playBeep() {
 
 function shortenNameOnMobile() {
     if (window.innerWidth > 575) return;
-    const span = document.querySelector('.hdr-compact-student-near-back');
+    const span = document.querySelector('.hdr-compact-student');
     if (!span) return;
     const full = span.dataset.fullName || span.textContent.trim();
     const parts = full.trim().split(/\s+/);
@@ -499,6 +476,7 @@ function initScrollHeader() {
     const EXPAND_Y = 8;
     let compact = false;
 
+    // Pin the real pixel height so the CSS height transition is smooth (no max-height jank)
     function pinHeight() {
         top.style.height = '';
         top.style.height = top.scrollHeight + 'px';
@@ -506,6 +484,8 @@ function initScrollHeader() {
 
     function applyCompactState() {
         const y = window.scrollY || window.pageYOffset || 0;
+        // One-way hysteresis: compact once scrolled down, expand only near page top.
+        // This avoids oscillation from sticky-header height changes.
         if (!compact && y > COLLAPSE_Y) compact = true;
         if (compact && y < EXPAND_Y) compact = false;
         header.classList.toggle('hdr-compact', compact);
@@ -537,15 +517,9 @@ function initScrollHeader() {
 // ============================================================================
 
 async function loadChecklist() {
-    console.log('=== loadChecklist() called ===');
-
-    if (!MARKING_DATA || !MARKING_DATA.stationId) {
-        showError('Station ID is missing');
-        return;
-    }
+    if (!MARKING_DATA || !MARKING_DATA.stationId) { showError('Station ID is missing'); return; }
 
     const url = `/api/station/${MARKING_DATA.stationId}/checklist/`;
-    console.log('Fetching from:', url);
 
     try {
         const response = await fetch(url, {
@@ -554,59 +528,44 @@ async function loadChecklist() {
             credentials: 'same-origin'
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
         const data = await response.json();
-        console.log('Checklist data received:', data);
-
         stationData = data.station;
         checklistItems = data.items || [];
 
-        // Render case scenario
         renderCaseScenario(data.station);
-
-        // Render questions
         renderChecklist(data);
 
-        // Load saved scores
         if (MARKING_DATA.savedItemScores && Object.keys(MARKING_DATA.savedItemScores).length > 0) {
             loadSavedScores();
         }
 
-        // Update progress
         updateProgress();
-
-        console.log('✓ Checklist loaded successfully');
     } catch (error) {
-        console.error('❌ Error loading checklist:', error);
-        showError(`Failed to load checklist: ${error.message}`);
+        console.error('Error loading checklist:', error);
+        showError(`Failed to load questions: ${error.message}`);
     }
 }
 
 function renderCaseScenario(station) {
-    if (!station.scenario && !station.instructions) {
-        return;
-    }
+    if (!station.scenario && !station.instructions) return;
 
     const caseCard = document.getElementById('case-card');
     const caseTitle = document.getElementById('case-title');
     const caseInstructions = document.getElementById('case-instructions');
 
-    if (station.name) {
-        caseTitle.textContent = station.name;
-    }
-
-    if (station.scenario) {
-        caseInstructions.innerHTML = `<p><strong>Scenario:</strong> ${station.scenario}</p>`;
-    }
-
-    if (station.instructions) {
-        caseInstructions.innerHTML += `<p><strong>Instructions:</strong> ${station.instructions}</p>`;
-    }
+    if (station.name) caseTitle.textContent = station.name;
+    if (station.scenario) caseInstructions.innerHTML = `<p><strong>Scenario:</strong> ${escapeHtml(station.scenario)}</p>`;
+    if (station.instructions) caseInstructions.innerHTML += `<p><strong>Instructions:</strong> ${escapeHtml(station.instructions)}</p>`;
 
     caseCard.style.display = 'block';
+}
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
 }
 
 function renderChecklist(data) {
@@ -614,14 +573,13 @@ function renderChecklist(data) {
 
     if (!data.items || data.items.length === 0) {
         container.innerHTML = `
-            <div style="text-align: center; padding: 40px 20px; color: #6B7280;">
-                <i class="bi bi-exclamation-circle" style="font-size: 3rem; opacity: 0.5;"></i>
-                <p style="margin-top: 16px;">No checklist items configured for this station.</p>
+            <div style="text-align:center; padding:40px 20px; color:#6B7280;">
+                <i class="bi bi-exclamation-circle" style="font-size:3rem; opacity:0.5;"></i>
+                <p style="margin-top:16px;">No questions configured for this station.</p>
             </div>`;
         return;
     }
 
-    // Group by category
     const categories = {};
     data.items.forEach(item => {
         const cat = item.category || 'General';
@@ -636,7 +594,7 @@ function renderChecklist(data) {
         if (Object.keys(categories).length > 1) {
             html += `
                 <div class="section-divider">
-                    <div class="section-label">${category}</div>
+                    <div class="section-label">${escapeHtml(category)}</div>
                     <div class="section-line"></div>
                 </div>`;
         }
@@ -648,86 +606,161 @@ function renderChecklist(data) {
     }
 
     container.innerHTML = html;
-
-    const progressTotal = document.getElementById('progress-total');
-    if (progressTotal) progressTotal.textContent = data.items.length;
 }
 
+// ============================================================================
+// QUESTION CARD RENDERING
+// ============================================================================
+
 function renderQuestionCard(item, itemNum) {
-    const levels = item.rubric_levels || [
-        {score: 0, label: 'Not Done'},
-        {score: item.points / 2, label: 'Partial'},
-        {score: item.points, label: 'Done'}
-    ];
+    const rubricType = item.rubric_type || 'mcq';
+    let bodyHtml = '';
 
-    const buttonsHtml = levels.map(level => {
-        const isFullPoints = level.score === item.points;
-        const btnClass = isFullPoints ? 'eval-btn full-points' : 'eval-btn';
-
-        return `
-            <button class="${btnClass}"
-                    onclick="setEvaluation(${item.id}, ${level.score}, ${item.points})"
-                    data-item-id="${item.id}"
-                    data-score="${level.score}">
-                <span class="eval-btn-icon">
-                    ${level.score === 0 ? '<i class="bi bi-x-circle"></i>' :
-                      level.score === item.points ? '<i class="bi bi-check-circle"></i>' :
-                      '<i class="bi bi-dash-circle"></i>'}
-                </span>
-                <span class="eval-btn-label">${level.label}</span>
-            </button>
-        `;
-    }).join('');
+    if (rubricType === 'mcq') {
+        bodyHtml = renderMcqBody(item);
+    } else if (rubricType === 'essay') {
+        bodyHtml = renderEssayBody(item);
+    } else {
+        // Fallback — treat as MCQ if rubric_levels has options, else essay
+        if (item.rubric_levels && item.rubric_levels.options) {
+            bodyHtml = renderMcqBody(item);
+        } else {
+            bodyHtml = renderEssayBody(item);
+        }
+    }
 
     return `
-        <div class="question-card" data-item-id="${item.id}" data-max-points="${item.points}">
+        <div class="question-card" data-item-id="${item.id}" data-max-points="${item.points}" data-rubric-type="${rubricType}">
             <div class="question-header">
                 <div class="question-header-inner">
                     <span class="question-number-badge">Q${itemNum}</span>
                     <div class="question-body">
-                        <span class="question-text-inline">${item.description}</span>${item.ilo_number != null ? `<span class="ilo-badge"><i class="bi bi-tag-fill"></i> ILO ${item.ilo_number}</span>` : ''}<span class="marks-badge"><i class="bi bi-award-fill"></i> ${item.points} pt${item.points !== 1 ? 's' : ''}</span>
+                        <span class="question-text-inline">${escapeHtml(item.description)}</span>
+                        ${item.ilo_number != null ? `<span class="ilo-badge"><i class="bi bi-tag-fill"></i> ILO ${item.ilo_number}</span>` : ''}<span class="marks-badge"><i class="bi bi-award-fill"></i> ${item.points} pt${item.points !== 1 ? 's' : ''}</span>
                     </div>
                 </div>
             </div>
+            ${item.image_url ? `<div class="question-img-wrap"><img class="question-img" src="${escapeHtml(item.image_url)}" alt="Question image" loading="lazy" onerror="this.closest('.question-img-wrap').style.display='none'"></div>` : ''}
+            ${bodyHtml}
+        </div>`;
+}
 
-            <div class="evaluation-buttons">
-                ${buttonsHtml}
-            </div>
+function renderMcqBody(item) {
+    const levels = item.rubric_levels || {};
+    const options = levels.options || [];
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+    if (options.length === 0) {
+        return '<p style="color:#94a3b8; padding:12px 16px;">No options available.</p>';
+    }
+
+    let html = '<div class="dry-mcq-options">';
+    options.forEach((opt, idx) => {
+        const letter = letters[idx] || String(idx + 1);
+        html += `
+            <div class="dry-mcq-option" data-item-id="${item.id}" data-option-index="${idx}"
+                 onclick="selectMcqOption(${item.id}, ${idx}, ${item.points})">
+                <div class="mcq-radio"></div>
+                <span class="mcq-option-letter">${letter}.</span>
+                <span class="mcq-option-text">${escapeHtml(opt)}</span>
+            </div>`;
+    });
+    html += '</div>';
+
+    return html;
+}
+
+function renderEssayBody(item) {
+    return `
+        <div style="padding:4px 0 0 0;">
+            <textarea class="dry-essay-area" data-item-id="${item.id}"
+                      placeholder="Write your answer here..."
+                      oninput="onEssayInput(${item.id}, ${item.points})"
+                      ${MARKING_DATA.reviewMode ? 'readonly style="opacity:0.7; cursor:not-allowed;"' : ''}></textarea>
         </div>`;
 }
 
 // ============================================================================
-// EVALUATION MANAGEMENT
+// MCQ SELECTION
 // ============================================================================
 
-function setEvaluation(itemId, score, maxPoints) {
-    if (MARKING_DATA.reviewMode) return; // locked in review mode
-    console.log(`Setting evaluation: item ${itemId}, score ${score}/${maxPoints}`);
+function selectMcqOption(itemId, selectedIndex, maxPoints) {
+    if (MARKING_DATA.reviewMode) return;
 
-    evaluations[itemId] = { score, maxPoints };
+    // Find the correct index from checklist data
+    const item = checklistItems.find(i => i.id === itemId);
+    if (!item) return;
 
-    const card = document.querySelector(`[data-item-id="${itemId}"]`);
+    const correctIndex = (item.rubric_levels && item.rubric_levels.correct_index != null)
+        ? item.rubric_levels.correct_index : -1;
+
+    // Score: correct → full points, wrong → 0 (student does NOT see this)
+    const score = (selectedIndex === correctIndex) ? maxPoints : 0;
+
+    evaluations[itemId] = { score, maxPoints, selectedIndex };
+
+    // Update UI — only highlight selected, no correct/wrong feedback
+    const card = document.querySelector(`.question-card[data-item-id="${itemId}"]`);
     if (card) {
         card.classList.add('answered');
         card.classList.remove('unanswered');
-
         const badge = card.querySelector('.unanswered-badge');
         if (badge) badge.remove();
 
-        const buttons = card.querySelectorAll('.eval-btn');
-        buttons.forEach(btn => {
-            const btnScore = parseFloat(btn.dataset.score);
-            btn.classList.toggle('active', btnScore === score);
+        card.querySelectorAll('.dry-mcq-option').forEach(opt => {
+            const idx = parseInt(opt.dataset.optionIndex);
+            opt.classList.toggle('selected', idx === selectedIndex);
         });
     }
 
-    updateStudentMark();
     updateProgress();
-
-    saveItemScore(itemId, score, maxPoints);
+    saveItemScore(itemId, score, maxPoints, String(selectedIndex));
 }
 
-async function saveItemScore(itemId, score, maxPoints) {
+// ============================================================================
+// ESSAY INPUT
+// ============================================================================
+
+let essayDebounce = {};
+
+function onEssayInput(itemId, maxPoints) {
+    if (MARKING_DATA.reviewMode) return;
+
+    const textarea = document.querySelector(`.dry-essay-area[data-item-id="${itemId}"]`);
+    if (!textarea) return;
+
+    const text = textarea.value.trim();
+    // Score: has text → full points, empty → 0 (student does NOT see this)
+    const score = text.length > 0 ? maxPoints : 0;
+
+    evaluations[itemId] = { score, maxPoints, essayText: text };
+
+    const card = document.querySelector(`.question-card[data-item-id="${itemId}"]`);
+    if (card) {
+        if (text.length > 0) {
+            card.classList.add('answered');
+            card.classList.remove('unanswered');
+            const badge = card.querySelector('.unanswered-badge');
+            if (badge) badge.remove();
+        } else {
+            card.classList.remove('answered');
+        }
+    }
+
+    updateProgress();
+
+    // Debounce save
+    clearTimeout(essayDebounce[itemId]);
+    essayDebounce[itemId] = setTimeout(() => {
+        saveItemScore(itemId, score, maxPoints, text);
+    }, 800);
+}
+
+// ============================================================================
+// SAVE / SUBMIT
+// ============================================================================
+
+async function saveItemScore(itemId, score, maxPoints, notes) {
     try {
         await fetch(`/api/score/${MARKING_DATA.stationScoreId}/item/`, {
             method: 'POST',
@@ -738,103 +771,30 @@ async function saveItemScore(itemId, score, maxPoints) {
             body: JSON.stringify({
                 checklist_item_id: itemId,
                 score: score,
-                max_points: maxPoints
+                max_points: maxPoints,
+                notes: notes || ''
             })
         });
-        console.log(`✓ Saved: item ${itemId} = ${score}/${maxPoints}`);
     } catch (error) {
-        console.error('❌ Save failed:', error);
-    }
-}
-
-function loadSavedScores() {
-    console.log('Loading saved scores:', MARKING_DATA.savedItemScores);
-
-    for (const itemId in MARKING_DATA.savedItemScores) {
-        const itemIdNum = parseInt(itemId);
-        const savedScore = MARKING_DATA.savedItemScores[itemId];
-        const score = savedScore.score;
-        const maxPoints = savedScore.max_points;
-
-        evaluations[itemIdNum] = { score, maxPoints };
-
-        const card = document.querySelector(`[data-item-id="${itemIdNum}"]`);
-        if (card) {
-            card.classList.add('answered');
-
-            const buttons = card.querySelectorAll('.eval-btn');
-            buttons.forEach(btn => {
-                const btnScore = parseFloat(btn.dataset.score);
-                btn.classList.toggle('active', btnScore === score);
-            });
-        }
-    }
-
-    updateStudentMark();
-    updateProgress();
-    console.log('✓ Saved scores loaded');
-
-    // If in review mode, visually lock all buttons
-    if (MARKING_DATA.reviewMode) {
-        document.querySelectorAll('.eval-btn').forEach(btn => {
-            btn.style.cursor = 'not-allowed';
-            btn.style.opacity = btn.classList.contains('active') ? '1' : '0.35';
-            btn.style.pointerEvents = 'none';
-        });
-        document.querySelectorAll('.question-card').forEach(card => {
-            card.style.opacity = '0.85';
-        });
-    }
-}
-
-// ============================================================================
-// CALCULATIONS & UI UPDATES
-// ============================================================================
-
-function updateStudentMark() {
-    let total = 0;
-
-    for (const itemId in evaluations) {
-        total += evaluations[itemId].score;
-    }
-
-    const studentMark = document.getElementById('student-mark');
-    if (studentMark) studentMark.textContent = total.toFixed(2);
-    
-    const footerTotal = document.getElementById('footer-total-mark');
-    if (footerTotal) {
-        const max = MARKING_DATA.maxScore || 0;
-        const studentSpan = footerTotal.querySelector('.student-mark');
-        const maxSpan = footerTotal.querySelector('.mark-max');
-        if (studentSpan) studentSpan.textContent = total.toFixed(2);
-        if (maxSpan) maxSpan.textContent = `/${max}`;
+        console.error('Save failed:', error);
     }
 }
 
 function updateProgress() {
-    const totalQuestions = checklistItems.length;
-    const answeredQuestions = Object.keys(evaluations).length;
-
+    // No score display — only track answered count internally
     const progressCount = document.getElementById('progress-count');
     const progressTotal = document.getElementById('progress-total');
-    if (progressCount) progressCount.textContent = answeredQuestions;
-    if (progressTotal) progressTotal.textContent = totalQuestions;
+    if (progressCount) progressCount.textContent = Object.keys(evaluations).length;
+    if (progressTotal) progressTotal.textContent = checklistItems.length;
 }
 
-// ============================================================================
-// SUBMISSION
-// ============================================================================
-
 async function submitScore() {
-    console.log('=== Submit clicked ===');
-
     const unansweredItems = findUnansweredItems();
 
     if (unansweredItems.length > 0) {
         highlightUnanswered(unansweredItems);
         scrollToFirstUnanswered(unansweredItems[0]);
-
-        showWarning(`${unansweredItems.length} question${unansweredItems.length !== 1 ? 's' : ''} not answered. Please complete all questions before submitting.`);
+        showWarning(`${unansweredItems.length} question${unansweredItems.length !== 1 ? 's' : ''} not answered. Please answer all questions before submitting.`);
         return;
     }
 
@@ -843,13 +803,28 @@ async function submitScore() {
 
 function findUnansweredItems() {
     const unanswered = [];
-
     checklistItems.forEach(item => {
+        const card = document.querySelector(`[data-item-id="${item.id}"]`);
+        const rubricType = card ? card.dataset.rubricType : 'mcq';
+        
         if (!evaluations.hasOwnProperty(item.id)) {
+            // Never touched
             unanswered.push(item.id);
+        } else {
+            // Check if item was cleared
+            if (rubricType === 'essay') {
+                const textarea = document.querySelector(`.dry-essay-area[data-item-id="${item.id}"]`);
+                if (textarea && textarea.value.trim().length === 0) {
+                    unanswered.push(item.id);
+                }
+            } else if (rubricType === 'mcq') {
+                const eval = evaluations[item.id];
+                if (eval.selectedIndex === undefined || eval.selectedIndex === null) {
+                    unanswered.push(item.id);
+                }
+            }
         }
     });
-
     return unanswered;
 }
 
@@ -864,7 +839,6 @@ function highlightUnanswered(unansweredIds) {
         const card = document.querySelector(`[data-item-id="${itemId}"]`);
         if (card) {
             card.classList.add('unanswered');
-
             const header = card.querySelector('.question-header');
             if (header && !header.querySelector('.unanswered-badge')) {
                 const badge = document.createElement('span');
@@ -879,13 +853,15 @@ function highlightUnanswered(unansweredIds) {
 
 function scrollToFirstUnanswered(itemId) {
     const card = document.querySelector(`[data-item-id="${itemId}"]`);
-    if (card) {
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function showWarning(message) {
-    alert(message);
+    document.getElementById('warn-message').textContent = message;
+    document.getElementById('warn-modal').style.display = 'flex';
+}
+function closeWarnModal() {
+    document.getElementById('warn-modal').style.display = 'none';
 }
 
 // ============================================================================
@@ -893,14 +869,9 @@ function showWarning(message) {
 // ============================================================================
 
 function showConfirmModal() {
-    const modal = document.getElementById('confirm-modal');
-    const answeredCount = Object.keys(evaluations).length;
-    const totalCount = checklistItems.length;
-
     const message = document.getElementById('confirm-message');
-    message.textContent = `You have evaluated ${answeredCount}/${totalCount} questions. Submit this evaluation?`;
-
-    modal.style.display = 'flex';
+    message.textContent = `You have answered ${Object.keys(evaluations).length}/${checklistItems.length} questions. Submit your answers?`;
+    document.getElementById('confirm-modal').style.display = 'flex';
 }
 
 function closeConfirmModal() {
@@ -922,7 +893,7 @@ async function confirmSubmit() {
                 'X-CSRFToken': MARKING_DATA.csrfToken,
             },
             body: JSON.stringify({
-                comments: document.getElementById('comments').value
+                comments: ''
             })
         });
 
@@ -930,18 +901,75 @@ async function confirmSubmit() {
 
         if (result.success) {
             if (examTimer) examTimer.stop();
-            scoreIsSubmitted = true; // disable beforeunload guard
-
-            window.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
+            scoreIsSubmitted = true;
+            window.location.reload();
         } else {
             throw new Error(result.error || 'Submit failed');
         }
     } catch (error) {
         console.error('Submit error:', error);
-        alert('Error submitting evaluation: ' + error.message);
-
+        alert('Error submitting: ' + error.message);
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Submit Evaluation';
+        submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Submit Answers';
+    }
+}
+
+// ============================================================================
+// LOAD SAVED SCORES
+// ============================================================================
+
+function loadSavedScores() {
+    for (const itemId in MARKING_DATA.savedItemScores) {
+        const itemIdNum = parseInt(itemId);
+        const saved = MARKING_DATA.savedItemScores[itemId];
+        const score = saved.score;
+        const maxPoints = saved.max_points;
+
+        evaluations[itemIdNum] = { score, maxPoints };
+
+        const card = document.querySelector(`[data-item-id="${itemIdNum}"]`);
+        if (!card) continue;
+
+        const rubricType = card.dataset.rubricType;
+
+        if (rubricType === 'mcq') {
+            // Notes stores the selected option index
+            if (saved.notes !== undefined && saved.notes !== '') {
+                const selectedIdx = parseInt(saved.notes);
+                if (!isNaN(selectedIdx)) {
+                    evaluations[itemIdNum].selectedIndex = selectedIdx;
+                    card.querySelectorAll('.dry-mcq-option').forEach(opt => {
+                        const idx = parseInt(opt.dataset.optionIndex);
+                        opt.classList.toggle('selected', idx === selectedIdx);
+                    });
+                }
+            }
+            card.classList.add('answered');
+        } else if (rubricType === 'essay') {
+            const textarea = card.querySelector('.dry-essay-area');
+            if (textarea && saved.notes) {
+                textarea.value = saved.notes;
+                evaluations[itemIdNum].essayText = saved.notes;
+            }
+            if (saved.notes && saved.notes.trim().length > 0) {
+                card.classList.add('answered');
+            }
+        }
+    }
+
+    updateProgress();
+
+    // If in review mode, lock all inputs
+    if (MARKING_DATA.reviewMode) {
+        document.querySelectorAll('.dry-mcq-option').forEach(opt => {
+            opt.style.pointerEvents = 'none';
+            opt.style.opacity = opt.classList.contains('selected') ? '1' : '0.4';
+        });
+        document.querySelectorAll('.dry-essay-area').forEach(ta => {
+            ta.readOnly = true;
+            ta.style.opacity = '0.7';
+            ta.style.cursor = 'not-allowed';
+        });
     }
 }
 
@@ -953,7 +981,6 @@ function setupBackButton() {
     const btn = document.getElementById('back-btn');
     if (!btn) return;
     btn.addEventListener('click', function(e) {
-        // Allow free navigation in review mode or when already submitted
         if (MARKING_DATA.reviewMode || scoreIsSubmitted) return;
         e.preventDefault();
         _backNavHref = btn.href;
@@ -961,14 +988,8 @@ function setupBackButton() {
     });
 }
 
-function closeBackWarnModal() {
-    document.getElementById('back-warn-modal').style.display = 'none';
-}
-
-function confirmGoBack() {
-    closeBackWarnModal();
-    if (_backNavHref) window.location.href = _backNavHref;
-}
+function closeBackWarnModal() { document.getElementById('back-warn-modal').style.display = 'none'; }
+function confirmGoBack() { closeBackWarnModal(); if (_backNavHref) window.location.href = _backNavHref; }
 
 // ============================================================================
 // ERROR DISPLAY
@@ -977,11 +998,11 @@ function confirmGoBack() {
 function showError(message) {
     const container = document.getElementById('checklist-container');
     container.innerHTML = `
-        <div style="background: #FEE2E2; border: 2px solid #EF4444; border-radius: 12px; padding: 20px; text-align: center;">
-            <i class="bi bi-exclamation-triangle" style="font-size: 3rem; color: #DC2626;"></i>
-            <h3 style="color: #991B1B; margin: 16px 0 8px 0;">Error Loading Checklist</h3>
-            <p style="color: #7F1D1D; margin-bottom: 16px;">${message}</p>
-            <button onclick="location.reload()" style="background: #DC2626; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+        <div style="background:#FEE2E2; border:2px solid #EF4444; border-radius:12px; padding:20px; text-align:center;">
+            <i class="bi bi-exclamation-triangle" style="font-size:3rem; color:#DC2626;"></i>
+            <h3 style="color:#991B1B; margin:16px 0 8px 0;">Error Loading Questions</h3>
+            <p style="color:#7F1D1D; margin-bottom:16px;">${escapeHtml(message)}</p>
+            <button onclick="location.reload()" style="background:#DC2626; color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:600; cursor:pointer;">
                 <i class="bi bi-arrow-clockwise me-2"></i>Reload Page
             </button>
         </div>`;

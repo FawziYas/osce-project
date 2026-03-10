@@ -83,6 +83,7 @@
   
 
     <!-- Stats Grid -->
+    {% if not assignment.station.is_dry %}
     <div class="stats-grid">
         <div class="stat-card done">
             <div class="stat-number">{{ scored_count }}</div>
@@ -97,6 +98,7 @@
             <div class="stat-label">Total Students</div>
         </div>
     </div>
+    {% endif %}
 
 
     <!-- Students Section -->
@@ -124,7 +126,7 @@
                         <th>Student</th>
                         <th>Path</th>
                         <th>Status</th>
-                        <th>Score</th>
+                        {% if not assignment.station.is_dry %}<th>Score</th>{% endif %}
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -168,6 +170,7 @@
                                 {% endif %}
                             </div>
                         </td>
+                        {% if not assignment.station.is_dry %}
                         <td data-label="Score">
                             <div class="score-cell-sm">
                                 <span class="score-val">{% if entry.my_score is not None %}{{ entry.my_score|floatformat:2 }}{% else %}-{% endif %}</span>
@@ -176,13 +179,17 @@
                                 {% endif %}
                             </div>
                         </td>
+                        {% endif %}
                         <td data-label="Action">
                             {% if entry.is_scored %}
+                            {% if not assignment.station.is_dry %}
                             <a href="{% url 'examiner:marking_interface' assignment.id entry.student.id %}"
                                class="btn-action-sm secondary">Review</a>
+                          
+                            {% endif %}
                             {% else %}
                             <a href="{% url 'examiner:marking_interface' assignment.id entry.student.id %}"
-                               class="btn-action-sm primary">Mark Now</a>
+                               class="btn-action-sm primary">{% if assignment.station.is_dry %}Start Exam{% else %}Mark Now{% endif %}</a>
                             {% endif %}
                         </td>
                     </tr>

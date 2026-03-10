@@ -178,9 +178,18 @@
                                     <i class="bi bi-people me-1"></i>{{ path.student_count }} student{{ path.student_count|pluralize }} assigned
                                 </div>
                                 <div class="mt-2">
-                                    <a href="{% url 'creator:station_create' path.id %}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-plus-lg me-1"></i>Add Station
-                                    </a>
+                                    <div class="btn-group">
+                                        <a href="{% url 'creator:station_create' path.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-plus-lg me-1"></i>Add Station
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="visually-hidden">Toggle Dropdown</span>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="{% url 'creator:station_create' path.id %}"><i class="bi bi-clipboard-check me-2"></i>OSCE</a></li>
+                                            <li><a class="dropdown-item" href="{% url 'creator:station_create_dry' path.id %}"><i class="bi bi-clipboard me-2"></i>Dry OSCE</a></li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>

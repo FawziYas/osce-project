@@ -2,6 +2,7 @@
 Root URL configuration for OSCE Django project.
 """
 from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import RedirectView
@@ -25,7 +26,7 @@ urlpatterns = [
     path('api/creator/', include('creator.api_urls')),
     # DRF v2 API with multi-layer authorization
     path('api/v2/', include('core.api.urls', namespace='api_v2')),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Custom error handlers
 handler404 = 'core.error_handlers.handler404'
