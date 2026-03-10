@@ -163,3 +163,87 @@ def restore_exam_api(request, exam_id):
         return JsonResponse({'error': 'Exam is not deleted'}, status=400)
     exam.restore()
     return JsonResponse({'message': f"Exam '{exam.name}' restored"})
+
+
+@login_required
+@require_POST
+def complete_exam(request, exam_id):
+    """POST /api/creator/exams/<id>/complete
+
+    Exam-level completion: marks all active (non-archived/cancelled) sessions
+    as 'completed' and sets the exam status to 'completed'.
+
+    This is the only way sessions reach the 'completed' state in normal flow.
+    Cannot be reversed except by superusers or staff admins.
+    """
+    exam = get_object_or_404(Exam, pk=exam_id, is_deleted=False)
+
+    if exam.status not in ('in_progress', 'ready'):
+        return JsonResponse(
+            {'error': f'Cannot complete exam: current status is "{exam.status}".'},
+            status=400,
+        )
+
+    # Mark all non-archived/cancelled sessions as completed
+    updated = ExamSession.objects.filter(exam=exam).exclude(
+        status__in=['archived', 'cancelled', 'completed']
+    ).update(status='completed')
+
+    exam.status = 'completed'
+    exam.save(update_fields=['status'])
+
+    import logging
+    audit_logger = logging.getLogger('osce.audit')
+    audit_logger.info(
+        'EXAM_COMPLETE | user=%s | exam_id=%s | sessions_completed=%d',
+        request.user.username, exam.id, updated,
+    )
+
+    return JsonResponse({
+        'message': f'Exam "{exam.name}" completed. {updated} session(s) marked as completed.',
+        'status': 'completed',
+        'sessions_completed': updated,
+    })
+
+
+@login_required
+@require_POST
+def revert_exam_completion(request, exam_id):
+    """POST /api/creator/exams/<id>/revert-completion
+
+    Revert a completed exam back to in_progress.
+    Superuser or staff (admin) only.
+    Reverts all 'completed' sessions back to 'finished'.
+    """
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse(
+            {'error': 'Only admin users can revert exam completion.'},
+            status=403,
+        )
+
+    exam = get_object_or_404(Exam, pk=exam_id, is_deleted=False)
+
+    if exam.status != 'completed':
+        return JsonResponse(
+            {'error': f'Exam is not completed (current status: "{exam.status}").'},
+            status=400,
+        )
+
+    # Revert sessions that were completed back to finished
+    reverted = ExamSession.objects.filter(exam=exam, status='completed').update(status='finished')
+
+    exam.status = 'in_progress'
+    exam.save(update_fields=['status'])
+
+    import logging
+    audit_logger = logging.getLogger('osce.audit')
+    audit_logger.warning(
+        'EXAM_REVERT_COMPLETION | admin=%s | exam_id=%s | sessions_reverted=%d',
+        request.user.username, exam.id, reverted,
+    )
+
+    return JsonResponse({
+        'message': f'Exam "{exam.name}" completion reverted. {reverted} session(s) restored to "finished".',
+        'status': 'in_progress',
+        'sessions_reverted': reverted,
+    })

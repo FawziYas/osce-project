@@ -67,6 +67,7 @@ def status_label_filter(value):
         'ready':       'Ready',
         'scheduled':   'Scheduled',
         'in_progress': 'In Progress',
+        'finished':    'Finished',
         'completed':   'Completed',
         'archived':    'Archived',
         'cancelled':   'Cancelled',

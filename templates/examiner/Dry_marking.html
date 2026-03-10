@@ -32,7 +32,7 @@
 .dry-mcq-option.selected .mcq-option-letter { color:#1d4ed8; }
 
 .dry-essay-area {
-    width:100%; min-height:120px; background:#fbfbfdbc; border:2px solid #4d5155;
+    width:100%; min-height:120px; background:#eeeeef; border:2px solid #4d5155;
     border-radius:14px; padding:14px; color:#1e293b; font-size:1rem;
     resize:vertical; outline:none; transition:border-color .2s;
     font-family:inherit; margin:4px 16px 14px; width:calc(100% - 32px);
@@ -77,12 +77,13 @@
     opacity: 0;
     pointer-events: none;
 }
-/* True absolute centering */
+.evaluation-header .header-title {
+    transition: gap .25s ease;
+    gap: 12px;
+}
 .evaluation-header.hdr-compact .header-title {
-    position: relative;
-    display: flex;
+    gap: 12px;
     align-items: center;
-    justify-content: space-between;
 }
 /* Station name stays visible, shrinks in compact mode */
 .station-name-large {
@@ -91,16 +92,7 @@
     flex-shrink: 0;
 }
 .evaluation-header.hdr-compact .station-name-large {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
     font-size: 0.9rem;
-    white-space: nowrap;
-    pointer-events: none;
-    max-width: 50%;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 /* Student name hidden by default, shows in compact */
 .hdr-compact-student {
@@ -111,7 +103,6 @@
     white-space: nowrap;
     flex-shrink: 0;
     margin-left: 16px;
-   
 }
 .evaluation-header.hdr-compact .hdr-compact-student {
     display: block;
@@ -129,55 +120,13 @@
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 8px;
     padding: 4px 10px;
+    display: flex;
     align-items: center;
     gap: 4px;
     margin-left: auto;
 }
 .evaluation-header.hdr-compact .hdr-compact-timer {
     display: flex;
-}
-.evaluation-header:not(.hdr-compact) .hdr-compact-timer {
-    display: none !important;
-}
-
-/* Mirror warning/danger colors from main timer */
-.hdr-compact-timer.warning {
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    border-color: #fff59d;
-    box-shadow: 0 0 12px rgba(255, 152, 0, 0.6);
-    animation: pulse-warning 1.5s ease-in-out infinite;
-}
-.hdr-compact-timer.danger {
-    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-    border-color: #ff9999;
-    box-shadow: 0 0 16px rgba(244, 67, 54, 0.8);
-    animation: pulse-danger 0.8s ease-in-out infinite;
-}
-
-/* ── Mobile compact header ── */
-@media (max-width: 575px) {
-    /* Give station name more horizontal room */
-    .evaluation-header.hdr-compact .station-name-large {
-        max-width: 55%;
-        font-size: 0.82rem;
-    }
-    /* Smaller timer badge */
-    .evaluation-header.hdr-compact .hdr-compact-timer {
-        font-size: 0.95rem;
-        padding: 3px 7px;
-    }
-    /* On mobile: switch to fixed positioning so sticky can't fail */
-    .evaluation-header.hdr-compact {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
-        margin: 0;
-        box-sizing: border-box;
-        padding-left: 8px;
-        padding-right: 8px;
-    }
 }
 </style>
 {% endblock %}
@@ -186,7 +135,7 @@
 <!-- Sticky Header -->
 <header class="evaluation-header" id="eval-header">
     <div class="header-title">
-        <span class="hdr-compact-student" data-full-name="{{ student.full_name }}">{{ student.full_name }}</span>
+        <span class="hdr-compact-student">{{ student.full_name }}</span>
         <div class="station-name-large">{{ assignment.station.name }} <span class="dry-badge"><i class="bi bi-pencil-square"></i> Dry OSCE</span></div>
         <span class="hdr-compact-timer" id="compact-timer-inline">
             <i class="bi bi-clock"></i>
@@ -244,7 +193,10 @@
     <!-- Bottom Actions — NO score display -->
     <div class="bottom-actions">
         <div class="action-buttons">
-            <div></div>
+            <a href="{% url 'examiner:station_dashboard' assignment.id %}"
+               class="btn-back" id="back-btn">
+                <i class="bi bi-arrow-left"></i>
+            </a>
 
             <div></div>
 
@@ -343,23 +295,6 @@ let evaluations = {};   // { itemId: { score, maxPoints } }
 let stationData = null;
 let scoreIsSubmitted = MARKING_DATA.scoreStatus === 'submitted';
 let _backNavHref = null;
-let oneMinuteBeepPlayed = false;
-let _audioCtx = null;
-
-// Pre-unlock AudioContext on first user gesture so the beep works whether
-// the header is compact or not.
-(function () {
-    function _ensureAudioUnlocked() {
-        if (!_audioCtx) {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (AC) _audioCtx = new AC();
-        }
-        if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
-    }
-    ['click', 'touchstart', 'mousedown', 'pointerdown', 'keydown', 'scroll'].forEach(evt =>
-        document.addEventListener(evt, _ensureAudioUnlocked, { capture: true, passive: true })
-    );
-})();
 
 // ============================================================================
 // INITIALIZATION
@@ -368,7 +303,6 @@ let _audioCtx = null;
 document.addEventListener('DOMContentLoaded', () => {
     initializeTimer();
     initScrollHeader();
-    shortenNameOnMobile();
     loadChecklist();
     setupBackButton();
 
@@ -383,87 +317,16 @@ function initializeTimer() {
     if (!MARKING_DATA.duration) return;
     examTimer = new ExamTimer(MARKING_DATA.duration, 'timer');
     examTimer.start();
-    examTimer.on('warning', (m) => {
-        console.log('Timer warning:', m);
-        if (m === '1 minute remaining' && !oneMinuteBeepPlayed) {
-            oneMinuteBeepPlayed = true;
-            playBeep();
-        }
-    });
+    examTimer.on('warning', (m) => console.log('Timer warning:', m));
     examTimer.on('expiry', () => console.log('Timer expired'));
-    // Sync compact timer display + warning/danger classes
+    // Sync compact timer display
     const mainTimerEl = document.getElementById('timer');
     const compactTimerEl = document.getElementById('compact-timer-inline');
-    const compactTimerText = compactTimerEl ? compactTimerEl.querySelector('span:last-child') : null;
-    const timerWidget = document.getElementById('timer-widget');
-
-    if (mainTimerEl && compactTimerText) {
-        const obs = new MutationObserver(() => {
-            compactTimerText.textContent = mainTimerEl.textContent;
-            maybePlayOneMinuteBeep(mainTimerEl.textContent);
-        });
+    if (mainTimerEl && compactTimerEl) {
+        const obs = new MutationObserver(() => { compactTimerEl.textContent = mainTimerEl.textContent; });
         obs.observe(mainTimerEl, { childList: true, characterData: true, subtree: true });
-        compactTimerText.textContent = mainTimerEl.textContent;
-        maybePlayOneMinuteBeep(mainTimerEl.textContent);
+        compactTimerEl.textContent = mainTimerEl.textContent;
     }
-
-    if (timerWidget && compactTimerEl) {
-        const classObs = new MutationObserver(() => {
-            compactTimerEl.classList.toggle('warning', timerWidget.classList.contains('warning'));
-            compactTimerEl.classList.toggle('danger', timerWidget.classList.contains('danger'));
-        });
-        classObs.observe(timerWidget, { attributes: true, attributeFilter: ['class'] });
-        compactTimerEl.classList.toggle('warning', timerWidget.classList.contains('warning'));
-        compactTimerEl.classList.toggle('danger', timerWidget.classList.contains('danger'));
-    }
-}
-
-function maybePlayOneMinuteBeep(rawText) {
-    if (oneMinuteBeepPlayed) return;
-    const text = String(rawText || '').trim();
-    const m = text.match(/^(\d+):(\d{2})$/);
-    if (!m) return;
-    const minutes = parseInt(m[1], 10);
-    const seconds = parseInt(m[2], 10);
-    if (minutes === 1 && seconds === 0) {
-        oneMinuteBeepPlayed = true;
-        playBeep();
-    }
-}
-
-function playBeep() {
-    if (!_audioCtx) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        _audioCtx = new AC();
-    }
-    const ctx = _audioCtx;
-    const doPlay = () => {
-        try {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = 880;
-            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.36);
-        } catch (e) { console.warn('Beep failed:', e); }
-    };
-    if (ctx.state === 'suspended') ctx.resume().then(doPlay).catch(e => console.warn('Beep blocked:', e));
-    else doPlay();
-}
-
-function shortenNameOnMobile() {
-    if (window.innerWidth > 575) return;
-    const span = document.querySelector('.hdr-compact-student');
-    if (!span) return;
-    const full = span.dataset.fullName || span.textContent.trim();
-    const parts = full.trim().split(/\s+/);
-    if (parts.length > 2) span.textContent = parts[0] + ' ' + parts[parts.length - 1];
 }
 
 function initScrollHeader() {
@@ -489,11 +352,6 @@ function initScrollHeader() {
         if (!compact && y > COLLAPSE_Y) compact = true;
         if (compact && y < EXPAND_Y) compact = false;
         header.classList.toggle('hdr-compact', compact);
-        // Mobile: fixed positioning causes a content jump — offset the sibling div
-        if (window.innerWidth <= 575) {
-            const next = header.nextElementSibling;
-            if (next) next.style.paddingTop = compact ? (header.offsetHeight + 'px') : '';
-        }
     }
 
     pinHeight();
@@ -730,8 +588,8 @@ function onEssayInput(itemId, maxPoints) {
     if (!textarea) return;
 
     const text = textarea.value.trim();
-    // Score: has text → full points, empty → 0 (student does NOT see this)
-    const score = text.length > 0 ? maxPoints : 0;
+    // Score is always 0 — essay answers are saved as text and await manual correction
+    const score = 0;
 
     evaluations[itemId] = { score, maxPoints, essayText: text };
 
@@ -902,7 +760,7 @@ async function confirmSubmit() {
         if (result.success) {
             if (examTimer) examTimer.stop();
             scoreIsSubmitted = true;
-            window.location.reload();
+            window.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
         } else {
             throw new Error(result.error || 'Submit failed');
         }

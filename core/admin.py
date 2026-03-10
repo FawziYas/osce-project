@@ -282,7 +282,7 @@ def _get_client_ip(request):
 
 
 def revert_to_scheduled(modeladmin, request, queryset):
-    """Admin action: revert completed sessions back to scheduled."""
+    """Admin action: revert finished/completed sessions back to scheduled."""
     # Permission check: superuser or has can_revert_session permission
     if not (request.user.is_superuser or request.user.has_perm('core.can_revert_session')):
         modeladmin.message_user(
@@ -298,11 +298,19 @@ def revert_to_scheduled(modeladmin, request, queryset):
 
     for session in queryset.select_for_update():
         previous_status = session.status
-        if previous_status != 'completed':
+        if previous_status == 'completed' and not request.user.is_superuser:
             skipped += 1
             modeladmin.message_user(
                 request,
-                f'Skipped "{session.name}" – status is "{previous_status}", not "completed".',
+                f'Skipped "{session.name}" – reverting completed sessions requires superuser.',
+                level='warning',
+            )
+            continue
+        if previous_status not in ('finished', 'completed'):
+            skipped += 1
+            modeladmin.message_user(
+                request,
+                f'Skipped "{session.name}" – status is "{previous_status}", not "finished" or "completed".',
                 level='warning',
             )
             continue

@@ -130,7 +130,7 @@ class ItemScore(models.Model):
     score = models.FloatField(default=0)
     max_points = models.FloatField(default=1)
     marked_at = models.IntegerField(null=True, blank=True)
-    notes = models.CharField(max_length=500, blank=True, default='')
+    notes = models.TextField(blank=True, default='')  # stores essay answer text
 
     class Meta:
         db_table = 'item_scores'

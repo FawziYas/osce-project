@@ -9,12 +9,13 @@
 <link rel="stylesheet" href="{% static 'css/examiner-evaluation.css' %}">
 <script src="{% static 'js/exam-timer.js' %}"></script>
 <style>
-/* Compact scroll header behavior */
+/* ── Compact scroll header ── */
 .evaluation-header {
     transition: padding .25s ease, box-shadow .25s ease;
 }
 .evaluation-header .header-top {
     overflow: hidden;
+    /* height is set by JS so the transition is pixel-accurate (no max-height jank) */
     opacity: 1;
     transition: height .3s cubic-bezier(.4,0,.2,1), opacity .25s ease;
     will-change: height, opacity;
@@ -29,53 +30,42 @@
     opacity: 0;
     pointer-events: none;
 }
-
-/* Left group: back btn + student name sit side by side as ONE grid cell */
-.hdr-left-group {
-    display: flex;
+.evaluation-header .header-title {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    gap: 10px;
-    min-width: 0;
+    transition: gap .25s ease;
+    gap: 12px;
 }
-
-/* True absolute centering — left group and timer stay at edges, station
-   is pinned to the exact horizontal middle of the header regardless of
-   how wide the left or right side is. */
 .evaluation-header.hdr-compact .header-title {
-    position: relative;
-    display: flex;
+    gap: 12px;
     align-items: center;
-    justify-content: space-between;
+}
+/* Station name stays visible, shrinks in compact mode */
+.station-name-large {
+    transition: font-size .25s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-align: center;
+    justify-self: center;
 }
 .evaluation-header.hdr-compact .station-name-large {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
     font-size: 0.9rem;
-    white-space: nowrap;
-    pointer-events: none;
-    max-width: 50%;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
-
-/* Student name: hidden in normal mode, appears beside back-btn in compact */
-.hdr-compact-student-near-back {
+/* Student name hidden by default, shows in compact */
+.hdr-compact-student {
     display: none;
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.88);
+    color: #fff;
     white-space: nowrap;
-    border-left: 1px solid rgba(255,255,255,0.35);
-    padding-left: 10px;
+    flex-shrink: 0;
+    margin-left: 16px;
 }
-
-.evaluation-header.hdr-compact .hdr-compact-student-near-back {
-    display: inline-flex;
-    align-items: center;
+.evaluation-header.hdr-compact .hdr-compact-student {
+    display: none;
 }
-
+/* Compact inline timer (hidden until scrolled) */
 .compact-timer-inline {
     display: none;
     font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
@@ -88,63 +78,16 @@
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 8px;
     padding: 4px 10px;
+    display: flex;
     align-items: center;
     gap: 4px;
     margin-left: auto;
 }
-.evaluation-header.hdr-compact .compact-timer-inline {
-    display: inline-flex;
+.evaluation-header.hdr-compact .compact-timer-inline { 
+    display: flex;
 }
-.evaluation-header:not(.hdr-compact) .compact-timer-inline {
-    display: none !important;
-}
-.evaluation-header.hdr-compact .timer-widget {
-    display: none;
-}
-
-/* Mirror warning/danger colors on compact timer */
-.compact-timer-inline.warning {
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    border-color: #fff59d;
-    box-shadow: 0 0 12px rgba(255, 152, 0, 0.6);
-    animation: pulse-warning 1.5s ease-in-out infinite;
-}
-.compact-timer-inline.danger {
-    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-    border-color: #ff9999;
-    box-shadow: 0 0 16px rgba(244, 67, 54, 0.8);
-    animation: pulse-danger 0.8s ease-in-out infinite;
-}
-
-
-/* ── Mobile compact header ── */
-@media (max-width: 575px) {
-    /* Hide label text, keep only chevron icon so back nav still works */
-    .evaluation-header.hdr-compact .back-btn-text {
-        display: none;
-    }
-    /* Give station name more horizontal room */
-    .evaluation-header.hdr-compact .station-name-large {
-        max-width: 55%;
-        font-size: 0.82rem;
-    }
-    /* Smaller timer badge */
-    .evaluation-header.hdr-compact .compact-timer-inline {
-        font-size: 0.95rem;
-        padding: 3px 7px;
-    }
-    /* On mobile: switch to fixed positioning so sticky can't fail */
-    .evaluation-header.hdr-compact {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        width: 100%;
-        margin: 0;
-        box-sizing: border-box;
-        padding-left: 8px;
-        padding-right: 8px;
-    }
+.evaluation-header.hdr-compact .timer-widget { 
+    display: none; 
 }
 </style>
 {% endblock %}
@@ -152,15 +95,12 @@
 {% block content %}
 <!-- Sticky Header -->
 <header class="evaluation-header" id="eval-header">
-    <!-- Row 1: [Back btn + Student name] | Station Name (centered) | Timer -->
+    <!-- Row 1: Back button | Student Name | Station Name | Timer -->
     <div class="header-title">
-        <div class="hdr-left-group">
-            <a href="{% url 'examiner:station_dashboard' assignment.id %}" class="header-back-btn">
-                <i class="bi bi-chevron-left"></i>
-                <span class="back-btn-text">Back to Dashboard</span>
-            </a>
-            <span class="hdr-compact-student-near-back" data-full-name="{{ student.full_name }}">{{ student.full_name }}</span>
-        </div>
+        <a href="{% url 'examiner:station_dashboard' assignment.id %}" class="header-back-btn">
+            <i class="bi bi-chevron-left"></i>
+            <span class="back-btn-text">Back to Dashboard</span>
+        </a>
         <div class="station-name-large">{{ assignment.station.name }}</div>
         <span class="compact-timer-inline" id="timer-inline">
             <i class="bi bi-clock"></i>
@@ -338,23 +278,6 @@ let evaluations = {}; // { itemId: "done" | "partial" | "not-done" | null }
 let stationData = null;
 let scoreIsSubmitted = MARKING_DATA.scoreStatus === 'submitted';
 let _backNavHref = null;
-let oneMinuteBeepPlayed = false;
-let _audioCtx = null;
-
-// Pre-unlock AudioContext on first user gesture so the beep works whether
-// the header is compact or not (scroll alone does not count as a user gesture).
-(function () {
-    function _ensureAudioUnlocked() {
-        if (!_audioCtx) {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (AC) _audioCtx = new AC();
-        }
-        if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
-    }
-    ['click', 'touchstart', 'mousedown', 'pointerdown', 'keydown', 'scroll'].forEach(evt =>
-        document.addEventListener(evt, _ensureAudioUnlocked, { capture: true, passive: true })
-    );
-})();
 
 // ============================================================================
 // INITIALIZATION
@@ -367,11 +290,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize timer
     initializeTimer();
 
-    // Enable compact shrinking header
+    // Initialize scroll header compression
     initScrollHeader();
-
-    // Shorten student name to first + last on mobile
-    shortenNameOnMobile();
 
     // Load checklist data
     loadChecklist();
@@ -390,104 +310,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function initializeTimer() {
-    if (!MARKING_DATA.duration) {
-        console.warn('No duration provided');
-        return;
-    }
-
-    examTimer = new ExamTimer(MARKING_DATA.duration, 'timer');
-
-    // Start timer automatically
-    examTimer.start();
-
-    // Set up warning callbacks
-    examTimer.on('warning', (message) => {
-        console.log('Timer warning:', message);
-        if (message === '1 minute remaining' && !oneMinuteBeepPlayed) {
-            oneMinuteBeepPlayed = true;
-            playBeep();
-        }
-    });
-
-    examTimer.on('expiry', () => {
-        console.log('Timer expired');
-    });
-
-    // Sync compact timer text + warning/danger visual state
-    const mainTimerEl = document.getElementById('timer');
-    const compactTimerEl = document.getElementById('timer-inline');
-    const compactTimerText = compactTimerEl ? compactTimerEl.querySelector('span:last-child') : null;
-    const timerWidget = document.getElementById('timer-widget');
-
-    if (mainTimerEl && compactTimerText) {
-        const textObs = new MutationObserver(() => {
-            compactTimerText.textContent = mainTimerEl.textContent;
-            maybePlayOneMinuteBeep(mainTimerEl.textContent);
-        });
-        textObs.observe(mainTimerEl, { childList: true, characterData: true, subtree: true });
-        compactTimerText.textContent = mainTimerEl.textContent;
-        maybePlayOneMinuteBeep(mainTimerEl.textContent);
-    }
-
-    if (timerWidget && compactTimerEl) {
-        const classObs = new MutationObserver(() => {
-            compactTimerEl.classList.toggle('warning', timerWidget.classList.contains('warning'));
-            compactTimerEl.classList.toggle('danger', timerWidget.classList.contains('danger'));
-        });
-        classObs.observe(timerWidget, { attributes: true, attributeFilter: ['class'] });
-        compactTimerEl.classList.toggle('warning', timerWidget.classList.contains('warning'));
-        compactTimerEl.classList.toggle('danger', timerWidget.classList.contains('danger'));
-    }
-}
-
-function maybePlayOneMinuteBeep(rawText) {
-    if (oneMinuteBeepPlayed) return;
-    const text = String(rawText || '').trim();
-    const m = text.match(/^(\d+):(\d{2})$/);
-    if (!m) return;
-    const minutes = parseInt(m[1], 10);
-    const seconds = parseInt(m[2], 10);
-    if (minutes === 1 && seconds === 0) {
-        oneMinuteBeepPlayed = true;
-        playBeep();
-    }
-}
-
-function playBeep() {
-    if (!_audioCtx) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        _audioCtx = new AC();
-    }
-    const ctx = _audioCtx;
-    const doPlay = () => {
-        try {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = 880;
-            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.36);
-        } catch (e) { console.warn('Beep failed:', e); }
-    };
-    if (ctx.state === 'suspended') ctx.resume().then(doPlay).catch(e => console.warn('Beep blocked:', e));
-    else doPlay();
-}
-
-function shortenNameOnMobile() {
-    if (window.innerWidth > 575) return;
-    const span = document.querySelector('.hdr-compact-student-near-back');
-    if (!span) return;
-    const full = span.dataset.fullName || span.textContent.trim();
-    const parts = full.trim().split(/\s+/);
-    if (parts.length > 2) span.textContent = parts[0] + ' ' + parts[parts.length - 1];
-}
+// ============================================================================
+// SCROLL HEADER COMPRESSION
+// ============================================================================
 
 function initScrollHeader() {
     const header = document.getElementById('eval-header');
@@ -499,6 +324,7 @@ function initScrollHeader() {
     const EXPAND_Y = 8;
     let compact = false;
 
+    // Pin the real pixel height so the CSS height transition is smooth (no max-height jank)
     function pinHeight() {
         top.style.height = '';
         top.style.height = top.scrollHeight + 'px';
@@ -506,14 +332,11 @@ function initScrollHeader() {
 
     function applyCompactState() {
         const y = window.scrollY || window.pageYOffset || 0;
+        // One-way hysteresis: compact once scrolled down, expand only near page top.
+        // This avoids oscillation from sticky-header height changes.
         if (!compact && y > COLLAPSE_Y) compact = true;
         if (compact && y < EXPAND_Y) compact = false;
         header.classList.toggle('hdr-compact', compact);
-        // Mobile: fixed positioning causes a content jump — offset the sibling div
-        if (window.innerWidth <= 575) {
-            const next = header.nextElementSibling;
-            if (next) next.style.paddingTop = compact ? (header.offsetHeight + 'px') : '';
-        }
     }
 
     pinHeight();
@@ -530,6 +353,37 @@ function initScrollHeader() {
             ticking = true;
         }
     }, { passive: true });
+}
+
+function initializeTimer() {
+    if (!MARKING_DATA.duration) {
+        console.warn('No duration provided');
+        return;
+    }
+
+    examTimer = new ExamTimer(MARKING_DATA.duration, 'timer');
+
+    // Start timer automatically
+    examTimer.start();
+
+    // Sync compact timer inline display
+    const timerInline = document.getElementById('timer-inline');
+    const timerInlineSpan = timerInline ? timerInline.querySelector('span') : null;
+    const mainTimer = document.getElementById('timer');
+    if (timerInlineSpan && mainTimer) {
+        setInterval(() => {
+            timerInlineSpan.textContent = mainTimer.textContent;
+        }, 100);
+    }
+
+    // Set up warning callbacks
+    examTimer.on('warning', (message) => {
+        console.log('Timer warning:', message);
+    });
+
+    examTimer.on('expiry', () => {
+        console.log('Timer expired');
+    });
 }
 
 // ============================================================================

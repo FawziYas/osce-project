@@ -246,8 +246,7 @@ body {
 .badge-ready        { background: #0dcaf0; color: #000; }
 .badge-scheduled    { background: #0d6efd; color: #fff; }
 .badge-active       { background: #198754; }
-.badge-in_progress  { background: #fd7e14; color: #fff; }
-.badge-completed    { background: #198754; color: #fff; }
+.badge-in_progress  { background: #fd7e14; color: #000000; }.badge-finished     { background: #6f42c1; color: #fff; }.badge-completed    { background: #198754; color: #fff; }
 .badge-archived     { background: #6c757d; color: #fff; }
 .badge-cancelled    { background: #dc3545; color: #fff; }
 

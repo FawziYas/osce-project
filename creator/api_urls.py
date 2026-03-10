@@ -17,6 +17,8 @@ urlpatterns = [
     path('exams/<uuid:exam_id>/summary', exams.get_exam_summary, name='get_exam_summary'),
     path('exams/<uuid:exam_id>', exams.delete_exam_api, name='delete_exam'),
     path('exams/<uuid:exam_id>/restore', exams.restore_exam_api, name='restore_exam'),
+    path('exams/<uuid:exam_id>/complete', exams.complete_exam, name='complete_exam'),
+    path('exams/<uuid:exam_id>/revert-completion', exams.revert_exam_completion, name='revert_exam_completion'),
     path('stations/<uuid:station_id>/items', exams.get_station_items, name='get_station_items'),
 
     # ── Stations (delete) ────────────────────────────────────────────────────
@@ -26,6 +28,7 @@ urlpatterns = [
     path('sessions/<uuid:session_id>/status', sessions.get_session_status, name='session_status'),
     path('sessions/<uuid:session_id>/activate', sessions.activate_session, name='activate_session'),
     path('sessions/<uuid:session_id>/deactivate', sessions.deactivate_session, name='deactivate_session'),
+    path('sessions/<uuid:session_id>/finish', sessions.finish_session, name='finish_session'),
     path('sessions/<uuid:session_id>/complete', sessions.complete_session, name='complete_session'),
     path('sessions/<uuid:session_id>', sessions.delete_session_api, name='delete_session'),
     path('sessions/<uuid:session_id>/restore', sessions.restore_session_api, name='restore_session'),

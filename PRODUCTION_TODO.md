@@ -316,6 +316,49 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [ ] **Set `SENTRY_DSN` in App Service** environment variables
 - [ ] **Test error reporting** — trigger a test error and verify it appears in Sentry dashboard
 
+### 8. SEO & Search Engine Blocking
+
+**CRITICAL:** This is a private exam management system. It **MUST NOT** be indexed by Google, Bing, or other search engines.
+
+- [ ] **Create `robots.txt`** — Place at `static/robots.txt`:
+  ```
+  User-agent: *
+  Disallow: /
+  ```
+  - Configure Django to serve it: Add to `urls.py`:
+    ```python
+    from django.views.generic import TemplateView
+    
+    path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain')),
+    ```
+
+- [ ] **Add meta tag to base template** — In `templates/base.html` `<head>`:
+  ```html
+  <meta name="robots" content="noindex, nofollow" />
+  ```
+
+- [ ] **Disable sitemap** — If you have a `sitemap.xml`, delete it or return 404. Add to `urls.py`:
+  ```python
+  path('sitemap.xml', lambda request: HttpResponseNotFound()),
+  ```
+
+- [ ] **Set X-Robots-Tag header on all responses** — In `production.py` or middleware:
+  ```python
+  # In middleware or settings
+  SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+  # Add to response headers in middleware:
+  response['X-Robots-Tag'] = 'noindex, nofollow'
+  ```
+
+- [ ] **Disable Google Search Console** — If the domain is ever registered with Google Search Console, remove it from there
+
+- [ ] **Monitor for indexing** — After deployment:
+  - [ ] Run `site:your-azure-domain.com` in Google search → should return 0 results
+  - [ ] Check Azure App Service logs for any indexing bot requests (User-Agent: Googlebot, Bingbot, etc.)
+  - [ ] If indexed, submit removal request via Google Search Console
+
+**Reason:** Exam content, student grades, and examiner assignments are sensitive data. Public indexing would be a serious **HIPAA/FERPA violation** and **data breach risk**.
+
 ---
 
 ## 🟢 P2 — RECOMMENDED (Before or Shortly After Launch)

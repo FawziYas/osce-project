@@ -22,7 +22,8 @@ def _sync_exam_status(exam):
     all its sessions.  Called after every session status change.
 
     Rules (in priority order):
-      1. Any session is in_progress  → exam = in_progress
+      1. Any session is in_progress OR finished → exam = in_progress
+         (finished sessions wait for the exam-level Complete action)
       2. All active sessions are completed (≥1 exists) → exam = completed
       3. Any session is scheduled    → exam = ready
       4. No active sessions          → exam = draft (or leave draft)
@@ -127,8 +128,11 @@ def activate_session(request, session_id):
 def deactivate_session(request, session_id):
     """POST /api/creator/sessions/<id>/deactivate"""
     session = get_object_or_404(ExamSession, pk=session_id)
-    if session.status == 'completed':
-        return JsonResponse({'error': 'Cannot deactivate completed session'}, status=400)
+    if session.status in ('completed', 'finished'):
+        return JsonResponse(
+            {'error': f'Cannot deactivate a {session.status} session'},
+            status=400,
+        )
 
     session.status = 'scheduled'
     session.save()
@@ -138,8 +142,35 @@ def deactivate_session(request, session_id):
 
 @login_required
 @require_POST
+def finish_session(request, session_id):
+    """POST /api/creator/sessions/<id>/finish
+
+    Mark an in-progress session as finished.  Finished sessions are waiting
+    for the exam-level Complete action; they can be reverted to scheduled by
+    users with can_revert_session permission (or superusers).
+    """
+    session = get_object_or_404(ExamSession, pk=session_id)
+    if session.status != 'in_progress':
+        return JsonResponse(
+            {'error': f'Cannot finish: session status is "{session.status}", not "in_progress".'},
+            status=400,
+        )
+    session.status = 'finished'
+    session.actual_end = TimestampMixin.utc_timestamp()
+    session.save()
+    # Finishing a session is a local action – exam status is unchanged.
+    # Use the exam-level "Complete Exam" action to finalize the whole exam.
+    return JsonResponse({'message': 'Session finished', 'status': 'finished'})
+
+
+@login_required
+@require_POST
 def complete_session(request, session_id):
-    """POST /api/creator/sessions/<id>/complete"""
+    """POST /api/creator/sessions/<id>/complete
+
+    Internal endpoint – normally called via the exam-level complete action.
+    Marks the session as officially completed.
+    """
     session = get_object_or_404(ExamSession, pk=session_id)
     session.status = 'completed'
     session.save()
@@ -236,22 +267,30 @@ def revert_session_to_scheduled(request, session_id):
     """
     POST /api/creator/sessions/<id>/revert-to-scheduled
 
-    Revert a completed session back to scheduled.
-    Only superusers or users with core.can_revert_session permission.
-    """
-    # Permission check
-    if not (request.user.is_superuser or request.user.has_perm('core.can_revert_session')):
-        return JsonResponse(
-            {'error': 'You do not have permission to revert sessions.'},
-            status=403,
-        )
+    Revert a finished or completed session back to scheduled.
 
+    - "finished" → "scheduled": superuser or users with can_revert_session permission
+    - "completed" → "scheduled": superuser or staff (admin) only
+    """
     session = get_object_or_404(ExamSession, pk=session_id)
     previous_status = session.status
 
-    if previous_status != 'completed':
+    if previous_status == 'finished':
+        if not (request.user.is_superuser or request.user.has_perm('core.can_revert_session')):
+            return JsonResponse(
+                {'error': 'You do not have permission to revert finished sessions.'},
+                status=403,
+            )
+    elif previous_status == 'completed':
+        # Completed sessions are locked – only superuser/admin can revert
+        if not (request.user.is_superuser or request.user.is_staff):
+            return JsonResponse(
+                {'error': 'Only admin users can revert a completed session.'},
+                status=403,
+            )
+    else:
         return JsonResponse(
-            {'error': f'Cannot revert: session status is "{previous_status}", not "completed".'},
+            {'error': f'Cannot revert: session status is "{previous_status}", not "finished" or "completed".'},
             status=400,
         )
 
@@ -277,6 +316,6 @@ def revert_session_to_scheduled(request, session_id):
     )
 
     return JsonResponse({
-        'message': f'Session "{session.name}" reverted from completed to scheduled.',
+        'message': f'Session "{session.name}" reverted from {previous_status} to scheduled.',
         'status': 'scheduled',
     })

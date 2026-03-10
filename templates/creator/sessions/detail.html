@@ -101,11 +101,11 @@
         {% endif %}
         {% elif session.status == 'in_progress' %}
         <button type="button" class="btn btn-warning" onclick="deactivateSession()"><i class="bi bi-pause-fill me-1"></i>Pause</button>
-        <button type="button" class="btn btn-secondary" onclick="completeSession()"><i class="bi bi-stop-fill me-1"></i>Complete</button>
+        <button type="button" class="btn btn-secondary" onclick="finishSession()"><i class="bi bi-stop-fill me-1"></i>Finish</button>
         {% if request.user.is_superuser %}
         <button type="button" class="btn btn-danger" onclick="hardDeleteSession()"><i class="bi bi-trash me-1"></i>Delete Permanently</button>
         {% endif %}
-        {% elif session.status == 'completed' %}
+        {% elif session.status == 'finished' %}
         {% if user.is_superuser or perms.core.can_revert_session %}
         <button type="button" class="btn btn-outline-primary" onclick="revertToScheduled()" title="Revert session back to scheduled status">
             <i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Scheduled
@@ -113,6 +113,12 @@
         {% endif %}
         {% if request.user.is_superuser %}
         <button type="button" class="btn btn-danger" onclick="hardDeleteSession()"><i class="bi bi-trash me-1"></i>Delete Permanently</button>
+        {% endif %}
+        {% elif session.status == 'completed' %}
+        {% if user.is_superuser or user.is_staff %}
+        <button type="button" class="btn btn-outline-warning" onclick="revertToScheduled()" title="Admin only: revert completed session back to scheduled">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Scheduled
+        </button>
         {% endif %}
         {% elif session.status == 'archived' %}
         {% if request.user.is_superuser %}
@@ -677,6 +683,14 @@ function deactivateSession() {
         fetch('/api/creator/sessions/{{ session.id }}/deactivate', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session paused');location.reload();});
     }
 }
+function finishSession() {
+    if (confirm('Mark this session as Finished?\n\nThe session scoring is done. The exam can be officially completed from the Exam page.')) {
+        fetch('/api/creator/sessions/{{ session.id }}/finish', {method:'POST'}).then(r=>r.json()).then(data=>{
+            if (data.error) alert('Error: ' + data.error);
+            else { alert(data.message || 'Session finished'); location.reload(); }
+        });
+    }
+}
 function completeSession() {
     if (confirm('Complete this session?')) {
         fetch('/api/creator/sessions/{{ session.id }}/complete', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session completed');location.reload();});
@@ -690,7 +704,11 @@ function hardDeleteSession() {
     }
 }
 function revertToScheduled() {
-    if (confirm('⚠️ Revert this completed session back to "Scheduled"?\n\nThis will allow the session to be re-activated. Existing scores will NOT be deleted.\n\nThis action is audited.')) {
+    const status = '{{ session.status }}';
+    const msg = status === 'completed'
+        ? '⚠️ ADMIN ACTION: Revert this completed session back to "Scheduled"?\n\nThis action is audited and requires admin privileges.'
+        : '⚠️ Revert this finished session back to "Scheduled"?\n\nThis will allow the session to be re-activated. Existing scores will NOT be deleted.\n\nThis action is audited.';
+    if (confirm(msg)) {
         fetch('/api/creator/sessions/{{ session.id }}/revert-to-scheduled', {method:'POST'})
         .then(r => r.json())
         .then(data => {

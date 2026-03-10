@@ -47,7 +47,19 @@
                 <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                     <i class="bi bi-trash me-1"></i>Delete Exam
                 </button>
-            {% elif exam.status == 'in_progress' or exam.status == 'completed' %}
+            {% elif exam.status == 'in_progress' %}
+                <button type="button" class="btn btn-success" onclick="completeExam()">
+                    <i class="bi bi-check2-all me-1"></i>Complete Exam
+                </button>
+                <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#archiveModal">
+                    <i class="bi bi-archive me-1"></i>Archive Exam
+                </button>
+            {% elif exam.status == 'completed' %}
+                {% if request.user.is_superuser or request.user.is_staff %}
+                <button type="button" class="btn btn-outline-secondary" onclick="revertExamCompletion()" title="Admin only: undo exam completion">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Revert Completion
+                </button>
+                {% endif %}
                 <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#archiveModal">
                     <i class="bi bi-archive me-1"></i>Archive Exam
                 </button>
@@ -175,6 +187,30 @@ function archiveExam() {
         if (data.success) { alert(data.message); location.reload(); }
         else alert('Error: ' + (data.message || 'Unknown error'));
     }).catch(err => alert('Error: ' + err.message));
+}
+
+function completeExam() {
+    if (confirm('Complete this exam?\n\nAll active sessions will be marked as Completed and the exam will be locked.\n\nThis cannot be undone except by an administrator.')) {
+        fetch('/api/creator/exams/{{ exam.id }}/complete', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) alert('Error: ' + data.error);
+            else { alert(data.message || 'Exam completed'); location.reload(); }
+        })
+        .catch(err => alert('Error: ' + err.message));
+    }
+}
+
+function revertExamCompletion() {
+    if (confirm('⚠️ ADMIN ACTION: Revert this exam\'s completion?\n\nAll completed sessions will be restored to "Finished" status and the exam will return to In Progress.\n\nThis action is audited.')) {
+        fetch('/api/creator/exams/{{ exam.id }}/revert-completion', {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) alert('Error: ' + data.error);
+            else { alert(data.message || 'Exam completion reverted'); location.reload(); }
+        })
+        .catch(err => alert('Error: ' + err.message));
+    }
 }
 
 function hardDeleteSession(sessionId, sessionName) {
