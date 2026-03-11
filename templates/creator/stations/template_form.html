@@ -79,9 +79,9 @@
                            placeholder="e.g., Cardiovascular Examination Template" required>
                 </div>
                 <div class="col-12">
-                    <label class="form-label fw-bold">Template Library <small class="text-muted fw-normal"></small></label>
-                    <select class="form-select" name="library_id">
-                        <option value="">Unassigned (no library)</option>
+                    <label class="form-label fw-bold">Template Library <span class="text-danger">*</span></label>
+                    <select class="form-select" name="library_id" required>
+                        <option value="">-- Select a library --</option>
                         {% for lib in libraries %}
                         <option value="{{ lib.id }}" 
                                 {% if selected_library_id and selected_library_id == lib.id %}selected{% endif %}>
@@ -89,7 +89,6 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <small class="form-text text-muted">Organize templates into libraries for easy selection</small>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-bold">Scenario</label>

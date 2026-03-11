@@ -83,7 +83,9 @@ urlpatterns = [
     path('template-libraries/<int:library_id>/edit/', templates_views.template_library_edit, name='template_library_edit'),
     path('template-libraries/<int:library_id>/delete/', templates_views.template_library_delete, name='template_library_delete'),
     path('exams/<uuid:exam_id>/station-library/new/', templates_views.station_template_create, name='station_template_create'),
+    path('exams/<uuid:exam_id>/station-library/new-dry/', templates_views.station_template_create_dry, name='station_template_create_dry'),
     path('station-templates/<int:template_id>/edit/', templates_views.station_template_edit, name='station_template_edit'),
+    path('station-templates/<int:template_id>/edit-dry/', templates_views.station_template_edit_dry, name='station_template_edit_dry'),
     path('station-templates/<int:template_id>/delete/', templates_views.station_template_delete, name='station_template_delete'),
     path('sessions/<uuid:session_id>/apply-templates/', templates_views.apply_station_templates, name='apply_station_templates'),
 

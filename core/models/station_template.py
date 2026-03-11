@@ -27,6 +27,7 @@ class StationTemplate(TimestampMixin):
     display_order = models.IntegerField(default=0)
     checklist_json = models.JSONField(null=True, blank=True)
 
+    is_dry = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -96,21 +97,47 @@ class StationTemplate(TimestampMixin):
             scenario=self.scenario,
             instructions=self.instructions,
             duration_minutes=path.rotation_minutes or 8,
+            is_dry=self.is_dry,
             active=True,
         )
         station.save()
 
         items = self.get_checklist_items()
         for item_data in items:
-            ChecklistItem.objects.create(
+            scoring_type = item_data.get('scoring_type', 'binary')
+
+            # Build rubric_levels for MCQ items (options + correct answer index)
+            rubric_levels = None
+            if scoring_type == 'mcq':
+                mcq_options = item_data.get('mcq_options')
+                correct_index = item_data.get('correct_index', -1)
+                if mcq_options:
+                    rubric_levels = {
+                        'options': mcq_options,
+                        'correct_index': correct_index,
+                    }
+
+            # Essay key answer
+            expected_response = ''
+            if scoring_type == 'essay':
+                expected_response = item_data.get('key_answer', '')
+
+            checklist_item = ChecklistItem.objects.create(
                 station=station,
                 item_number=item_data.get('item_number', 1),
                 description=item_data.get('description', ''),
                 points=float(item_data.get('points', 1)),
-                rubric_type=item_data.get('scoring_type', 'binary'),
+                rubric_type=scoring_type,
+                rubric_levels=rubric_levels,
+                expected_response=expected_response,
                 category=item_data.get('section') or '',
                 ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
             )
+            # Point this ChecklistItem at the shared image file (no copy needed)
+            image_path = item_data.get('image_path')
+            if image_path:
+                checklist_item.image.name = image_path
+                checklist_item.save(update_fields=['image'])
         return station
 
     def to_dict(self):

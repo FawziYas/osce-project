@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Max
 from django.http import HttpResponseForbidden
 
-from core.models import ILO, Station, ChecklistItem, Path, ExamSession
+from core.models import ILO, Station, ChecklistItem, Path
 from core.utils.roles import check_path_department, check_station_department
 from core.utils.image_validators import validate_question_image, sanitize_image_filename
 
@@ -266,6 +266,16 @@ def station_edit(request, station_id):
         return redirect('creator:station_edit_dry', station_id=station_id)
     path = station.path
     exam = path.exam if path else None
+    session = path.session if path else None
+    if session and session.actual_start and not request.user.is_superuser:
+        messages.error(
+            request,
+            'Checklist editing is forbidden because this session has already been activated.'
+        )
+        if path:
+            return redirect('creator:path_detail', path_id=str(path.id))
+        return redirect('creator:exam_detail', exam_id=str(exam.id) if exam else '')
+
     ilos = ILO.objects.filter(
         course_id=exam.course_id
     ).order_by('number') if exam else ILO.objects.none()
@@ -363,6 +373,16 @@ def station_edit_dry(request, station_id):
         return HttpResponseForbidden('You do not have access to this station.')
     path = station.path
     exam = path.exam if path else None
+    session = path.session if path else None
+    if session and session.actual_start and not request.user.is_superuser:
+        messages.error(
+            request,
+            'Checklist editing is forbidden because this session has already been activated.'
+        )
+        if path:
+            return redirect('creator:path_detail', path_id=str(path.id))
+        return redirect('creator:exam_detail', exam_id=str(exam.id) if exam else '')
+
     ilos = ILO.objects.filter(
         course_id=exam.course_id
     ).order_by('number') if exam else ILO.objects.none()

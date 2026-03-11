@@ -5,7 +5,9 @@ Designed for offline-first operation with sync support.
 import json
 import uuid
 
+from django.contrib.auth import authenticate
 from django.contrib.auth.decorators import login_required
+from django.core import signing
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -519,4 +521,118 @@ def sync_status(request):
         'pending': pending,
         'server_time': utc_timestamp(),
         'online': True,
+    })
+
+
+# ── Dry exam verification endpoints ───────────────────────────────
+
+@login_required
+@require_POST
+def verify_student_registration(request):
+    """Verify student registration number before starting dry exam."""
+    data, err = _parse_json_body(request)
+    if err:
+        return err
+
+    student_number = (data.get('student_number') or '').strip().upper()
+    student_id = data.get('student_id')
+    session_id = data.get('session_id')
+    assignment_id = data.get('assignment_id')
+
+    if not student_number or not student_id or not session_id or not assignment_id:
+        return JsonResponse({
+            'valid': False,
+            'error': 'missing_fields',
+            'message': 'Student number, student ID, session ID, and assignment ID are required.',
+        }, status=400)
+
+    student = SessionStudent.objects.filter(
+        pk=student_id,
+        session_id=session_id,
+    ).first()
+
+    if not student:
+        return JsonResponse({
+            'valid': False,
+            'error': 'student_not_found',
+            'message': 'Student not found in this session.',
+        }, status=404)
+
+    if student.student_number.upper() != student_number:
+        return JsonResponse({
+            'valid': False,
+            'error': 'registration_not_found',
+            'message': 'ID number does not match this student record.',
+        })
+
+    # Generate signed redirect token
+    token = signing.dumps({
+        'user_id': request.user.id,
+        'student_id': str(student_id),
+        'assignment_id': str(assignment_id),
+    }, salt='dry-exam-start-verification')
+
+    from django.urls import reverse
+    redirect_url = (
+        reverse('examiner:dry_marking',
+                kwargs={'assignment_id': assignment_id, 'student_id': student_id})
+        + f'?token={token}'
+    )
+
+    return JsonResponse({
+        'valid': True,
+        'redirect_url': redirect_url,
+    })
+
+
+@login_required
+@require_POST
+def verify_master_key(request):
+    """Verify examiner password (master key) before starting dry exam."""
+    data, err = _parse_json_body(request)
+    if err:
+        return err
+
+    password = data.get('password', '')
+    student_id = data.get('student_id')
+    session_id = data.get('session_id')
+    assignment_id = data.get('assignment_id')
+
+    if not password or not student_id or not session_id or not assignment_id:
+        return JsonResponse({
+            'valid': False,
+            'error': 'missing_fields',
+            'message': 'Password, student ID, session ID, and assignment ID are required.',
+        }, status=400)
+
+    user = authenticate(
+        request=request,
+        username=request.user.username,
+        password=password,
+    )
+
+    if user is None:
+        return JsonResponse({
+            'valid': False,
+            'error': 'invalid_password',
+            'message': 'Incorrect password. Please try again.',
+        })
+
+    # Generate signed redirect token
+    token = signing.dumps({
+        'user_id': request.user.id,
+        'student_id': str(student_id),
+        'assignment_id': str(assignment_id),
+    }, salt='dry-exam-start-verification')
+
+    from django.urls import reverse
+    redirect_url = (
+        reverse('examiner:dry_marking',
+                kwargs={'assignment_id': assignment_id, 'student_id': student_id})
+        + f'?token={token}'
+    )
+
+    return JsonResponse({
+        'valid': True,
+        'redirect_url': redirect_url,
     })

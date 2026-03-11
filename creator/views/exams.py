@@ -214,6 +214,7 @@ def exam_detail(request, exam_id):
     ).count()
 
     can_delete_sessions = request.user.is_superuser or request.user.has_perm('core.can_delete_session')
+    has_dry_stations = stations.filter(is_dry=True).exists()
 
     return render(request, 'creator/exams/detail.html', {
         'exam': exam,
@@ -222,6 +223,7 @@ def exam_detail(request, exam_id):
         'total_students': total_students,
         'can_delete_sessions': can_delete_sessions,
         'can_delete_exam': _can_delete_exam(request.user),
+        'has_dry_stations': has_dry_stations,
     })
 
 

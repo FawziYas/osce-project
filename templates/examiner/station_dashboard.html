@@ -7,6 +7,9 @@
 
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/examiner-dashboard.css' %}">
+{% if assignment.station.is_dry %}
+<link rel="stylesheet" href="{% static 'css/examiner/dry-verify-modal.css' %}">
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -185,11 +188,24 @@
                             {% if not assignment.station.is_dry %}
                             <a href="{% url 'examiner:marking_interface' assignment.id entry.student.id %}"
                                class="btn-action-sm secondary">Review</a>
-                          
                             {% endif %}
                             {% else %}
+                            {% if assignment.station.is_dry %}
+                            <button type="button"
+                               class="btn-action-sm primary btn-start-dry-exam"
+                               data-student-id="{{ entry.student.id }}"
+                               data-student-name="{{ entry.student.full_name }}"
+                               data-session-id="{{ assignment.session.id }}"
+                               data-session-name="{{ assignment.session.name }}"
+                               data-assignment-id="{{ assignment.id }}"
+                               data-exam-name="{{ assignment.session.exam.name }}"
+                               data-verify-url="{% url 'examiner_api:verify_student_reg' %}"
+                               data-masterkey-url="{% url 'examiner_api:verify_master_key' %}"
+                               >Start Exam</button>
+                            {% else %}
                             <a href="{% url 'examiner:marking_interface' assignment.id entry.student.id %}"
-                               class="btn-action-sm primary">{% if assignment.station.is_dry %}Start Exam{% else %}Mark Now{% endif %}</a>
+                               class="btn-action-sm primary">Mark Now</a>
+                            {% endif %}
                             {% endif %}
                         </td>
                     </tr>
@@ -208,4 +224,68 @@
     </div>
 </div>
 
+{% if assignment.station.is_dry %}
+<!-- ═══ Verification Modal ═══ -->
+<div class="modal fade verify-modal" id="verifyExamModal" tabindex="-1"
+     aria-labelledby="verifyExamModalLabel" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-sm-custom">
+    <div class="modal-content">
+
+      <!-- Header -->
+      <div class="modal-header flex-column align-items-start">
+        <h5 class="modal-title" id="verifyExamModalLabel">
+          <i class="bi bi-shield-lock-fill"></i> Verify to Start Exam
+        </h5>
+        <small class="verify-subtitle">Please verify identity before proceeding</small>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+
+        <!-- Single input step -->
+        <div class="verify-step">
+          <label class="step-label" id="verifyInputLabel" for="verifyInput">ID University Number</label>
+          <div class="verify-input-wrap">
+            <i class="bi bi-person-badge input-icon-left" id="verifyInputIconLeft"></i>
+            <input type="text" class="form-control verify-input-with-icons" id="verifyInput"
+                   placeholder="Enter registration number" autocomplete="off">
+            <span class="input-icon-right">
+              <button type="button" class="input-clear-btn d-none" id="verifyClearBtn">
+                <i class="bi bi-x-circle"></i>
+              </button>
+              <button type="button" class="verify-password-toggle d-none" id="verifyPwdToggle">
+                <i class="bi bi-eye"></i>
+              </button>
+              <span id="verifyStatusIcon"></span>
+            </span>
+          </div>
+          <div class="verify-feedback" id="verifyFeedback"></div>
+          <div class="verify-mode-toggle" id="verifyModeToggle">
+            <a href="#" id="verifyModeLink"><i class="bi bi-key-fill"></i> Use Master Key instead</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-secondary" id="verifyBtnCancel"
+                data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-verify-start" id="verifyBtnSubmit">
+          <i class="bi bi-shield-check"></i> Verify &amp; Start
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
+
+{% if assignment.station.is_dry %}
+{% block scripts %}
+<script src="{% static 'js/examiner/dry-verify-modal.js' %}"></script>
+{% endblock %}
+{% endif %}

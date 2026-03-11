@@ -8,7 +8,9 @@ from axes.decorators import axes_dispatch
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core import signing
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from core.models import (
     ExaminerAssignment, ExamSession, SessionStudent, Station,
@@ -269,9 +271,14 @@ def marking_interface(request, assignment_id, student_id):
     )
     student = get_object_or_404(SessionStudent, pk=student_id)
 
-    # Redirect dry stations to dry marking page
+    # Redirect dry stations to dry marking page (pass token through)
     if assignment.station and assignment.station.is_dry:
-        return redirect('examiner:dry_marking', assignment_id=assignment_id, student_id=student_id)
+        token = request.GET.get('token', '')
+        url = reverse('examiner:dry_marking',
+                      kwargs={'assignment_id': assignment_id, 'student_id': student_id})
+        if token:
+            url += f'?token={token}'
+        return redirect(url)
 
     if assignment.examiner_id != request.user.id:
         messages.error(request, 'You are not assigned to this station.')
@@ -380,6 +387,24 @@ def marking_interface(request, assignment_id, student_id):
 @login_required
 def dry_marking(request, assignment_id, student_id):
     """Dry OSCE self-evaluation page — student answers MCQ/Essay, no score visible."""
+    # Validate signed verification token
+    token = request.GET.get('token', '')
+    if not token:
+        messages.error(request, 'Verification required. Please start the exam from the station dashboard.')
+        return redirect('examiner:station_dashboard', assignment_id=assignment_id)
+
+    try:
+        token_data = signing.loads(token, salt='dry-exam-start-verification')
+    except signing.BadSignature:
+        messages.error(request, 'Verification failed. Please start again.')
+        return redirect('examiner:station_dashboard', assignment_id=assignment_id)
+
+    if (token_data.get('user_id') != request.user.id
+            or str(token_data.get('assignment_id')) != str(assignment_id)
+            or str(token_data.get('student_id')) != str(student_id)):
+        messages.error(request, 'Verification failed. Please start again.')
+        return redirect('examiner:station_dashboard', assignment_id=assignment_id)
+
     assignment = get_object_or_404(
         ExaminerAssignment.objects.select_related(
             'station', 'session', 'session__exam'),

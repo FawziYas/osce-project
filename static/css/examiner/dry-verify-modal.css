@@ -1,0 +1,184 @@
+/* ═══════════════════════════════════════════════════════
+   Dry Exam Verification Modal Styles
+   ═══════════════════════════════════════════════════════ */
+
+/* Modal sizing */
+.verify-modal .modal-sm-custom {
+    max-width: 420px;
+}
+
+/* Modal Header */
+.verify-modal .modal-header {
+    background: linear-gradient(135deg, #0c4a3e 0%, #0f766e 60%, #14b8a6 100%);
+    color: #fff;
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+}
+.verify-modal .modal-header .modal-title {
+    font-weight: 700;
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.verify-modal .modal-header .verify-subtitle {
+    font-size: .8rem;
+    opacity: .85;
+    margin: .15rem 0 0;
+    font-weight: 400;
+}
+
+/* Step wrapper */
+.verify-step {
+    position: relative;
+}
+.verify-step .step-label {
+    font-weight: 600;
+    font-size: .85rem;
+    margin-bottom: .35rem;
+    color: #1f2937;
+}
+
+/* Input with icons on both sides */
+.verify-input-wrap {
+    position: relative;
+}
+.verify-input-wrap .input-icon-left {
+    position: absolute;
+    left: .75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.1rem;
+    color: #6b7280;
+    pointer-events: none;
+    z-index: 2;
+}
+.verify-input-wrap .verify-input-with-icons {
+    padding-left: 2.4rem;
+    padding-right: 2.5rem;
+    text-transform: uppercase;
+}
+/* Password mode — no uppercase */
+.verify-input-wrap .verify-input-with-icons[type="password"],
+.verify-input-wrap .verify-input-with-icons.masterkey-mode {
+    text-transform: none;
+}
+.verify-input-wrap .input-icon-right {
+    position: absolute;
+    right: .75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: 1rem;
+}
+.verify-input-wrap .input-icon-right .spinner-border {
+    width: 1rem;
+    height: 1rem;
+    border-width: 2px;
+}
+.verify-input-wrap .input-clear-btn {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+}
+.verify-input-wrap .input-clear-btn:hover {
+    color: #6b7280;
+}
+.verify-password-toggle {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+}
+.verify-password-toggle:hover {
+    color: #374151;
+}
+
+/* Feedback text */
+.verify-feedback {
+    font-size: .8rem;
+    margin-top: .3rem;
+    min-height: 1.2em;
+}
+.verify-feedback.text-success {
+    color: #059669 !important;
+}
+.verify-feedback.text-danger {
+    color: #dc2626 !important;
+}
+.verify-feedback .spinner-border {
+    width: .8rem;
+    height: .8rem;
+    border-width: 2px;
+    margin-right: .3rem;
+    vertical-align: middle;
+}
+
+/* Mode toggle link */
+.verify-mode-toggle {
+    margin-top: .5rem;
+    text-align: right;
+}
+.verify-mode-toggle a {
+    font-size: .82rem;
+    color: #0f766e;
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color .2s;
+}
+.verify-mode-toggle a:hover {
+    color: #0d6b63;
+    text-decoration: underline;
+}
+.verify-mode-toggle a i {
+    margin-right: .25rem;
+}
+
+/* Shake animation */
+@keyframes verifyShake {
+    0%, 100% { transform: translateX(0); }
+    10%, 50%, 90% { transform: translateX(-4px); }
+    30%, 70% { transform: translateX(4px); }
+}
+.verify-shake {
+    animation: verifyShake .4s ease-in-out;
+}
+
+/* Modal Footer */
+.verify-modal .modal-footer {
+    border-top: 1px solid #e5e7eb;
+    padding: .85rem 1.5rem;
+}
+
+/* Verify & Start button */
+.btn-verify-start {
+    background: #0f766e;
+    border: 1px solid #0f766e;
+    color: #fff;
+    font-weight: 600;
+    padding: .45rem 1.2rem;
+    border-radius: .375rem;
+    cursor: pointer;
+    transition: background .2s, border-color .2s;
+}
+.btn-verify-start:hover {
+    background: #0d6b63;
+    border-color: #0d6b63;
+    color: #fff;
+}
+.btn-verify-start:disabled {
+    background: #0f766e;
+    border-color: #0f766e;
+    opacity: .55;
+    color: #fff;
+    cursor: not-allowed;
+}

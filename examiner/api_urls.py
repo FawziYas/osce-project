@@ -14,4 +14,7 @@ urlpatterns = [
     path('score/<uuid:station_score_id>/undo/', api.undo_submit, name='undo_submit'),
     path('sync/', api.sync_offline_data, name='sync'),
     path('sync/status/', api.sync_status, name='sync_status'),
+    # Dry exam verification
+    path('dry/verify-student-registration/', api.verify_student_registration, name='verify_student_reg'),
+    path('dry/verify-master-key/', api.verify_master_key, name='verify_master_key'),
 ]

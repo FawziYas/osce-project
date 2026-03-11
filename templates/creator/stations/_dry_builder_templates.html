@@ -1,0 +1,175 @@
+<!-- Validation Flash Toast -->
+<div id="validationToast" class="alert alert-danger shadow" role="alert">
+    <i class="bi bi-exclamation-circle-fill me-2"></i>
+    <span id="validationToastMsg"></span>
+</div>
+
+<!-- Item Template -->
+<template id="itemTemplate">
+    <div class="checklist-item-card" data-type="item">
+        <span class="item-number-badge">1</span>
+        <div class="item-actions">
+            <button type="button" class="item-action-btn fold-btn" onclick="toggleItemFold(this)" title="Collapse/expand">
+                <i class="bi bi-chevron-up"></i>
+            </button>
+            <button type="button" class="item-action-btn duplicate-btn" onclick="duplicateItem(this)" title="Duplicate item">
+                <i class="bi bi-files"></i>
+            </button>
+            <button type="button" class="item-action-btn delete-btn" onclick="deleteItem(this)" title="Remove item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        
+        <div class="d-flex align-items-start">
+            <span class="item-drag-handle" title="Drag to reorder">
+                <i class="bi bi-grip-vertical fs-5"></i>
+            </span>
+            
+            <div class="flex-grow-1">
+                <input type="text" class="item-description-input" 
+                       placeholder="Enter checklist item description..."
+                       onchange="updateSummary()">
+
+                <div class="item-body">
+                <!-- Image Upload Zone (optional) -->
+                <div class="img-upload-zone" role="button" tabindex="0"
+                     onclick="triggerImageUpload(this)"
+                     onkeydown="if(event.key==='Enter'||event.key===' ')triggerImageUpload(this)"
+                     ondragover="event.preventDefault();this.classList.add('drag-over')"
+                     ondragleave="this.classList.remove('drag-over')"
+                     ondrop="handleImageDrop(this,event)">
+                    <span class="img-zone-placeholder">
+                        <i class="bi bi-image zone-icon"></i>
+                        <span class="zone-text">Supporting image <span class="text-muted fw-normal">(optional)</span></span>
+                        <span class="zone-hint">Click or drag &amp; drop · JPEG, PNG, WebP · max 2 MB</span>
+                    </span>
+                    <div class="img-preview-main">
+                        <img class="img-preview-thumb" src="" alt="Preview">
+                        <div class="img-preview-details">
+                            <span class="img-preview-name"></span>
+                            <span class="img-preview-dims"></span>
+                            <div class="img-preview-actions">
+                                <button type="button" class="replace-img-btn"
+                                        onclick="event.stopPropagation();replaceImage(this)">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Replace
+                                </button>
+                                <button type="button" class="remove-img-btn"
+                                        onclick="event.stopPropagation();removeImage(this)">
+                                    <i class="bi bi-trash me-1"></i>Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="img-upload-error"></div>
+                <input type="file" class="img-file-input" style="display:none"
+                       accept=".jpg,.jpeg,.png,.webp" onchange="handleImageChange(this)">
+                
+                <div class="item-options-grid">
+                    <!-- Question Type (LEFT) -->
+                    <div class="option-group">
+                        <span class="option-label">Type:</span>
+                        <select class="question-type-select" onchange="updateQuestionType(this)">
+                            <option value="mcq">&#10067; MCQ</option>
+                            <option value="essay">&#128221; Essay / Answer Box</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Points (RIGHT) -->
+                    <div class="option-group">
+                        <span class="option-label">Points:</span>
+                        <div class="points-quick-select">
+                            <span class="points-chip" data-pts="0.5" onclick="setPoints(this, 0.5)">0.5</span>
+                            <span class="points-chip" data-pts="0.75" onclick="setPoints(this, 0.75)">0.75</span>
+                            <span class="points-chip" data-pts="1" onclick="setPoints(this, 1)">1</span>
+                            <span class="points-chip" data-pts="2" onclick="setPoints(this, 2)">2</span>
+                            <span class="points-chip" data-pts="3" onclick="setPoints(this, 3)">3</span>
+                            <input type="number" class="points-custom-input" placeholder="custom" 
+                                   min="0" max="20" step="0.25" oninput="setCustomPoints(this)" onchange="setCustomPoints(this)">
+                        </div>
+                    </div>
+                    
+                    <!-- ILO -->
+                    <div class="option-group">
+                        <span class="option-label">ILO:</span>
+                        <select class="ilo-select">
+                            <option value="">— None —</option>
+                            {% for ilo in ilos %}
+                            <option value="{{ ilo.id }}">{{ ilo.number }}. {{ ilo.description|truncatechars:43 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- MCQ Editor -->
+                <div class="mcq-editor">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="fw-bold text-primary"><i class="bi bi-list-ol me-1"></i>Answer Options <span class="text-muted fw-normal">— click a row to mark correct</span></small>
+                        <button type="button" class="btn btn-outline-primary add-option-btn" onclick="addMcqOption(this)">
+                            <i class="bi bi-plus-sm"></i> Add Option
+                        </button>
+                    </div>
+                    <div class="mcq-options-list">
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">A.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option A...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">B.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option B...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">C.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option C...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="mcq-option-row">
+                            <input type="radio" class="mcq-correct-radio" style="display:none">
+                            <span class="option-correct-indicator" onclick="selectCorrect(this.closest('.mcq-option-row'))" title="Click to mark as correct"><i class="bi bi-circle"></i></span>
+                            <span class="option-letter">D.</span>
+                            <input type="text" class="form-control form-control-sm mcq-option-input" placeholder="Option D...">
+                            <span class="correct-badge">✓ Correct</span>
+                            <button type="button" class="remove-option-btn" onclick="removeMcqOption(this)" title="Remove option"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Essay Editor -->
+                <div class="essay-editor">
+                    <small class="fw-bold text-success d-block mb-1"><i class="bi bi-key me-1"></i>Key Answer <span class="text-muted fw-normal">(model answer for marking)</span></small>
+                    <textarea class="essay-key-answer" placeholder="Enter the expected model answer..."></textarea>
+                </div>
+                </div><!-- /.item-body -->
+            </div>
+        </div>
+    </div>
+</template>
+
+<!-- Section Template -->
+<template id="sectionTemplate">
+    <div class="section-header-card" data-type="section">
+        <div class="item-actions">
+            <button type="button" class="item-action-btn delete-btn" onclick="deleteSection(this)" title="Remove section">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="item-drag-handle me-2" title="Drag to reorder">
+                <i class="bi bi-grip-vertical fs-5"></i>
+            </span>
+            <i class="bi bi-folder me-2"></i>
+            <input type="text" class="section-title-input" placeholder="Section name (e.g., History Taking)">
+        </div>
+    </div>
+</template>

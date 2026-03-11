@@ -24,7 +24,7 @@
     </nav>
     <h1>
         <i class="bi bi-journal-bookmark me-2"></i>Station Template Library
-        <small class="text-muted">{{ exam.name }}</small>
+        <small class="text-muted">| {{ exam.name }}</small>
     </h1>
 </div>
 
@@ -48,9 +48,21 @@
             {% endif %}
         </div>
         <div class="btn-group">
-            <a href="{% url 'creator:station_template_create' exam.id %}?library_id={{ library.id }}" class="btn btn-sm btn-light">
+            <button type="button" class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-plus-lg me-1"></i>Add Template
-            </a>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{% url 'creator:station_template_create' exam.id %}?library_id={{ library.id }}">
+                        <i class="bi bi-check2-square me-2"></i>OSCE Template
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'creator:station_template_create_dry' exam.id %}?library_id={{ library.id }}">
+                        <i class="bi bi-journal-richtext me-2"></i>Dry Template
+                    </a>
+                </li>
+            </ul>
             <a href="{% url 'creator:template_library_edit' library.id %}" class="btn btn-sm btn-light">
                 <i class="bi bi-pencil"></i>
             </a>
@@ -67,11 +79,16 @@
             <table class="table table-sm table-hover mb-0">
                 <thead><tr><th style="width: 50px;">#</th><th>Station Name</th><th style="width: 100px;">Items</th><th style="width: 100px;">Points</th><th style="width: 120px;">Actions</th></tr></thead>
                 <tbody>
-                    {% for template in library.active_templates %}
+                    {% for template in library.templates_for_view %}
                     <tr>
                         <td><span class="badge bg-secondary">{{ template.display_order }}</span></td>
                         <td>
                             <strong>{{ template.name }}</strong>
+                            {% if template.is_dry_template %}
+                            <span class="badge bg-warning text-dark ms-1">Dry</span>
+                            {% else %}
+                            <span class="badge bg-primary ms-1">OSCE</span>
+                            {% endif %}
                             {% if template.description %}
                             <br><small class="text-muted">{{ template.description|truncatechars:80 }}</small>
                             {% endif %}
@@ -80,7 +97,11 @@
                         <td><span class="badge bg-success">{{ template.total_points }}</span></td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a href="{% url 'creator:station_template_edit' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                                                {% if template.is_dry_template %}
+                                                                <a href="{% url 'creator:station_template_edit_dry' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                                                {% else %}
+                                                                <a href="{% url 'creator:station_template_edit' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                                                {% endif %}
                                 <form action="{% url 'creator:station_template_delete' template.id %}" method="post" style="display: inline;"
                                       onsubmit="return confirm('Delete template &quot;{{ template.name }}&quot;?');">
                                     {% csrf_token %}
@@ -97,9 +118,14 @@
         <div class="text-center py-3 text-muted">
             <i class="bi bi-inbox fs-3 d-block mb-2"></i>
             <p class="mb-2">No templates in this library yet</p>
-            <a href="{% url 'creator:station_template_create' exam.id %}?library_id={{ library.id }}" class="btn btn-sm btn-primary">
-                <i class="bi bi-plus-lg me-1"></i>Add First Template
-            </a>
+            <div class="btn-group btn-group-sm">
+                <a href="{% url 'creator:station_template_create' exam.id %}?library_id={{ library.id }}" class="btn btn-primary">
+                    <i class="bi bi-check2-square me-1"></i>Add OSCE Template
+                </a>
+                <a href="{% url 'creator:station_template_create_dry' exam.id %}?library_id={{ library.id }}" class="btn btn-outline-primary">
+                    <i class="bi bi-journal-richtext me-1"></i>Add Dry Template
+                </a>
+            </div>
         </div>
         {% endif %}
     </div>
@@ -114,9 +140,14 @@
             <i class="bi bi-question-circle me-2"></i>Unassigned Templates
             <span class="badge bg-secondary ms-2">{{ unassigned_templates|length }}</span>
         </h5>
-        <a href="{% url 'creator:station_template_create' exam.id %}" class="btn btn-sm btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Add Template
-        </a>
+        <div class="btn-group btn-group-sm">
+            <a href="{% url 'creator:station_template_create' exam.id %}" class="btn btn-primary">
+                <i class="bi bi-check2-square me-1"></i>Add OSCE Template
+            </a>
+            <a href="{% url 'creator:station_template_create_dry' exam.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-journal-richtext me-1"></i>Add Dry Template
+            </a>
+        </div>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -136,7 +167,11 @@
                         <td><span class="badge bg-success">{{ template.total_points }}</span></td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a href="{% url 'creator:station_template_edit' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                                                {% if template.is_dry_template %}
+                                                                <a href="{% url 'creator:station_template_edit_dry' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                                                {% else %}
+                                                                <a href="{% url 'creator:station_template_edit' template.id %}" class="btn btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                                                {% endif %}
                                 <form action="{% url 'creator:station_template_delete' template.id %}" method="post" style="display: inline;"
                                       onsubmit="return confirm('Delete template &quot;{{ template.name }}&quot;?');">
                                     {% csrf_token %}
@@ -162,9 +197,7 @@
         <a href="{% url 'creator:template_library_create' exam.id %}" class="btn btn-success me-2">
             <i class="bi bi-folder-plus me-1"></i>Create Library
         </a>
-        <a href="{% url 'creator:station_template_create' exam.id %}" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Create Template
-        </a>
+       
     </div>
 </div>
 {% endif %}

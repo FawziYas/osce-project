@@ -1,7 +1,7 @@
 {% extends 'creator/base_creator.html' %}
 {% load static %}
 
-{% block title %}{% if station %}Edit Station{% else %}New Station{% endif %} - OSCE Creator{% endblock %}
+{% block title %}{% if template %}Edit Dry Template{% else %}New Dry Template{% endif %} - OSCE Creator{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/stations/dry-builder.css' %}">
@@ -12,16 +12,17 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
-            {% if path %}
-            <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' path.session_id %}">Session</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'creator:path_detail' path.id %}">Path {{ path.name }}</a></li>
+            {% if exam %}
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creator:station_library' exam.id %}">Station Library</a></li>
             {% endif %}
-            <li class="breadcrumb-item active">{% if station %}Edit{% else %}New{% endif %} Station</li>
+            <li class="breadcrumb-item active">{% if template %}Edit{% else %}Create{% endif %} Dry Template</li>
         </ol>
     </nav>
 </div>
 
-<form method="POST" id="stationForm" enctype="multipart/form-data">
+<form method="POST" id="templateForm" enctype="multipart/form-data" action="{% if template %}{% url 'creator:station_template_edit_dry' template.id %}{% else %}{% url 'creator:station_template_create_dry' exam.id %}{% endif %}">
     {% csrf_token %}
 <div class="station-builder">
     
@@ -29,26 +30,35 @@
     <div class="builder-card">
         <div class="builder-card-header">  
             <h5 class="mb-0">
-                <i class="bi bi-info-circle me-2"></i>Dry Station Details
+                <i class="bi bi-info-circle me-2"></i>Dry Template Details
             </h5>
         </div>
         <div class="builder-card-body">
             <div class="row g-3">
                 <div class="col-md-8">
-                    <label class="form-label fw-bold">Station Name <span class="text-danger">*</span></label>
+                    <label class="form-label fw-bold">Template Name <span class="text-danger">*</span></label>
                     <input type="text" class="form-control form-control-lg" name="name" 
-                           value="{% if station %}{{ station.name }}{% endif %}"
-                           placeholder="e.g., Cardiovascular Examination" required>
+                           value="{% if template %}{{ template.name }}{% endif %}"
+                           placeholder="e.g., Dry Pharmacology Template" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Template Library <span class="text-danger">*</span></label>
+                    <select class="form-select" name="library_id" required>
+                        <option value="">-- Select a library --</option>
+                        {% for lib in libraries %}
+                        <option value="{{ lib.id }}" {% if selected_library_id and selected_library_id == lib.id %}selected{% endif %}>{{ lib.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-bold">Scenario </label>
                     <textarea class="form-control" name="scenario" rows="2"
-                              placeholder="Describe the clinical scenario...">{% if station %}{{ station.scenario }}{% endif %}</textarea>
+                              placeholder="Describe the clinical scenario...">{% if template %}{{ template.scenario }}{% endif %}</textarea>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-bold">Examiner Instructions</label>
                     <textarea class="form-control" name="instructions" rows="2"
-                              placeholder="Notes for the examiner...">{% if station %}{{ station.instructions }}{% endif %}</textarea>
+                              placeholder="Notes for the examiner...">{% if template %}{{ template.instructions }}{% endif %}</textarea>
                 </div>
             </div>
         </div>
@@ -121,7 +131,7 @@
             </button>
             <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
                 <i class="bi bi-check-lg me-1"></i>
-            {% if station %}Update Station{% else %}Create Station{% endif %}
+                {% if template %}Update Dry Template{% else %}Create Dry Template{% endif %}
             </button>
         </div>
     </div>
@@ -129,7 +139,7 @@
 </div>
 
 <!-- Hidden input to store checklist data -->
-<input type="hidden" name="checklist_data" id="checklistDataInput">
+<input type="hidden" name="checklist_json" id="checklistDataInput">
 </form>
 
 <!-- Validation Flash Toast -->
@@ -314,7 +324,7 @@
 {% block extra_js %}
 <script>
 // ── Form Submission ───────────────────────────────────────────────────────
-document.getElementById('stationForm').addEventListener('submit', function(e) {
+document.getElementById('templateForm').addEventListener('submit', function(e) {
     const items = [];
     let currentSection = null;
     let itemNumber = 0;
@@ -395,7 +405,8 @@ document.getElementById('stationForm').addEventListener('submit', function(e) {
                     points: getItemPoints(card),
                     scoring_type: qtype,
                     ilo_id: iloId,
-                    section: currentSection
+                    section: currentSection,
+                    image_path: (card.dataset.imagePath && card.dataset.imageRemoved !== 'true') ? card.dataset.imagePath : null,
                 };
                 if (qtype === 'mcq') {
                     const mcq = getMcqData(card);
@@ -473,15 +484,32 @@ if (existingItems && existingItems.length > 0) {
     document.addEventListener('DOMContentLoaded', function() {
         let lastSection = null;
         existingItems.forEach(item => {
-            if (item.category && item.category !== lastSection) {
-                addSection(item.category);
-                lastSection = item.category;
+            // Support both template JSON format (scoring_type, section, mcq_options, correct_index, key_answer)
+            // and station DB format (rubric_type, category, rubric_levels, expected_response)
+            const sectionName = item.section || item.category || null;
+            if (sectionName && sectionName !== lastSection) {
+                addSection(sectionName);
+                lastSection = sectionName;
             }
-            const qtype = (item.rubric_type === 'essay') ? 'essay' : 'mcq';
-            const rubricLevels = item.rubric_levels || null;
-            const mcqOptions = (qtype === 'mcq' && rubricLevels) ? (rubricLevels.options || null) : null;
-            const correctIndex = (qtype === 'mcq' && rubricLevels) ? (rubricLevels.correct_index ?? -1) : -1;
-            const keyAnswer = (qtype === 'essay') ? (item.expected_response || '') : '';
+            const qtype = (item.scoring_type || item.rubric_type || 'mcq') === 'essay' ? 'essay' : 'mcq';
+
+            // MCQ options: template format stores mcq_options + correct_index at top level
+            // Station format stores them inside rubric_levels: { options: [], correct_index: N }
+            let mcqOptions = null;
+            let correctIndex = -1;
+            if (qtype === 'mcq') {
+                if (Array.isArray(item.mcq_options)) {
+                    mcqOptions = item.mcq_options;
+                    correctIndex = item.correct_index ?? -1;
+                } else if (item.rubric_levels) {
+                    mcqOptions = item.rubric_levels.options || null;
+                    correctIndex = item.rubric_levels.correct_index ?? -1;
+                }
+            }
+
+            // Essay key answer: template format uses key_answer, station format uses expected_response
+            const keyAnswer = qtype === 'essay' ? (item.key_answer || item.expected_response || '') : '';
+
             addNewItem(
                 item.description,
                 item.points,
