@@ -26,6 +26,7 @@
     const modeToggle    = modal.querySelector('#verifyModeToggle');
     const modeLink      = modal.querySelector('#verifyModeLink');
     const btnSubmit     = modal.querySelector('#verifyBtnSubmit');
+    const studentNameEl = modal.querySelector('#verifyStudentName');
 
     /* ── State ────────────────────────────────────────── */
     let state = {};
@@ -33,6 +34,7 @@
     function resetState() {
         state = {
             studentId: null,
+            studentName: null,
             sessionId: null,
             assignmentId: null,
             verifyUrl: null,
@@ -138,16 +140,24 @@
 
         resetState();
         state.studentId    = btn.dataset.studentId;
+        state.studentName  = btn.dataset.studentName || '—';
         state.sessionId    = btn.dataset.sessionId;
         state.assignmentId = btn.dataset.assignmentId;
         state.verifyUrl    = btn.dataset.verifyUrl;
         state.masterKeyUrl = btn.dataset.masterkeyUrl;
 
+        // Populate student info block
+        studentNameEl.textContent = state.studentName;
+
         // Reset UI to reg mode
         applyRegMode();
 
         bsModal.show();
-        setTimeout(function () { input.focus(); }, 300);
+    });
+
+    // Ensure input is focused only after the modal is fully visible.
+    modal.addEventListener('shown.bs.modal', function () {
+        input.focus();
     });
 
     /* ── Verify Registration Number ──────────────────── */
@@ -179,8 +189,7 @@
                 state.redirectUrl = data.redirect_url;
                 setInputBorder(true);
                 setIconCheck();
-                const confirmMsg = `<i class="bi bi-check-circle-fill"></i> <strong>${data.student_name}</strong> (${data.student_number})<br><small>Starting exam...</small>`;
-                setFeedback(confirmMsg, 'text-success');
+                setFeedback('<i class="bi bi-check-circle-fill"></i> Verified — starting exam...', 'text-success');
                 input.readOnly = true;
                 modeToggle.classList.add('d-none');
                 performRedirect();
@@ -232,8 +241,7 @@
                 state.redirectUrl = data.redirect_url;
                 setInputBorder(true);
                 setIconCheck();
-                const confirmMsg = `<i class="bi bi-check-circle-fill"></i> <strong>${data.student_name}</strong> (${data.student_number})<br><small>Starting exam...</small>`;
-                setFeedback(confirmMsg, 'text-success');
+                setFeedback('<i class="bi bi-check-circle-fill"></i> Confirmed — starting exam...', 'text-success');
                 input.readOnly = true;
                 pwdToggle.classList.add('d-none');
                 modeToggle.classList.add('d-none');

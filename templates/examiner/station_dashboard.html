@@ -21,10 +21,10 @@
         <!-- Row 1: Brand | Station Name | Examiner + Sign Out -->
         <div class="dash-row dash-row-top">
             <div class="dash-col-left">
-                <div class="osce-brand">
+                <a href="{% url 'examiner:home' %}" class="osce-brand text-decoration-none" aria-label="Back to My Stations">
                     <i class="bi bi-heart-pulse"></i>
                     <span class="brand-text">OSCE Examiner</span>
-                </div>
+                </a>
             </div>
             <div class="dash-col-center">
                 <div class="station-title-block">
@@ -131,9 +131,12 @@
                 <thead>
                     <tr>
                         <th>Student</th>
+               {% if not assignment.station.is_dry %} 
                         <th>Path</th>
-                        <th>Status</th>
-                        {% if not assignment.station.is_dry %}<th>Score</th>{% endif %}
+                       <th>Status</th>
+                       <th>Score</th>
+                       
+                    {% endif %}
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -153,11 +156,13 @@
                                 </div>
                             </div>
                         </td>
+                          {% if not assignment.station.is_dry %}
                         <td data-label="Path">
                             {% if entry.student.path %}
                             <span class="path-badge-sm">{{ entry.student.path.name }}</span>
                             {% else %}-{% endif %}
                         </td>
+                      
                         <td data-label="Status">
                             <div class="status-badges-sm">
                                 {% if entry.is_scored %}
@@ -177,7 +182,7 @@
                                 {% endif %}
                             </div>
                         </td>
-                        {% if not assignment.station.is_dry %}
+                        
                         <td data-label="Score">
                             <div class="score-cell-sm">
                                 <span class="score-val">{% if entry.my_score is not None %}{{ entry.my_score|floatformat:2 }}{% else %}-{% endif %}</span>
@@ -246,6 +251,19 @@
 
       <!-- Body -->
       <div class="modal-body">
+
+        <!-- Student Info Block (always visible) -->
+        <div class="verify-student-info">
+          <div class="verify-student-info-header">
+            <i class="bi bi-person-circle"></i> Student Information
+          </div>
+          <div class="verify-student-info-body">
+            <div class="verify-student-row">
+              <span class="verify-student-label">Name</span>
+              <span class="verify-student-value" id="verifyStudentName">—</span>
+            </div>
+          </div>
+        </div>
 
         <!-- Single input step -->
         <div class="verify-step">

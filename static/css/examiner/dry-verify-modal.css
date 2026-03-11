@@ -28,6 +28,48 @@
     font-weight: 400;
 }
 
+/* Student Info Block */
+.verify-student-info {
+    background: #f0fdf9;
+    border: 1px solid #99f6e4;
+    border-radius: .6rem;
+    margin-bottom: 1.1rem;
+    overflow: hidden;
+}
+.verify-student-info-header {
+    background: #ccfbf1;
+    color: #0c4a3e;
+    font-weight: 700;
+    font-size: .82rem;
+    letter-spacing: .03em;
+    padding: .45rem .85rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    border-bottom: 1px solid #99f6e4;
+}
+.verify-student-info-body {
+    padding: .55rem .85rem;
+}
+.verify-student-row {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    font-size: .88rem;
+}
+.verify-student-label {
+    color: #6b7280;
+    font-weight: 600;
+    min-width: 3.5rem;
+    flex-shrink: 0;
+}
+.verify-student-label::after { content: ':'; }
+.verify-student-value {
+    color: #111827;
+    font-weight: 600;
+    word-break: break-word;
+}
+
 /* Step wrapper */
 .verify-step {
     position: relative;

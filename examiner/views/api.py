@@ -584,8 +584,6 @@ def verify_student_registration(request):
 
     return JsonResponse({
         'valid': True,
-        'student_name': student.full_name,
-        'student_number': student.student_number,
         'redirect_url': redirect_url,
     })
 
@@ -623,19 +621,6 @@ def verify_master_key(request):
             'message': 'Incorrect password. Please try again.',
         })
 
-    # Get student to include name in response
-    student = SessionStudent.objects.filter(
-        pk=student_id,
-        session_id=session_id,
-    ).first()
-
-    if not student:
-        return JsonResponse({
-            'valid': False,
-            'error': 'student_not_found',
-            'message': 'Student not found in this session.',
-        }, status=404)
-
     # Store authorization in server-side session — no token in URL
     session_key = f'dry_auth_{assignment_id}_{student_id}'
     expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=4)
@@ -654,7 +639,5 @@ def verify_master_key(request):
 
     return JsonResponse({
         'valid': True,
-        'student_name': student.full_name,
-        'student_number': student.student_number,
         'redirect_url': redirect_url,
     })
