@@ -179,7 +179,8 @@
                 state.redirectUrl = data.redirect_url;
                 setInputBorder(true);
                 setIconCheck();
-                setFeedback('<i class="bi bi-check-circle-fill"></i> Verified — starting exam...', 'text-success');
+                const confirmMsg = `<i class="bi bi-check-circle-fill"></i> <strong>${data.student_name}</strong> (${data.student_number})<br><small>Starting exam...</small>`;
+                setFeedback(confirmMsg, 'text-success');
                 input.readOnly = true;
                 modeToggle.classList.add('d-none');
                 performRedirect();
@@ -231,7 +232,8 @@
                 state.redirectUrl = data.redirect_url;
                 setInputBorder(true);
                 setIconCheck();
-                setFeedback('<i class="bi bi-check-circle-fill"></i> Confirmed — starting exam...', 'text-success');
+                const confirmMsg = `<i class="bi bi-check-circle-fill"></i> <strong>${data.student_name}</strong> (${data.student_number})<br><small>Starting exam...</small>`;
+                setFeedback(confirmMsg, 'text-success');
                 input.readOnly = true;
                 pwdToggle.classList.add('d-none');
                 modeToggle.classList.add('d-none');
