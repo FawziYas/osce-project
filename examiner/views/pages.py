@@ -8,7 +8,6 @@ from axes.decorators import axes_dispatch
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core import signing
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -387,21 +386,27 @@ def marking_interface(request, assignment_id, student_id):
 @login_required
 def dry_marking(request, assignment_id, student_id):
     """Dry OSCE self-evaluation page — student answers MCQ/Essay, no score visible."""
-    # Validate signed verification token
-    token = request.GET.get('token', '')
-    if not token:
+    # Validate session-based authorization (token never touches the URL)
+    session_key = f'dry_auth_{assignment_id}_{student_id}'
+    auth = request.session.get(session_key)
+
+    if not auth:
         messages.error(request, 'Verification required. Please start the exam from the station dashboard.')
         return redirect('examiner:station_dashboard', assignment_id=assignment_id)
 
     try:
-        token_data = signing.loads(token, salt='dry-exam-start-verification')
-    except signing.BadSignature:
+        expires_at = datetime.fromisoformat(auth['expires_at'])
+        if datetime.now(tz=timezone.utc) > expires_at:
+            del request.session[session_key]
+            messages.error(request, 'Verification expired. Please start again.')
+            return redirect('examiner:station_dashboard', assignment_id=assignment_id)
+    except (KeyError, ValueError):
         messages.error(request, 'Verification failed. Please start again.')
         return redirect('examiner:station_dashboard', assignment_id=assignment_id)
 
-    if (token_data.get('user_id') != request.user.id
-            or str(token_data.get('assignment_id')) != str(assignment_id)
-            or str(token_data.get('student_id')) != str(student_id)):
+    if (auth.get('user_id') != request.user.id
+            or str(auth.get('assignment_id')) != str(assignment_id)
+            or str(auth.get('student_id')) != str(student_id)):
         messages.error(request, 'Verification failed. Please start again.')
         return redirect('examiner:station_dashboard', assignment_id=assignment_id)
 

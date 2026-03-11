@@ -4,12 +4,13 @@ Designed for offline-first operation with sync support.
 """
 import json
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.decorators import login_required
-from django.core import signing
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 
@@ -565,18 +566,20 @@ def verify_student_registration(request):
             'message': 'ID number does not match this student record.',
         })
 
-    # Generate signed redirect token
-    token = signing.dumps({
+    # Store authorization in server-side session — no token in URL
+    session_key = f'dry_auth_{assignment_id}_{student_id}'
+    expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=4)
+    request.session[session_key] = {
         'user_id': request.user.id,
         'student_id': str(student_id),
         'assignment_id': str(assignment_id),
-    }, salt='dry-exam-start-verification')
+        'expires_at': expires_at.isoformat(),
+    }
+    request.session.modified = True
 
-    from django.urls import reverse
-    redirect_url = (
-        reverse('examiner:dry_marking',
-                kwargs={'assignment_id': assignment_id, 'student_id': student_id})
-        + f'?token={token}'
+    redirect_url = reverse(
+        'examiner:dry_marking',
+        kwargs={'assignment_id': assignment_id, 'student_id': student_id},
     )
 
     return JsonResponse({
@@ -618,18 +621,20 @@ def verify_master_key(request):
             'message': 'Incorrect password. Please try again.',
         })
 
-    # Generate signed redirect token
-    token = signing.dumps({
+    # Store authorization in server-side session — no token in URL
+    session_key = f'dry_auth_{assignment_id}_{student_id}'
+    expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=4)
+    request.session[session_key] = {
         'user_id': request.user.id,
         'student_id': str(student_id),
         'assignment_id': str(assignment_id),
-    }, salt='dry-exam-start-verification')
+        'expires_at': expires_at.isoformat(),
+    }
+    request.session.modified = True
 
-    from django.urls import reverse
-    redirect_url = (
-        reverse('examiner:dry_marking',
-                kwargs={'assignment_id': assignment_id, 'student_id': student_id})
-        + f'?token={token}'
+    redirect_url = reverse(
+        'examiner:dry_marking',
+        kwargs={'assignment_id': assignment_id, 'student_id': student_id},
     )
 
     return JsonResponse({

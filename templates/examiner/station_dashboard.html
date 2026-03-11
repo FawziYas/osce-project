@@ -35,16 +35,20 @@
                     <h1 class="station-name-heading">{{ assignment.station.name }}</h1>
                 </div>
             </div>
+              {% if not assignment.station.is_dry %}
             <div class="dash-col-right">
                 <span class="examiner-name">
                     <i class="bi bi-person-fill"></i>
                     <span class="examiner-name-text">{{ request.user.display_name }}</span>
                 </span>
+              
                 <a href="{% url 'examiner:logout' %}" class="btn-signout">
                     <i class="bi bi-box-arrow-right"></i>
                     <span class="signout-text">Sign Out</span>
                 </a>
+           
             </div>
+                 {% endif %}
         </div>
 
         <!-- Row 2: Back | Exam info | Meta badges -->
