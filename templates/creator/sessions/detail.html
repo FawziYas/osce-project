@@ -693,7 +693,23 @@ function finishSession() {
 }
 function completeSession() {
     if (confirm('Complete this session?')) {
-        fetch('/api/creator/sessions/{{ session.id }}/complete', {method:'POST'}).then(r=>r.json()).then(data=>{alert(data.message||'Session completed');location.reload();});
+        fetch('/api/creator/sessions/{{ session.id }}/complete', {method:'POST'})
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                let msg = '\u26a0\ufe0f ' + data.error;
+                if (data.pending) {
+                    msg += '\n\nGraded: ' + data.graded + ' / ' + data.total;
+                    msg += '\nRemaining: ' + data.pending + ' answer(s) ungraded.';
+                    msg += '\n\nGo to Dry Grading to finish marking before completing this session.';
+                }
+                alert(msg);
+            } else {
+                alert(data.message || 'Session completed');
+                location.reload();
+            }
+        })
+        .catch(err => alert('Error: ' + err.message));
     }
 }
 function hardDeleteSession() {

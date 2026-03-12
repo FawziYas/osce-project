@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse, HttpResponseForbidden
+from django.db.models import Exists, OuterRef
 
 from core.models import (
     Course, Exam, ExamSession, Path, Station, ChecklistItem,
@@ -205,7 +206,14 @@ def exam_detail(request, exam_id):
     exam = get_object_or_404(Exam, pk=exam_id)
     if not check_exam_department(request.user, exam):
         return HttpResponseForbidden('You do not have access to this exam.')
-    sessions = ExamSession.objects.filter(exam=exam).order_by('session_date')
+    dry_station_exists_subquery = Station.objects.filter(
+        path__session_id=OuterRef('pk'),
+        active=True,
+        is_dry=True,
+    )
+    sessions = ExamSession.objects.filter(exam=exam).annotate(
+        has_dry_stations=Exists(dry_station_exists_subquery)
+    ).order_by('session_date')
     stations = Station.objects.filter(exam=exam, active=True)
     
     # Calculate total students across all sessions

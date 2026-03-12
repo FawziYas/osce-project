@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from core.models import (
-    ExamSession, SessionStudent, Path, Station, ExaminerAssignment, StationScore,
+    ExamSession, SessionStudent, Path, Station, ExaminerAssignment, StationScore, ItemScore,
 )
 from core.models.mixins import TimestampMixin
 
@@ -172,6 +172,36 @@ def complete_session(request, session_id):
     Marks the session as officially completed.
     """
     session = get_object_or_404(ExamSession, pk=session_id)
+
+    # Block if this session has dry stations with ungraded essay items
+    total = ItemScore.objects.filter(
+        checklist_item__rubric_type='essay',
+        station_score__session_student__session=session,
+        station_score__station__is_dry=True,
+    ).count()
+    graded = ItemScore.objects.filter(
+        checklist_item__rubric_type='essay',
+        station_score__session_student__session=session,
+        station_score__station__is_dry=True,
+        marked_at__isnull=False,
+    ).count()
+
+    if total > 0 and graded < total:
+        pending = total - graded
+        return JsonResponse(
+            {
+                'error': (
+                    f'Cannot complete session: {pending} of {total} dry essay '
+                    f'answer(s) have not been graded yet. '
+                    f'Please finish dry grading before completing this session.'
+                ),
+                'pending': pending,
+                'total': total,
+                'graded': graded,
+            },
+            status=400,
+        )
+
     session.status = 'completed'
     session.save()
     _sync_exam_status(session.exam)

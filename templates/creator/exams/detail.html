@@ -22,10 +22,6 @@
                 <span class="mx-2">&bull;</span>
                 <i class="bi bi-calendar me-1"></i>{{ exam.exam_date|date:"Y-m-d" }}
             {% endif %}
-            {% if exam.exam_weight %}
-                <span class="mx-2">&bull;</span>
-                <i class="bi bi-award me-1"></i>Weight: <strong>{{ exam.exam_weight }} pts</strong>
-            {% endif %}
             {% if exam.session_time %}
                 <span class="mx-2">&bull;</span>
                 <i class="bi bi-clock me-1"></i>
@@ -97,8 +93,8 @@
     <div class="col-md-3">
         <div class="stat-card">
             <div class="d-flex align-items-center">
-                <div class="stat-icon theme-4 me-3"><i class="bi bi-clock"></i></div>
-                <div><div class="stat-value">{{ total_duration }}</div><div class="stat-label">Total Minutes</div></div>
+                <div class="stat-icon theme-4 me-3"><i class="bi bi-award"></i></div>
+                <div><div class="stat-value">{{ exam.exam_weight|default:"—" }}</div><div class="stat-label">Weight Mark</div></div>
             </div>
         </div>
     </div>
@@ -116,7 +112,7 @@
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
-                <tr><th>Session Name</th><th>Time</th><th>Students</th><th>Paths</th><th>Status</th><th style="width: 180px;">Actions</th></tr>
+                <tr><th>Session Name</th><th></th><th>Time</th><th>Students</th><th>Paths</th><th>Status</th><th style="width: 180px;">Actions</th></tr>
             </thead>
             <tbody>
                 {% for session in sessions %}
@@ -126,6 +122,15 @@
                         <a href="{% url 'creator:session_detail' session.id %}" class="text-decoration-none fw-bold">
                             {{ session.name|default:"Session" }}
                         </a>
+                    </td>
+                    <td>
+                        {% if session.has_dry_stations and session.status == 'finished' %}
+                        <a href="{% url 'creator:session_dry_grading' session.id %}" class="btn btn-sm btn-outline-success" title="Open session for dry marking workflow">
+                            <i class="bi bi-clipboard-check me-1"></i>Mark Dry
+                        </a>
+                        {% else %}
+                        <span class="text-muted small">-</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if session.start_time %}{{ session.start_time|time:"H:i" }}
@@ -139,7 +144,6 @@
                             <a href="{% url 'creator:session_detail' session.id %}" class="btn btn-outline-primary" title="View Details">
                                 <i class="bi bi-eye me-1"></i>View
                             </a>
-                            <!-- Paths button removed -->
                             <a href="{% url 'creator:session_edit' session.id %}" class="btn btn-outline-secondary" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
@@ -194,8 +198,20 @@ function completeExam() {
         fetch('/api/creator/exams/{{ exam.id }}/complete', {method: 'POST'})
         .then(r => r.json())
         .then(data => {
-            if (data.error) alert('Error: ' + data.error);
-            else { alert(data.message || 'Exam completed'); location.reload(); }
+            if (data.error) {
+                let msg = '\u26a0\ufe0f ' + data.error;
+                if (data.incomplete_sessions && data.incomplete_sessions.length) {
+                    msg += '\n\nSessions with ungraded dry essays:';
+                    data.incomplete_sessions.forEach(function(s) {
+                        msg += '\n  \u2022 ' + s.name + ': ' + s.pending + ' of ' + s.total + ' answer(s) pending';
+                    });
+                    msg += '\n\nPlease complete dry grading for all sessions before marking the exam as complete.';
+                }
+                alert(msg);
+            } else {
+                alert(data.message || 'Exam completed');
+                location.reload();
+            }
         })
         .catch(err => alert('Error: ' + err.message));
     }

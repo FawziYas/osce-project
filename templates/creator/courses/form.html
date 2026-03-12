@@ -10,7 +10,7 @@
     </h1>
 </div>
 
-<div class="row">
+<div class="row align-items-start">
     <div class="col-md-8">
         <div class="stat-card">
             <form method="POST">
@@ -20,6 +20,14 @@
                     <input type="text" class="form-control" id="code" name="code" 
                            value="{% if course %}{{ course.code }}{% endif %}" 
                            placeholder="e.g., MED301" required>
+                    <div class="form-text">Unique identifier for the course</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="short_code" class="form-label">Short Code <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="short_code" name="short_code" 
+                           value="{% if course %}{{ course.short_code }}{% else %}0000{% endif %}" 
+                           placeholder="e.g., MED3" maxlength="10" required>
                     <div class="form-text">Unique identifier for the course</div>
                 </div>
                 
@@ -52,7 +60,6 @@
                         </option>
                         {% endfor %}
                     </select>
-                    <div class="form-text">Link this course to a department (required).</div>
                 </div>
                 
                 <div class="mb-3">
@@ -63,7 +70,17 @@
                                min="1" step="1" placeholder="e.g. 50" required>
                         <span class="input-group-text">pts</span>
                     </div>
-                    <div class="form-text">Total OSCE mark for this course (entered manually). This will be inherited as the default exam weight when creating exams.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="pass_threshold" class="form-label">Pass Threshold <span class="text-danger">*</span></label>
+                    <div class="input-group" style="max-width: 200px;">
+                        <input type="number" class="form-control" id="pass_threshold" name="pass_threshold"
+                               value="{% if course %}{{ course.pass_threshold }}{% else %}70{% endif %}"
+                               min="1" max="100" step="1" required>
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <div class="form-text">Minimum percentage a student must score to pass this course.</div>
                 </div>
 
                 <div class="mb-3">
@@ -82,9 +99,9 @@
             </form>
         </div>
     </div>
-    
+
     <div class="col-md-4">
-        <div class="stat-card">
+        <div class="stat-card" style="position: sticky; top: 20px;">
             <h6 class="mb-3"><i class="bi bi-info-circle me-2"></i>About Courses</h6>
             <p class="text-muted small">
                 Courses represent academic units that contain ILOs (Intended Learning Outcomes). 

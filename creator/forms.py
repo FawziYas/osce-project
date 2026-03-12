@@ -132,12 +132,13 @@ class CourseForm(forms.ModelForm):
     """Course creation/edit form."""
     class Meta:
         model = Course
-        fields = ['code', 'name', 'short_code', 'description']
+        fields = ['code', 'name', 'short_code', 'description', 'pass_threshold']
         widgets = {
             'code': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 20}),
             'name': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 200}),
             'short_code': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 10}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'pass_threshold': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 100}),
         }
 
     def clean_code(self):

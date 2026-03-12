@@ -32,13 +32,13 @@
 .dry-mcq-option.selected .mcq-option-letter { color:#1d4ed8; }
 
 .dry-essay-area {
-    width:100%; min-height:120px; background:#eeeeef; border:2px solid #4d5155;
+    width:100%; min-height:120px; background:hwb(240 93% 6% / 0.766); border:2px solid #4d5155;
     border-radius:14px; padding:14px; color:#1e293b; font-size:1rem;
     resize:vertical; outline:none; transition:border-color .2s;
     font-family:inherit; margin:4px 16px 14px; width:calc(100% - 32px);
 }
 .dry-essay-area:focus { border-color:#3b82f6; }
-.dry-essay-area::placeholder { color:#94a3b8; }
+.dry-essay-area::placeholder { color:#292e37; }
 
 .dry-badge {
     display:inline-flex; align-items:center; gap:4px;
@@ -126,6 +126,25 @@
 }
 .evaluation-header.hdr-compact .hdr-compact-timer {
     display: flex;
+}
+
+body.evaluation-page,
+body.evaluation-page .question-text-inline,
+body.evaluation-page .case-instructions,
+body.evaluation-page .dry-mcq-option,
+body.evaluation-page .station-name-large,
+body.evaluation-page .label-value,
+body.evaluation-page .label-text {
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+body.evaluation-page textarea,
+body.evaluation-page input {
+    -webkit-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
 }
 </style>
 {% endblock %}
@@ -304,6 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initScrollHeader();
     loadChecklist();
     setupBackButton();
+    setupClipboardRestrictions();
 
     if (!MARKING_DATA.reviewMode && !scoreIsSubmitted) {
         window.addEventListener('beforeunload', function(e) {
@@ -367,6 +387,31 @@ function initScrollHeader() {
             ticking = true;
         }
     }, { passive: true });
+}
+
+function setupClipboardRestrictions() {
+    const blockedClipboardEvents = ['copy', 'cut', 'paste', 'contextmenu'];
+
+    blockedClipboardEvents.forEach((eventName) => {
+        document.addEventListener(eventName, (event) => {
+            event.preventDefault();
+        });
+    });
+
+    document.addEventListener('selectstart', (event) => {
+        if (event.target.closest('textarea, input')) return;
+        event.preventDefault();
+    });
+
+    document.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+        const isClipboardShortcut = (event.ctrlKey || event.metaKey) && ['c', 'x', 'v'].includes(key);
+        const isShiftInsertPaste = event.shiftKey && key === 'insert';
+
+        if (isClipboardShortcut || isShiftInsertPaste) {
+            event.preventDefault();
+        }
+    });
 }
 
 // ============================================================================

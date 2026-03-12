@@ -230,7 +230,10 @@ def mark_item(request, station_score_id):
     if err:
         return err
 
-    score = get_object_or_404(StationScore, pk=station_score_id)
+    score = get_object_or_404(
+        StationScore.objects.select_related('station'),
+        pk=station_score_id,
+    )
 
     if score.examiner_id != request.user.id:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
@@ -240,15 +243,27 @@ def mark_item(request, station_score_id):
     notes = data.get('notes', '')
     max_points = data.get('max_points', 1)
 
+    # For essay items on dry stations, marked_at must NOT be set here.
+    # It is only set by the coordinator in the dry grading view after review.
+    checklist_item = get_object_or_404(ChecklistItem, pk=checklist_item_id)
+    is_dry_essay = (
+        score.station is not None
+        and score.station.is_dry
+        and checklist_item.rubric_type == 'essay'
+    )
+
+    defaults = {
+        'score': item_score_val,
+        'notes': notes,
+        'max_points': max_points,
+    }
+    if not is_dry_essay:
+        defaults['marked_at'] = utc_timestamp()
+
     _item, _created = ItemScore.objects.update_or_create(
         station_score_id=station_score_id,
         checklist_item_id=checklist_item_id,
-        defaults={
-            'score': item_score_val,
-            'notes': notes,
-            'max_points': max_points,
-            'marked_at': utc_timestamp(),
-        },
+        defaults=defaults,
     )
 
     score.calculate_total()
@@ -282,34 +297,64 @@ def batch_mark_items(request, station_score_id):
     if not items or not isinstance(items, list):
         return JsonResponse({'error': 'Missing or invalid "items" array'}, status=400)
 
-    score = get_object_or_404(StationScore, pk=station_score_id)
+    score = get_object_or_404(
+        StationScore.objects.select_related('station'),
+        pk=station_score_id,
+    )
 
     if score.examiner_id != request.user.id:
         return JsonResponse({'error': 'Unauthorized'}, status=403)
 
+    is_dry_station = score.station is not None and score.station.is_dry
+
+    # Pre-fetch rubric types for all checklist items in one query
+    item_ids = [i['checklist_item_id'] for i in items if 'checklist_item_id' in i]
+    essay_item_ids = set()
+    if is_dry_station and item_ids:
+        essay_item_ids = set(
+            ChecklistItem.objects.filter(
+                pk__in=item_ids, rubric_type='essay'
+            ).values_list('pk', flat=True)
+        )
+
     now = utc_timestamp()
-    item_scores = [
-        ItemScore(
+    item_scores = []
+    for item in items:
+        if 'checklist_item_id' not in item:
+            continue
+        cid = item['checklist_item_id']
+        # Don't set marked_at for dry essay items — coordinator grades them later
+        is_dry_essay = is_dry_station and cid in essay_item_ids
+        item_scores.append(ItemScore(
             station_score_id=station_score_id,
-            checklist_item_id=item['checklist_item_id'],
+            checklist_item_id=cid,
             score=item.get('score', 0),
             notes=item.get('notes', ''),
             max_points=item.get('max_points', 1),
-            marked_at=now,
-        )
-        for item in items
-        if 'checklist_item_id' in item
-    ]
+            marked_at=None if is_dry_essay else now,
+        ))
 
     if not item_scores:
         return JsonResponse({'error': 'No valid items provided'}, status=400)
 
-    ItemScore.objects.bulk_create(
-        item_scores,
-        update_conflicts=True,
-        unique_fields=['station_score', 'checklist_item'],
-        update_fields=['score', 'notes', 'max_points', 'marked_at'],
-    )
+    # Split into two bulk operations: dry-essay items must NOT update marked_at
+    non_essay = [s for s in item_scores if s.marked_at is not None]
+    dry_essays = [s for s in item_scores if s.marked_at is None]
+
+    if non_essay:
+        ItemScore.objects.bulk_create(
+            non_essay,
+            update_conflicts=True,
+            unique_fields=['station_score', 'checklist_item'],
+            update_fields=['score', 'notes', 'max_points', 'marked_at'],
+        )
+    if dry_essays:
+        ItemScore.objects.bulk_create(
+            dry_essays,
+            update_conflicts=True,
+            unique_fields=['station_score', 'checklist_item'],
+            update_fields=['score', 'notes', 'max_points'],  # marked_at intentionally excluded
+        )
 
     score.calculate_total()
     score.updated_at = now

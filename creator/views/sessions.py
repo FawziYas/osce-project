@@ -11,12 +11,13 @@ from django.contrib import messages
 from core.models.mixins import TimestampMixin
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from creator.api.sessions import _sync_exam_status
 
 from core.models import (
     Exam, ExamSession, SessionStudent, Path, Station, ChecklistItem,
-    Examiner, ExaminerAssignment, StationScore,
+    Examiner, ExaminerAssignment, StationScore, ItemScore,
 )
 from core.utils.naming import generate_path_name
 from core.utils.cache_utils import (
@@ -25,6 +26,21 @@ from core.utils.cache_utils import (
     SESSION_DETAIL_KEY, SESSION_DETAIL_TTL,
 )
 from core.utils.roles import check_exam_department, check_session_department
+
+
+def _can_open_dry_grading(user):
+    """Allow only superuser, admin, coordinator-head, and coordinator-organizer."""
+    if user.is_superuser:
+        return True
+
+    role = getattr(user, 'role', None)
+    if role == 'admin':
+        return True
+
+    if role == 'coordinator':
+        return getattr(user, 'coordinator_position', None) in ('head', 'organizer')
+
+    return False
 
 
 @login_required
@@ -640,6 +656,182 @@ def get_path_stations_for_assignment(request, session_id, path_id):
         'stations': stations_list,
         'all_examiners': all_examiners,
         'path': path,
+    })
+
+
+@login_required
+def session_dry_grading(request, session_id):
+    """
+    Creator-side dry marking page.
+
+    Access control:
+      - Superuser, Admin, Coordinator-Head, Coordinator-Organizer only
+      - Coordinator access remains department-scoped via check_session_department
+    """
+    session = get_object_or_404(
+        ExamSession.objects.select_related('exam', 'exam__course', 'exam__course__department'),
+        pk=session_id,
+    )
+
+    if not check_session_department(request.user, session):
+        return HttpResponseForbidden('You do not have access to this session.')
+
+    if not _can_open_dry_grading(request.user):
+        return HttpResponseForbidden('Only superuser, admin, head, or organizer can access dry marking.')
+
+    if session.status not in ('finished', 'completed'):
+        messages.warning(request, 'Dry marking is available only after the session is finished.')
+        return redirect('creator:session_detail', session_id=str(session.id))
+
+    dry_paths = list(
+        Path.objects.filter(
+            session=session,
+            is_deleted=False,
+            stations__is_dry=True,
+            stations__active=True,
+        )
+        .distinct()
+        .order_by('name')
+    )
+
+    if not dry_paths:
+        messages.warning(request, 'No dry stations found in this session.')
+        return redirect('creator:session_detail', session_id=str(session.id))
+
+    selected_path_id = request.POST.get('path_id') or request.GET.get('path_id')
+    selected_path = next((p for p in dry_paths if str(p.id) == str(selected_path_id)), None)
+    if selected_path is None:
+        selected_path = dry_paths[0]
+
+    dry_stations = list(
+        Station.objects.filter(
+            path=selected_path,
+            active=True,
+            is_dry=True,
+        )
+        .select_related('path')
+        .order_by('station_number')
+    )
+
+    selected_station_id = request.POST.get('station_id') or request.GET.get('station_id')
+    selected_station = next((s for s in dry_stations if str(s.id) == str(selected_station_id)), None)
+    if selected_station is None and dry_stations:
+        selected_station = dry_stations[0]
+
+    essay_items = []
+    selected_item = None
+    if selected_station:
+        essay_items = list(
+            ChecklistItem.objects.filter(
+                station=selected_station,
+                rubric_type='essay',
+            ).order_by('item_number')
+        )
+
+        selected_item_id = request.POST.get('checklist_item_id') or request.GET.get('checklist_item_id')
+        selected_item = next((i for i in essay_items if str(i.id) == str(selected_item_id)), None)
+        if selected_item is None and essay_items:
+            selected_item = essay_items[0]
+
+    answer_rows = []
+    if selected_item and selected_station:
+        answer_rows = list(
+            ItemScore.objects.filter(
+                checklist_item=selected_item,
+                station_score__session_student__session=session,
+                station_score__station=selected_station,
+            )
+            .select_related('station_score', 'station_score__session_student', 'station_score__examiner')
+            .order_by('station_score__session_student__student_number')
+        )
+
+    if request.method == 'POST' and selected_item and answer_rows:
+        updated = 0
+        affected_station_scores = {}
+
+        for row in answer_rows:
+            field_name = f'mark_{row.id}'
+            if field_name not in request.POST:
+                continue
+
+            raw_mark = (request.POST.get(field_name) or '').strip()
+            if raw_mark == '':
+                continue
+
+            try:
+                value = float(raw_mark)
+            except ValueError:
+                continue
+
+            # Clamp to valid range for this checklist item
+            if value < 0:
+                value = 0
+            if value > selected_item.points:
+                value = float(selected_item.points)
+
+            should_mark_graded = row.marked_at is None
+            score_changed = float(row.score or 0) != float(value)
+
+            if score_changed or should_mark_graded:
+                row.score = value
+                row.max_points = selected_item.points
+                row.marked_at = TimestampMixin.utc_timestamp()
+                row.save(update_fields=['score', 'max_points', 'marked_at'])
+                affected_station_scores[row.station_score.id] = row.station_score
+                updated += 1
+
+        for station_score in affected_station_scores.values():
+            station_score.calculate_total()
+            station_score.save(update_fields=['total_score', 'percentage', 'updated_at'])
+
+        if updated:
+            from core.utils.audit import log_action
+            log_action(
+                request,
+                'UPDATE',
+                'ChecklistItem',
+                str(selected_item.id),
+                f'Overwrote {updated} dry marks for item #{selected_item.item_number} in session {session.name}',
+            )
+            messages.success(request, f'{updated} mark(s) updated successfully.')
+        else:
+            messages.info(request, 'No marks changed.')
+
+        path_id_for_redirect = str(selected_path.id) if selected_path else ''
+        station_id_for_redirect = str(selected_station.id) if selected_station else ''
+        item_id_for_redirect = str(selected_item.id)
+
+        redirect_url = (
+            f"{reverse('creator:session_dry_grading', kwargs={'session_id': str(session.id)})}"
+            f"?path_id={path_id_for_redirect}&station_id={station_id_for_redirect}&checklist_item_id={item_id_for_redirect}"
+        )
+        return redirect(redirect_url)
+
+    session_total = ItemScore.objects.filter(
+        checklist_item__rubric_type='essay',
+        station_score__session_student__session=session,
+        station_score__station__is_dry=True,
+    ).count()
+    session_graded = ItemScore.objects.filter(
+        checklist_item__rubric_type='essay',
+        station_score__session_student__session=session,
+        station_score__station__is_dry=True,
+        marked_at__isnull=False,
+    ).count()
+
+    return render(request, 'creator/sessions/dry_grading.html', {
+        'session': session,
+        'exam': session.exam,
+        'dry_paths': dry_paths,
+        'dry_stations': dry_stations,
+        'essay_items': essay_items,
+        'selected_path': selected_path,
+        'selected_station': selected_station,
+        'selected_item': selected_item,
+        'answer_rows': answer_rows,
+        'session_total_items': session_total,
+        'session_graded_items': session_graded,
+        'session_pending_items': session_total - session_graded,
     })
 
 

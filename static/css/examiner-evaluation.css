@@ -228,14 +228,14 @@
 }
 
 .question-card {
-    background: #fff;
-    border: 2px solid #cfd8e3;
+    background: #f8fafc;
+    border: 2px solid #c3cedb;
     border-left: 5px solid #94a3b8;
     border-radius: 12px; /* Slightly tighter radius */
     margin-bottom: 10px; /* Reduced from 16px */
     overflow: hidden;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
 }
 
 .question-card:hover {
@@ -267,7 +267,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 6px 14px; /* Reduced from 10px 16px */
-    background: #F9FAFB;
+    background: #eef2f7;
     border-bottom: 1px solid #F3F4F6;
 }
 

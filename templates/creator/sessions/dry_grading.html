@@ -1,0 +1,393 @@
+{% extends 'creator/base_creator.html' %}
+
+{% block title %}Dry Grading - {{ session.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Dry Grading Styles ── */
+.answer-box {
+    background-color: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    color: #1e293b;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.5;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.expected-answer-box {
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 4px solid #22c55e;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 12px;
+}
+
+.mark-input {
+    width: 100px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.mark-input:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    border-color: #3b82f6;
+}
+
+.grading-row {
+    transition: background-color 0.15s ease;
+}
+
+.grading-row:hover {
+    background-color: #f1f5f9;
+}
+
+
+.question-card {
+    background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+    border: 1px solid #c7d2fe;
+    border-left: 5px solid #6366f1;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.10);
+}
+
+.student-col {
+    background: #fafafa;
+    border-right: 1px solid #eef2f5;
+}
+
+/* Progress bar fill variants */
+.pg-bar {
+    height: 100%;
+    border-radius: 99px;
+    width: 0;
+    transition: width 0.6s ease;
+}
+.pg-bar--done { background: #4ade80; }
+.pg-bar--mid  { background: #60a5fa; }
+.pg-bar--low  { background: #fbbf24; }
+
+.filter-card-header {
+    background: linear-gradient(90deg, #0284c7, #0ea5e9);
+    color: white;
+    border-radius: 10px 10px 0 0;
+    padding: 12px 16px;
+}
+.filter-card-header h5 { color: white !important; }
+
+.answers-card-header {
+    background: linear-gradient(90deg, #7c3aed, #8b5cf6);
+    color: white;
+    padding: 12px 16px;
+}
+.answers-card-header h5 { color: white !important; }
+.answers-card-header kbd {
+    background: rgba(255,255,255,0.25);
+    color: white;
+    border: none;
+}
+
+.sticky-footer {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(90deg, #f8fafc, #eef2ff);
+    z-index: 10;
+    box-shadow: 0 -4px 16px rgba(99,102,241,0.12);
+    padding: 16px;
+    border-top: 2px solid #c7d2fe;
+    border-radius: 0 0 12px 12px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex flex-wrap justify-content-between align-items-start gap-2">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'creator:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_list' %}">Exams</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:exam_detail' exam.id %}">{{ exam.name }}</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'creator:session_detail' session.id %}">{{ session.name }}</a></li>
+                <li class="breadcrumb-item active">Dry Grading</li>
+            </ol>
+        </nav>
+        <h1>Dry Grading</h1>
+        <p class="text-muted mb-0">
+            <i class="bi bi-journal-text me-1"></i>Exam: <strong>{{ exam.name }}</strong>
+            <span class="mx-2">&bull;</span>
+            <i class="bi bi-calendar-week me-1"></i>Session: <strong>{{ session.name }}</strong>
+        </p>
+    </div>
+    <div>
+        <a href="{% url 'creator:session_detail' session.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Session
+        </a>
+    </div>
+</div>
+{% if session_total_items > 0 %}
+{% widthratio session_graded_items session_total_items 100 as pct %}
+<div class="mb-4" style="background: linear-gradient(135deg,#1e3a5f 0%,#1e40af 60%,#4f46e5 100%); border-radius: 16px; padding: 20px 28px; color: white; box-shadow: 0 6px 24px rgba(30,58,95,0.25);">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+        <div>
+            <div style="font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; opacity:0.75;">Session Dry Grading Progress</div>
+            <div class="fw-bold" style="font-size:1.5rem; line-height:1.2;">{{ session.name }}</div>
+        </div>
+        <div class="d-flex gap-4 text-center">
+            <div>
+                <div class="fw-bold" style="font-size:1.8rem; color:#86efac;">{{ session_graded_items }}</div>
+                <div style="font-size:0.75rem; opacity:0.8;">Graded</div>
+            </div>
+            <div style="width:1px; background:rgba(255,255,255,0.2);"></div>
+            <div>
+                <div class="fw-bold" style="font-size:1.8rem; color:#fde68a;">{{ session_pending_items }}</div>
+                <div style="font-size:0.75rem; opacity:0.8;">Pending</div>
+            </div>
+            <div style="width:1px; background:rgba(255,255,255,0.2);"></div>
+            <div>
+                <div class="fw-bold" style="font-size:1.8rem;">{{ session_total_items }}</div>
+                <div style="font-size:0.75rem; opacity:0.8;">Total</div>
+            </div>
+        </div>
+    </div>
+    <div style="background:rgba(255,255,255,0.15); border-radius:99px; height:12px; overflow:hidden;">
+        {% if pct == 100 %}
+        <div class="pg-bar pg-bar--done" id="pgBarFill" data-pct="{{ pct }}"></div>
+        {% elif pct >= 50 %}
+        <div class="pg-bar pg-bar--mid" id="pgBarFill" data-pct="{{ pct }}"></div>
+        {% else %}
+        <div class="pg-bar pg-bar--low" id="pgBarFill" data-pct="{{ pct }}"></div>
+        {% endif %}
+    </div>
+    <div class="d-flex justify-content-between mt-1" style="font-size:0.8rem; opacity:0.8;">
+        <span>0%</span>
+        <span class="fw-semibold">{{ pct }}% Complete</span>
+        <span>100%</span>
+    </div>
+</div>
+{% endif %}
+
+
+
+<div class="table-card mb-4">
+    <div class="filter-card-header d-flex align-items-center gap-2">
+        <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>Filters</h5>
+    </div>
+    <div class="p-3">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Path (Dry only)</label>
+                <select name="path_id" class="form-select" onchange="this.form.submit()">
+                    {% for path in dry_paths %}
+                    <option value="{{ path.id }}" {% if selected_path and selected_path.id == path.id %}selected{% endif %}>Path {{ path.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Station (Dry only)</label>
+                <select name="station_id" class="form-select" onchange="this.form.submit()">
+                    {% for station in dry_stations %}
+                    <option value="{{ station.id }}" {% if selected_station and selected_station.id == station.id %}selected{% endif %}>Station {{ station.station_number }} - {{ station.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Checklist Item (Essay only)</label>
+                <select name="checklist_item_id" class="form-select" onchange="this.form.submit()">
+                    {% if essay_items %}
+                        {% for item in essay_items %}
+                        <option value="{{ item.id }}" {% if selected_item and selected_item.id == item.id %}selected{% endif %}>Item {{ item.item_number }} ({{ item.points }} pts)</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">No essay items in this station</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Show Students</label>
+                <select id="gradeFilter" class="form-select">
+                    <option value="all">All Students</option>
+                    <option value="ungraded">Ungraded Only</option>
+                    <option value="graded">Graded Only</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if selected_item %}
+<div class="question-card">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <h4 class="mb-0 text-primary">
+            <i class="bi bi-question-circle me-2"></i>Item {{ selected_item.item_number }}
+        </h4>
+        <span class="badge bg-primary fs-6">{{ selected_item.points }} pt{{ selected_item.points|pluralize }}</span>
+    </div>
+    
+    <div class="mb-3">
+        <div class="text-uppercase fw-semibold text-secondary" style="font-size: 0.72rem; letter-spacing: 0.08em;">Question
+            
+        </div>
+        <div class="fs-5 mt-1">{{ selected_item.description }}</div>
+    </div>
+    
+    {% if selected_item.expected_response %}
+    <div class="expected-answer-box">
+        <div class="fw-bold text-success mb-1"><i class="bi bi-check-circle me-1"></i>Key Answer / Expected Response:</div>
+        <div style="white-space: pre-wrap;">{{ selected_item.expected_response }}</div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="table-card" style="border-radius: 12px; overflow: hidden;">
+    <div class="answers-card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-ui-checks me-2"></i>Student Answers</h5>
+        <div class="small" style="color: rgba(255,255,255,0.8);">
+            Tip: Press <kbd>Tab</kbd> to move to the next student.
+        </div>
+    </div>
+
+    {% if answer_rows %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="path_id" value="{{ selected_path.id }}">
+        <input type="hidden" name="station_id" value="{{ selected_station.id }}">
+        <input type="hidden" name="checklist_item_id" value="{{ selected_item.id }}">
+
+        <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+            <table class="table mb-0 align-middle">
+                <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th style="width: 250px;" class="student-col">Student</th>
+                        <th>Student Answer</th>
+                        <th style="width: 150px; text-align: center;">Status</th>
+                        <th style="width: 180px; text-align: center;">Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in answer_rows %}
+                    <tr class="grading-row {% if not row.marked_at %}table-warning bg-opacity-25{% endif %}" data-graded="{% if row.marked_at %}true{% else %}false{% endif %}">
+                        <td class="student-col">
+                            <div class="fw-bold d-flex flex-column">
+                                <span>{{ row.station_score.session_student.full_name }}</span>
+                                <code class="text-muted" style="font-size: 0.8em; background: none; padding: 0;">{{ row.station_score.session_student.student_number }}</code>
+                            </div>
+                        </td>
+                        <td>
+                            {% if row.notes %}
+                                <div class="answer-box">{% if row.notes|length > 0 %}{{ row.notes }}{% else %}<em class="text-muted">Empty answer submitted.</em>{% endif %}</div>
+                            {% else %}
+                                <div class="answer-box text-muted fst-italic bg-light border-dashed">No answer provided.</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if row.marked_at %}
+                                <span class="badge bg-success rounded-pill px-3"><i class="bi bi-check-circle me-1"></i>Graded</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark rounded-pill px-3"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <input
+                                type="number"
+                                name="mark_{{ row.id }}"
+                                class="form-control mark-input mx-auto"
+                                min="0"
+                                max="{{ selected_item.points }}"
+                                step="0.5"
+                                value="{% if row.marked_at %}{{ row.score }}{% endif %}"
+                                placeholder="0 – {{ selected_item.points }}"
+                            >
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sticky-footer d-flex justify-content-between align-items-center">
+            <div class="text-muted">
+                Make sure to save before changing items or filters.
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg px-4 shadow-sm">
+                <i class="bi bi-save me-2"></i>Save All Scores
+            </button>
+        </div>
+    </form>
+    {% else %}
+    <div class="p-5 text-center text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-3 text-secondary"></i>
+        <h4>No Submissions Yet</h4>
+        <p>There are no student answers recorded for this item.</p>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="table-card">
+    <div class="p-4 text-center text-muted">
+        <i class="bi bi-ui-checks-grid fs-1 d-block mb-2"></i>
+        Select a dry station and an essay checklist item to start Grading.
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // ── Animate progress bar fill on load ──
+    var fill = document.getElementById('pgBarFill');
+    if (fill) {
+        var pct = parseInt(fill.dataset.pct, 10) || 0;
+        // Small delay lets the CSS transition animate on initial render
+        setTimeout(function () { fill.style.width = pct + '%'; }, 80);
+    }
+
+    // ── Sort students: pending first on initial page load ──
+    const tableBody = document.querySelector('tr.grading-row')?.closest('tbody');
+    if (tableBody) {
+        const rows = Array.from(tableBody.querySelectorAll('tr.grading-row'));
+        rows
+            .sort(function (a, b) {
+                const aGraded = a.dataset.graded === 'true';
+                const bGraded = b.dataset.graded === 'true';
+                if (aGraded === bGraded) return 0;
+                return aGraded ? 1 : -1;
+            })
+            .forEach(function (row) {
+                tableBody.appendChild(row);
+            });
+    }
+
+    // ── Grade filter ──
+    const filterEl = document.getElementById('gradeFilter');
+    if (filterEl) {
+        filterEl.addEventListener('change', function () {
+            const val = this.value;
+            document.querySelectorAll('tr.grading-row').forEach(function (row) {
+                const graded = row.dataset.graded === 'true';
+                if (val === 'all')           row.style.display = '';
+                else if (val === 'graded')   row.style.display = graded  ? '' : 'none';
+                else                         row.style.display = !graded ? '' : 'none';
+            });
+        });
+    }
+}());
+</script>
+{% endblock %}

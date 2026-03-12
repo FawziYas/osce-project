@@ -10,7 +10,7 @@ class Course(TimestampMixin):
 
     id = models.AutoField(primary_key=True)
     code = models.CharField(max_length=20, unique=True)
-    short_code = models.CharField(max_length=20, blank=True, default='')
+    short_code = models.CharField(max_length=20, default='0000')
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, default='')
     year_level = models.IntegerField(default=1)
@@ -24,6 +24,10 @@ class Course(TimestampMixin):
     osce_mark = models.PositiveIntegerField(
         null=True, blank=True,
         help_text='Total OSCE mark for this course (entered manually, e.g. 50)',
+    )
+    pass_threshold = models.PositiveIntegerField(
+        default=70,
+        help_text='Minimum percentage to pass this course (e.g. 70 means 70%)',
     )
 
     class Meta:

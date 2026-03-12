@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from core.models import (
-    Course, Exam, Station, ChecklistItem, ILO, ExamSession,
+    Course, Exam, Station, ChecklistItem, ILO, ExamSession, ItemScore,
 )
 
 
@@ -181,6 +181,48 @@ def complete_exam(request, exam_id):
     if exam.status not in ('in_progress', 'ready'):
         return JsonResponse(
             {'error': f'Cannot complete exam: current status is "{exam.status}".'},
+            status=400,
+        )
+
+    # Block completion if any session with dry stations still has ungraded essay items
+    sessions_with_dry = ExamSession.objects.filter(
+        exam=exam,
+        paths__stations__is_dry=True,
+        paths__stations__active=True,
+    ).exclude(status__in=['archived', 'cancelled']).distinct()
+
+    incomplete_sessions = []
+    for sess in sessions_with_dry:
+        total = ItemScore.objects.filter(
+            checklist_item__rubric_type='essay',
+            station_score__session_student__session=sess,
+            station_score__station__is_dry=True,
+        ).count()
+        graded = ItemScore.objects.filter(
+            checklist_item__rubric_type='essay',
+            station_score__session_student__session=sess,
+            station_score__station__is_dry=True,
+            marked_at__isnull=False,
+        ).count()
+        if total > 0 and graded < total:
+            incomplete_sessions.append({
+                'name': sess.name,
+                'graded': graded,
+                'total': total,
+                'pending': total - graded,
+            })
+
+    if incomplete_sessions:
+        detail = '; '.join(
+            f"{s['name']} ({s['pending']} of {s['total']} ungraded)"
+            for s in incomplete_sessions
+        )
+        return JsonResponse(
+            {
+                'error': 'Cannot complete exam: dry station essay grading is incomplete.',
+                'detail': detail,
+                'incomplete_sessions': incomplete_sessions,
+            },
             status=400,
         )
 

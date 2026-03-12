@@ -37,13 +37,13 @@
                         {{ course.code }}
                     </a>
                 </td>
-                <td>
+              
                     {% if course.short_code %}
-                        <span class="badge bg-primary">{{ course.short_code }}</span>
+                        <td>{{ course.short_code }}</td>
                     {% else %}
-                        <span class="text-muted">-</span>
+                        <td>-</td>
                     {% endif %}
-                </td>
+        
                 <td>{{ course.name }}</td>
                 <td>
                     {% if course.department %}

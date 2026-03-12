@@ -22,8 +22,8 @@
                 <tr>
                     <th>Department</th>
                     <th class="text-center">Head</th>
-                    <th class="text-center">RTAs</th>
-                    <th class="text-center">Organizers</th>
+                                      <th class="text-center">Organizers</th>
+                                        <th class="text-center">RTAs</th>
                     {% if request.user.is_superuser or request.user.role == 'admin' %}<th class="text-end">Actions</th>{% endif %}
                 </tr>
             </thead>
@@ -40,16 +40,17 @@
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
+                  
                     <td class="text-center">
-                        {% if dept.rta_count %}
-                            <span class="badge bg-primary">{{ dept.rta_count }}</span>
+                        {% if dept.organizer_count %}
+                            <span class="badge bg-warning text-dark">{{ dept.organizer_count }}</span>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
-                        {% if dept.organizer_count %}
-                            <span class="badge bg-warning text-dark">{{ dept.organizer_count }}</span>
+                      <td class="text-center">
+                        {% if dept.rta_count %}
+                            <span class="badge bg-primary">{{ dept.rta_count }}</span>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}

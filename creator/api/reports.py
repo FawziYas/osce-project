@@ -34,9 +34,10 @@ def get_session_summary(request, session_id):
     
     try:
         session = get_object_or_404(
-            ExamSession.objects.select_related('exam'), pk=session_id
+            ExamSession.objects.select_related('exam__course'), pk=session_id
         )
         exam_weight = float(session.exam.exam_weight or 0)
+        pass_threshold = session.exam.course.pass_threshold
 
         # Get all students and apply search filter
         search_query = request.GET.get('search', '').strip()
@@ -84,7 +85,6 @@ def get_session_summary(request, session_id):
         completed_students = 0
         total_percentage = 0
         passed_count = 0
-        pass_threshold = 70
 
         student_data = []
         # P3: Pre-fetch all paths to avoid N+1 per student
@@ -120,8 +120,9 @@ def get_session_summary(request, session_id):
             path = path_map.get(student.path_id) if student.path_id else None
 
             weighted_score = round(total_score / max_score * exam_weight, 2) if exam_weight and max_score > 0 else None
+            threshold_ratio = pass_threshold / 100
             if exam_weight and weighted_score is not None:
-                passed = weighted_score >= exam_weight * 0.70
+                passed = weighted_score >= exam_weight * threshold_ratio
             else:
                 passed = percentage >= pass_threshold
 
@@ -201,7 +202,7 @@ def _build_station_info(session_id):
     return paths, station_headers, station_info_map
 
 
-def _student_rows(students, station_headers, station_info_map):
+def _student_rows(students, station_headers, station_info_map, pass_threshold=70):
     """Yield (row_list, total_score, max_score, percentage, pass_fail) for each student."""
     # P3: Pre-fetch paths
     path_ids = set(s.path_id for s in students if s.path_id)
@@ -230,7 +231,7 @@ def _student_rows(students, station_headers, station_info_map):
             row.append(score_val)
 
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
-        pass_fail = 'PASS' if percentage >= 70 else 'FAIL'
+        pass_fail = 'PASS' if percentage >= pass_threshold else 'FAIL'
         row.extend([round(total_score, 2), round(max_score, 2), pass_fail])
         yield row, total_score, max_score, percentage, pass_fail
 
@@ -240,7 +241,8 @@ def _student_rows(students, station_headers, station_info_map):
 @login_required
 def export_students_csv(request, session_id):
     """GET /api/creator/reports/session/<id>/students/csv"""
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(ExamSession.objects.select_related('exam__course'), pk=session_id)
+    course_threshold = session.exam.course.pass_threshold
     students = SessionStudent.objects.filter(session=session).order_by('full_name')
     _, station_headers, station_info_map = _build_station_info(session_id)
 
@@ -252,7 +254,7 @@ def export_students_csv(request, session_id):
     headers.extend(['Total Score', 'Max Score', 'Pass/Fail'])
     writer.writerow(headers)
 
-    for row, *_ in _student_rows(students, station_headers, station_info_map):
+    for row, *_ in _student_rows(students, station_headers, station_info_map, pass_threshold=course_threshold):
         writer.writerow(row)
 
     filename = _safe_filename(f"{session.name}_students_{session_id}.csv")
@@ -269,9 +271,10 @@ def export_students_xlsx(request, session_id):
     from openpyxl.utils import get_column_letter
 
     session = get_object_or_404(
-        ExamSession.objects.select_related('exam'), pk=session_id
+        ExamSession.objects.select_related('exam__course'), pk=session_id
     )
     exam_weight = float(session.exam.exam_weight or 0)
+    course_threshold = session.exam.course.pass_threshold
     students = list(SessionStudent.objects.filter(session=session).order_by('full_name'))
     _, station_headers, station_info_map = _build_station_info(session_id)
 
@@ -351,11 +354,12 @@ def export_students_xlsx(request, session_id):
 
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
         weighted_score = round(total_score / max_score * exam_weight, 2) if exam_weight and max_score > 0 else None
-        # Pass if weighted score >= 70% of exam_weight, or raw percentage >= 70% when no weight
+        # Pass if weighted score >= threshold% of exam_weight, or raw percentage >= threshold%
+        threshold_ratio = course_threshold / 100
         if exam_weight and weighted_score is not None:
-            passed = weighted_score >= exam_weight * 0.70
+            passed = weighted_score >= exam_weight * threshold_ratio
         else:
-            passed = percentage >= 70
+            passed = percentage >= course_threshold
         pass_fail = 'PASS' if passed else 'FAIL'
         
         # Build comments with examiner names
