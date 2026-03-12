@@ -58,6 +58,7 @@ def course_create(request):
 
         course = Course.objects.create(
             code=request.POST['code'],
+            short_code=request.POST['short_code'],
             name=request.POST['name'],
             year_level=int(request.POST.get('year_level', 1)),
             description=request.POST.get('description', ''),
@@ -65,6 +66,9 @@ def course_create(request):
             department_id=int(dept_id) if dept_id else None,
         )
         messages.success(request, f'Course "{course.code}" created successfully.')
+        next_url = request.POST.get('next')
+        if next_url:
+            return redirect(next_url)
         return redirect('creator:course_detail', course_id=course.id)
 
     return render(request, 'creator/courses/form.html', {'course': None, 'year_range': range(1, 7), 'departments': departments})
@@ -104,6 +108,7 @@ def course_edit(request, course_id):
 
     if request.method == 'POST':
         course.code = request.POST['code']
+        course.short_code = request.POST['short_code']
         course.name = request.POST['name']
         course.year_level = int(request.POST.get('year_level', course.year_level))
         course.description = request.POST.get('description', '')
@@ -113,6 +118,9 @@ def course_edit(request, course_id):
         course.department_id = int(dept_id) if dept_id else None
         course.save()
         messages.success(request, f'Course "{course.code}" updated.')
+        next_url = request.POST.get('next')
+        if next_url:
+            return redirect(next_url)
         return redirect('creator:course_detail', course_id=course.id)
 
     return render(request, 'creator/courses/form.html', {'course': course, 'year_range': range(1, 7), 'departments': departments})

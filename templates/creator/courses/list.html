@@ -65,7 +65,7 @@
                     <div class="btn-group btn-group-sm">
                         <a href="{% url 'creator:course_detail' course.id %}" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
                         {% if can_edit_course %}
-                        <a href="{% url 'creator:course_edit' course.id %}" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                        <a href="{% url 'creator:course_edit' course.id %}?next={% url 'creator:course_list' %}" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
                         {% endif %}
                     </div>
                 </td>

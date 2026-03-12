@@ -15,6 +15,7 @@
         <div class="stat-card">
             <form method="POST">
                 {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}" />
                 <div class="mb-3">
                     <label for="code" class="form-label">Course Code <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="code" name="code" 
@@ -22,13 +23,13 @@
                            placeholder="e.g., MED301" required>
                     <div class="form-text">Unique identifier for the course</div>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="short_code" class="form-label">Short Code <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="short_code" name="short_code" 
-                           value="{% if course %}{{ course.short_code }}{% else %}0000{% endif %}" 
-                           placeholder="e.g., MED3" maxlength="10" required>
-                    <div class="form-text">Unique identifier for the course</div>
+                           value="{% if course %}{{ course.short_code }}{% endif %}" 
+                           placeholder="e.g., MED" maxlength="20" required>
+                    <div class="form-text">Short name for the course</div>
                 </div>
                 
                 <div class="mb-3">
