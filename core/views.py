@@ -31,8 +31,13 @@ def _get_client_ip(request):
     remote = request.META.get('REMOTE_ADDR', '')
     forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
     if forwarded and (not trusted or remote in trusted):
-        return forwarded.split(',')[0].strip()
-    return remote or None
+        ip = forwarded.split(',')[0].strip()
+    else:
+        ip = remote or None
+    # Strip port if present (e.g., Azure proxy sends "IP:PORT")
+    if ip and ':' in ip and '.' in ip:
+        ip = ip.rsplit(':', 1)[0]
+    return ip
 
 
 def _redirect_by_role(user):

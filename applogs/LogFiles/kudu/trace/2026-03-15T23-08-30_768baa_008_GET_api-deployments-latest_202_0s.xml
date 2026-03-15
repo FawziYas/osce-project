@@ -1,0 +1,9 @@
+<step title="Incoming Request" date="2026-03-15T23:08:30.768" instance="768baa" url="/api/deployments/latest" method="GET" type="request" pid="769,1,17" Accept="*/*" Host="myosce-app.scm.azurewebsites.net" User-Agent="AZURECLI/2.83.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." x-ms-client-request-id="2fba0c74-20c3-11f1-ab0e-040e3c8cb67e" X-ARR-LOG-ID="2fba0c74-20c3-11f1-ab0e-040e3c8cb67e" CLIENT-IP="147.189.190.70:14688" X-SITE-DEPLOYMENT-ID="myosce-app" WAS-DEFAULT-HOSTNAME="myosce-app.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest" X-Client-IP="147.189.190.70" X-Client-Port="14688" >
+  <step title="Cleanup Xml Logs" date="2026-03-15T23:08:30.772" /><!-- duration: 9ms -->
+  <step title="DeploymentService.GetResult" date="2026-03-15T23:08:30.797" >
+    <step title="DeploymentService.GetLatestDeployment" date="2026-03-15T23:08:30.801" >
+      <step title="DeploymentManager.GetResults" date="2026-03-15T23:08:30.805" /><!-- duration: 252ms -->
+    </step><!-- duration: 277ms -->
+  </step><!-- duration: 286ms -->
+  <step title="Outgoing response" date="2026-03-15T23:08:31.087" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 4ms -->
+</step><!-- duration: 327ms -->

@@ -1,0 +1,7 @@
+<step title="Incoming Request" date="2026-03-15T23:20:23.040" instance="768baa" url="/deployments/7193ea85-0807-49eb-adab-b5e05f2d25ad/log/b7f18147-7f16-45fa-b445-79c4f0b3ac3c" method="GET" type="request" pid="768,1,15" Accept="*/*" Host="myosce-app.scm.azurewebsites.net" User-Agent="python/3.13.11 (Windows-10-10.0.19045-SP0) AZURECLI/2.83.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." x-ms-client-request-id="eb0d1168-480f-4ef3-91df-ff4422b84ceb" CommandName="rest" ParameterSetName="--method --url --resource" X-ARR-LOG-ID="eb0d1168-480f-4ef3-91df-ff4422b84ceb" CLIENT-IP="147.189.190.70:15098" X-SITE-DEPLOYMENT-ID="myosce-app" WAS-DEFAULT-HOSTNAME="myosce-app.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/deployments/7193ea85-0807-49eb-adab-b5e05f2d25ad/log/b7f18147-7f16-45fa-b445-79c4f0b3ac3c" X-Client-IP="147.189.190.70" X-Client-Port="15098" >
+  <step title="Cleanup Xml Logs" date="2026-03-15T23:20:23.051" /><!-- duration: 15ms -->
+  <step title="DeploymentService.GetLogEntryDetails" date="2026-03-15T23:20:23.085" >
+    <step title="DeploymentManager.GetLogEntryDetails(id:7193ea85-0807-49eb-adab-b5e05f2d25ad, entryId:b7f18147-7f16-45fa-b445-79c4f0b3ac3c" date="2026-03-15T23:20:23.089" /><!-- duration: 10ms -->
+  </step><!-- duration: 18ms -->
+  <step title="Outgoing response" date="2026-03-15T23:20:23.116" type="response" statusCode="200" statusText="OK" /><!-- duration: 4ms -->
+</step><!-- duration: 84ms -->

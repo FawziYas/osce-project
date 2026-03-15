@@ -1,0 +1,17 @@
+<step title="Incoming Request" date="2026-03-15T23:40:13.876" instance="768baa" url="/api/publish?type=zip&amp;async=True" method="POST" type="request" pid="768,1,20" Accept="*/*" Host="myosce-app.scm.azurewebsites.net" User-Agent="AZURECLI/2.83.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bea..." Cache-Control="no-cache" Content-Type="application/octet-stream" Cookie="ARRAffinity=768baa2a2c04d7fb10b493c3370cfb2794f743bba03b0809b154f7b162e91e12; ARRAffinitySameSite=768baa2a2c04d7fb10b493c3370cfb2794f743bba03b0809b154f7b162e91e12" Content-Length="10844642" x-ms-client-request-id="44a272de-20c8-11f1-af4f-040e3c8cb67e" x-ms-artifact-checksum="808be190b759c44b4af690ac06fbeec3ed40490a7b67e08dda6a074aa4bbb68f" X-ARR-LOG-ID="44a272de-20c8-11f1-af4f-040e3c8cb67e" CLIENT-IP="147.189.190.70:15574" X-SITE-DEPLOYMENT-ID="myosce-app" WAS-DEFAULT-HOSTNAME="myosce-app.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/publish?type=zip&amp;async=True" X-Client-IP="147.189.190.70" X-Client-Port="15574" >
+  <step title="OneDeploy" date="2026-03-15T23:40:13.958" >
+    <step title="None repository commit" date="2026-03-15T23:40:13.969" >
+      <step title="Commit id: 51448ce4-9a4a-4f08-8bf4-91a01e211a23" date="2026-03-15T23:40:13.974" Message="N/A" AuthorName="N/A" AuthorEmail="N/A" /><!-- duration: 4ms -->
+    </step><!-- duration: 15ms -->
+    <step title="Starting PushDeployAsync" date="2026-03-15T23:40:13.989" /><!-- duration: 4ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/141c16e2-f07f-4c4e-ac72-da0dedf10ea4.zip" date="2026-03-15T23:40:14.009" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/141c16e2-f07f-4c4e-ac72-da0dedf10ea4.zip" date="2026-03-15T23:40:14.015" /><!-- duration: 4ms -->
+    </step><!-- duration: 1166ms -->
+    <step title="Removing previous build artifact&apos;s manifest file" date="2026-03-15T23:40:15.191" >
+      <step title="Start deployment in the background" date="2026-03-15T23:40:15.208" >
+        <step title="Acquiring Deployment Lock" date="2026-03-15T23:40:15.237" /><!-- duration: 6ms -->
+        <step title="Acquired Deployment Lock" date="2026-03-15T23:40:15.278" /><!-- duration: 6ms -->
+      </step><!-- duration: 175ms -->
+    </step><!-- duration: 200ms -->
+    <step title="Outgoing response" date="2026-03-15T23:40:15.402" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 4ms -->
+  </step><!-- duration: 1452ms -->

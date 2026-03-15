@@ -1,0 +1,119 @@
+2026-03-15T23:14:01  Fetching changes.
+2026-03-15T23:14:01    Starting  LocalZipHandler
+2026-03-15T23:14:01    Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/2aa6765e-2d20-4a6d-bdae-91bdacc3e148.zip (10.34 MB) to /tmp/zipdeploy/extracted
+2026-03-15T23:14:08  Updating submodules.
+2026-03-15T23:14:08  Preparing deployment for commit id '189b3364-5'.
+2026-03-15T23:14:09  PreDeployment: context.CleanOutputPath False
+2026-03-15T23:14:09  PreDeployment: context.OutputPath /home/site/wwwroot
+2026-03-15T23:14:09  Repository path is /tmp/zipdeploy/extracted
+2026-03-15T23:14:09  Running oryx build...
+2026-03-15T23:14:09    Command: oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform python --platform-version 3.12 -p virtualenv_name=antenv --log-file /tmp/build-debug.log  -i /tmp/8de82e88fb92505 --compress-destination-dir | tee /tmp/oryx-build.log
+2026-03-15T23:14:11    Operation performed by Microsoft Oryx, https://github.com/Microsoft/Oryx
+2026-03-15T23:14:11    You can report issues at https://github.com/Microsoft/Oryx/issues
+2026-03-15T23:14:11    
+2026-03-15T23:14:11    Oryx Version: 0.2.20260204.1+0fdbe200b286be083841ff7fa201c6c2316dc6b9, Commit: 0fdbe200b286be083841ff7fa201c6c2316dc6b9, ReleaseTagName: 20260204.1
+2026-03-15T23:14:11    
+2026-03-15T23:14:11    Build Operation ID: 7900d2e8409baa82
+2026-03-15T23:14:11    Repository Commit : 189b3364-5ef3-47a7-9a3e-1a46a3383bdc
+2026-03-15T23:14:11    OS Type           : bullseye
+2026-03-15T23:14:11    Image Type        : githubactions
+2026-03-15T23:14:11    
+2026-03-15T23:14:11    Primary SDK Storage URL: https://oryx-cdn.microsoft.io
+2026-03-15T23:14:11    Backup SDK Storage URL: 
+2026-03-15T23:14:11    Detecting platforms...
+2026-03-15T23:14:11    External SDK provider is enabled.
+2026-03-15T23:14:11    Requesting metadata for platform python from external SDK provider
+2026-03-15T23:14:12    Requesting metadata for platform python from external SDK provider
+2026-03-15T23:14:12    Detected following platforms:
+2026-03-15T23:14:12      python: 3.12.12
+2026-03-15T23:14:13    
+2026-03-15T23:14:13    Using intermediate directory '/tmp/8de82e88fb92505'.
+2026-03-15T23:14:13    
+2026-03-15T23:14:13    Copying files to the intermediate directory...
+2026-03-15T23:14:14    Copying files to intermediate directory done in 1 sec(s).
+2026-03-15T23:14:14    
+2026-03-15T23:14:14    Source directory     : /tmp/8de82e88fb92505
+2026-03-15T23:14:14    Destination directory: /home/site/wwwroot
+2026-03-15T23:14:14    
+2026-03-15T23:14:14    Running build script snippets...
+2026-03-15T23:14:14    Python Version: /tmp/oryx/platforms/python/3.12.12/bin/python3.12
+2026-03-15T23:14:14    Creating directory for command manifest file if it does not exist
+2026-03-15T23:14:14    Removing existing manifest file
+2026-03-15T23:14:15    Python Virtual Environment: antenv
+2026-03-15T23:14:15    Creating virtual environment...
+2026-03-15T23:14:15    Executing: /tmp/oryx/platforms/python/3.12.12/bin/python3.12 -m venv antenv --copies --system-site-packages
+2026-03-15T23:14:24    Activating virtual environment...
+2026-03-15T23:14:24    Fast build is enabled
+2026-03-15T23:14:24    Installing uv...
+2026-03-15T23:14:27    Collecting uv
+2026-03-15T23:14:27      Using cached uv-0.10.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)
+2026-03-15T23:14:27    Using cached uv-0.10.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (23.5 MB)
+2026-03-15T23:14:27    Installing collected packages: uv
+2026-03-15T23:14:28    Successfully installed uv-0.10.10
+2026-03-15T23:14:29    
+2026-03-15T23:14:29    [notice] A new release of pip is available: 25.0.1 -> 26.0.1
+2026-03-15T23:14:29    [notice] To update, run: pip install --upgrade pip
+2026-03-15T23:14:29    Running uv pip install...
+2026-03-15T23:14:29    Using Python 3.12.12 environment at: antenv
+2026-03-15T23:14:29      × No solution found when resolving dependencies:
+2026-03-15T23:14:30      ╰─▶ Because python-magic-bin==0.4.14 has no wheels with a matching
+2026-03-15T23:14:30          platform tag (e.g., `manylinux_2_31_x86_64`) and you require
+2026-03-15T23:14:30          python-magic-bin==0.4.14, we can conclude that your requirements are
+2026-03-15T23:14:30          unsatisfiable.
+2026-03-15T23:14:30    
+2026-03-15T23:14:30          hint: Wheels are available for `python-magic-bin` (v0.4.14) on the
+2026-03-15T23:14:30          following platforms: `macosx_10_6_intel`, `win32`, `win_amd64`
+2026-03-15T23:14:30    uv pip install done in 5 sec(s).
+2026-03-15T23:14:30    uv pip install failed with exit code 1, falling back to pip install...
+2026-03-15T23:14:30    Running pip install...
+2026-03-15T23:14:33    [23:14:31+0000] Collecting Django==5.2.11 (from -r requirements.txt (line 2))
+2026-03-15T23:14:34    [23:14:31+0000]   Using cached django-5.2.11-py3-none-any.whl.metadata (4.1 kB)
+2026-03-15T23:14:34    [23:14:31+0000] Collecting asgiref==3.11.1 (from -r requirements.txt (line 3))
+2026-03-15T23:14:34    [23:14:31+0000]   Using cached asgiref-3.11.1-py3-none-any.whl.metadata (9.3 kB)
+2026-03-15T23:14:34    [23:14:31+0000] Collecting sqlparse==0.5.5 (from -r requirements.txt (line 4))
+2026-03-15T23:14:34    [23:14:31+0000]   Using cached sqlparse-0.5.5-py3-none-any.whl.metadata (4.7 kB)
+2026-03-15T23:14:34    [23:14:31+0000] Collecting django-environ==0.13.0 (from -r requirements.txt (line 7))
+2026-03-15T23:14:34    [23:14:31+0000]   Using cached django_environ-0.13.0-py3-none-any.whl.metadata (13 kB)
+2026-03-15T23:14:34    [23:14:31+0000] Collecting django-axes==8.3.1 (from -r requirements.txt (line 8))
+2026-03-15T23:14:34    [23:14:31+0000]   Using cached django_axes-8.3.1-py3-none-any.whl.metadata (41 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting packaging==26.0 (from -r requirements.txt (line 9))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached packaging-26.0-py3-none-any.whl.metadata (3.3 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting whitenoise==6.11.0 (from -r requirements.txt (line 12))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached whitenoise-6.11.0-py3-none-any.whl.metadata (3.7 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting gunicorn==25.1.0 (from -r requirements.txt (line 13))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached gunicorn-25.1.0-py3-none-any.whl.metadata (5.5 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting psycopg2-binary==2.9.11 (from -r requirements.txt (line 16))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached psycopg2_binary-2.9.11-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (4.9 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting dj-database-url==2.3.0 (from -r requirements.txt (line 17))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached dj_database_url-2.3.0-py3-none-any.whl.metadata (12 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting django-redis==5.4.0 (from -r requirements.txt (line 20))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached django_redis-5.4.0-py3-none-any.whl.metadata (32 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting redis==5.2.1 (from -r requirements.txt (line 21))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached redis-5.2.1-py3-none-any.whl.metadata (9.1 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting djangorestframework==3.16.1 (from -r requirements.txt (line 24))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached djangorestframework-3.16.1-py3-none-any.whl.metadata (11 kB)
+2026-03-15T23:14:34    [23:14:32+0000] Collecting celery==5.4.0 (from celery[redis]==5.4.0->-r requirements.txt (line 27))
+2026-03-15T23:14:34    [23:14:32+0000]   Using cached celery-5.4.0-py3-none-any.whl.metadata (21 kB)
+2026-03-15T23:14:34    [23:14:33+0000] Collecting sentry-sdk==2.19.2 (from sentry-sdk[django]==2.19.2->-r requirements.txt (line 30))
+2026-03-15T23:14:34    [23:14:33+0000]   Using cached sentry_sdk-2.19.2-py2.py3-none-any.whl.metadata (9.9 kB)
+2026-03-15T23:14:34    ERROR: Could not find a version that satisfies the requirement python-magic-bin==0.4.14 (from versions: none)
+2026-03-15T23:14:34    
+2026-03-15T23:14:35    [notice] A new release of pip is available: 25.0.1 -> 26.0.1
+2026-03-15T23:14:35    [notice] To update, run: pip install --upgrade pip
+2026-03-15T23:14:35    ERROR: No matching distribution found for python-magic-bin==0.4.14
+2026-03-15T23:14:35    pip install done in 4 sec(s).
+2026-03-15T23:14:35    [notice] A new release of pip is available: 25.0.1 -> 26.0.1
+[notice] To update, run: pip install --upgrade pip
+/bin/bash -c "oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform python --platform-version 3.12 -p virtualenv_name=antenv --log-file /tmp/build-debug.log  -i /tmp/8de82e88fb92505 --compress-destination-dir | tee /tmp/oryx-build.log ; exit $PIPESTATUS "
+2026-03-15T23:14:35  
+2026-03-15T23:14:35  
+2026-03-15T23:14:35  Generating summary of Oryx build
+2026-03-15T23:14:35  Parsing the build logs
+2026-03-15T23:14:35  Found 0 issue(s)
+2026-03-15T23:14:35  
+2026-03-15T23:14:36  Build Summary :
+2026-03-15T23:14:36  ===============
+2026-03-15T23:14:36  Errors (0)
+2026-03-15T23:14:36  Warnings (0)
+2026-03-15T23:14:36  
+2026-03-15T23:14:37  Deployment Failed. deployer = OneDeploy deploymentPath = OneDeploy

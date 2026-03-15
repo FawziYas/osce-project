@@ -37,9 +37,15 @@ def _get_client_ip(request):
     x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
 
     if x_forwarded and (not trusted_proxies or remote_addr in trusted_proxies):
-        return x_forwarded.split(',')[0].strip()
+        ip = x_forwarded.split(',')[0].strip()
+    else:
+        ip = remote_addr or None
 
-    return remote_addr or None
+    # Strip port if present (e.g., Azure proxy sends "IP:PORT")
+    if ip and ':' in ip and '.' in ip:  # IPv4 with port, not IPv6
+        ip = ip.rsplit(':', 1)[0]
+
+    return ip
 
 
 # ── Authentication signals ────────────────────────────────────────────

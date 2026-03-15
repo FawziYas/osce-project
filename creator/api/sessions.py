@@ -370,6 +370,9 @@ def revert_session_to_scheduled(request, session_id):
         ip_address = x_forwarded.split(',')[0].strip()
     else:
         ip_address = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    # Strip port if present (e.g., Azure proxy sends "IP:PORT")
+    if ip_address and ':' in ip_address and '.' in ip_address:
+        ip_address = ip_address.rsplit(':', 1)[0]
 
     # Audit log
     audit_logger.info(

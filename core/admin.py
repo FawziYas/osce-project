@@ -319,8 +319,13 @@ def _get_client_ip(request):
     """Extract client IP from request, handling proxies."""
     x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded:
-        return x_forwarded.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR', '0.0.0.0')
+        ip = x_forwarded.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+    # Strip port if present (e.g., Azure proxy sends "IP:PORT")
+    if ip and ':' in ip and '.' in ip:
+        ip = ip.rsplit(':', 1)[0]
+    return ip
 
 
 def revert_to_scheduled(modeladmin, request, queryset):

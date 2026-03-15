@@ -33,8 +33,13 @@ def _get_client_ip(request):
     remote_addr = request.META.get('REMOTE_ADDR', '')
     x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded and (not trusted_proxies or remote_addr in trusted_proxies):
-        return x_forwarded.split(',')[0].strip()
-    return remote_addr or None
+        ip = x_forwarded.split(',')[0].strip()
+    else:
+        ip = remote_addr or None
+    # Strip port if present (e.g., Azure proxy sends "IP:PORT")
+    if ip and ':' in ip and '.' in ip:
+        ip = ip.rsplit(':', 1)[0]
+    return ip
 
 
 def _resolve_department_id(resource):

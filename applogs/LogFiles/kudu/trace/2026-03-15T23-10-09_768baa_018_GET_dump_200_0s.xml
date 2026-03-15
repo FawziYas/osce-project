@@ -1,0 +1,4 @@
+<step title="Incoming Request" date="2026-03-15T23:10:09.966" instance="768baa" url="/dump" method="GET" type="request" pid="769,1,20" Host="myosce-app.scm.azurewebsites.net" User-Agent="AZURECLI/2.83.0 (MSI)" Accept-Encoding="identity" Authorization="Bea..." x-ms-client-request-id="1b1bdf30-20c4-11f1-be4e-040e3c8cb67e" X-ARR-LOG-ID="1b1bdf30-20c4-11f1-be4e-040e3c8cb67e" CLIENT-IP="147.189.190.70:14741" X-SITE-DEPLOYMENT-ID="myosce-app" WAS-DEFAULT-HOSTNAME="myosce-app.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/dump" X-Client-IP="147.189.190.70" X-Client-Port="14741" >
+  <step title="Cleanup Xml Logs" date="2026-03-15T23:10:09.969" /><!-- duration: 15ms -->
+  <step title="Outgoing response" date="2026-03-15T23:10:10.186" type="response" statusCode="200" statusText="OK" /><!-- duration: 5ms -->
+</step><!-- duration: 229ms -->
