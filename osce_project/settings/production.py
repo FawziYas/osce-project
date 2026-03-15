@@ -19,7 +19,10 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 # ──────────────────────────────────────────────────────────────
 import dj_database_url  # noqa: E402
 
-# Prefer DATABASE_URL (Railway, Render, Heroku) or individual vars
+# Prefer DATABASE_URL (Railway, Render, Azure) or individual vars.
+# For Azure PostgreSQL Flexible Server with PgBouncer use port 6432 and
+# append ?sslmode=require to the URL, e.g.:
+#   postgresql://osce_app:PASSWORD@server.postgres.database.azure.com:6432/osce_production?sslmode=require
 _db_url = env('DATABASE_URL', default=None)
 if _db_url:
     DATABASES = {
@@ -30,6 +33,8 @@ if _db_url:
         )
     }
 else:
+    # Individual variable fallback — also supports DB_SSLMODE env var
+    _db_sslmode = env('DB_SSLMODE', default='require')
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -42,6 +47,7 @@ else:
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'connect_timeout': 10,
+                'sslmode': _db_sslmode,
             },
         }
     }

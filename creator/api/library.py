@@ -9,14 +9,19 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from core.models import ILO, ChecklistLibrary
+from core.utils.roles import scope_queryset
 
 
 @login_required
 @require_GET
 def get_library(request):
     """GET /api/creator/library – grouped by ILO."""
-    items = ChecklistLibrary.objects.select_related(
-        'ilo', 'ilo__course', 'ilo__theme'
+    items = scope_queryset(
+        request.user,
+        ChecklistLibrary.objects.select_related(
+            'ilo', 'ilo__course', 'ilo__theme'
+        ),
+        dept_field='ilo__course__department',
     ).order_by('ilo__course_id', 'ilo__number')
 
     grouped = {}
@@ -54,8 +59,13 @@ def create_library_item(request):
     if not data.get('ilo_id') or not data.get('description'):
         return JsonResponse({'error': 'Missing required fields'}, status=400)
 
+    ilo = get_object_or_404(
+        scope_queryset(request.user, ILO.objects.all(), dept_field='course__department'),
+        pk=data['ilo_id'],
+    )
+
     item = ChecklistLibrary.objects.create(
-        ilo_id=data['ilo_id'],
+        ilo=ilo,
         description=data['description'],
         expected_response=data.get('expected_response', ''),
         suggested_points=data.get('suggested_points', 1),
@@ -74,7 +84,10 @@ def delete_library_item(request, item_id):
     if request.method != 'DELETE':
         return JsonResponse({'error': 'DELETE required'}, status=405)
 
-    item = get_object_or_404(ChecklistLibrary, pk=item_id)
+    item = get_object_or_404(
+        scope_queryset(request.user, ChecklistLibrary.objects.all(), dept_field='ilo__course__department'),
+        pk=item_id,
+    )
     if item.usage_count and item.usage_count > 0:
         return JsonResponse(
             {'error': f'Cannot delete: item used in {item.usage_count} station(s)'},

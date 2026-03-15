@@ -262,6 +262,7 @@ def _copy_stations_list(source_stations, target_path):
             instructions=src.instructions,
             duration_minutes=src.duration_minutes,
             active=True,
+            is_dry=src.is_dry,
         )
         for item in ChecklistItem.objects.filter(station=src).order_by('item_number'):
             ChecklistItem.objects.create(

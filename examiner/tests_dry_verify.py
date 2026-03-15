@@ -6,7 +6,6 @@ from datetime import date, time
 from unittest.mock import patch
 
 from django.contrib.auth.signals import user_logged_in, user_login_failed
-from django.core import signing
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 
@@ -126,7 +125,8 @@ class VerifyStudentRegistrationTest(DryVerifyTestBase):
         data = r.json()
         self.assertTrue(data['valid'])
         self.assertIn('redirect_url', data)
-        self.assertIn('token=', data['redirect_url'])
+        # redirect_url is now a plain path (session-based auth, no token in URL)
+        self.assertTrue(data['redirect_url'].startswith('/'))
 
     def test_case_insensitive_match(self):
         """Registration number matching is case-insensitive."""
@@ -212,7 +212,8 @@ class VerifyMasterKeyTest(DryVerifyTestBase):
         data = r.json()
         self.assertTrue(data['valid'])
         self.assertIn('redirect_url', data)
-        self.assertIn('token=', data['redirect_url'])
+        # redirect_url is now a plain path (session-based auth, no token in URL)
+        self.assertTrue(data['redirect_url'].startswith('/'))
 
     def test_invalid_password_blocked(self):
         """Wrong password returns valid=False."""
@@ -244,26 +245,33 @@ class DryMarkingTokenTest(DryVerifyTestBase):
         self.client = Client()
         self.client.force_login(self.examiner)
 
-    def _make_token(self, user_id=None, assignment_id=None, student_id=None):
-        return signing.dumps({
-            'user_id': user_id or self.examiner.id,
-            'assignment_id': str(assignment_id or self.assignment.id),
-            'student_id': str(student_id or self.student.id),
-        }, salt='dry-exam-start-verification')
+    def _set_session_auth(self, assignment_id=None, student_id=None):
+        """Set up session-based dry exam authorization."""
+        from datetime import datetime, timedelta, timezone as tz
+        a_id = str(assignment_id or self.assignment.id)
+        s_id = str(student_id or self.student.id)
+        session_key = f'dry_auth_{a_id}_{s_id}'
+        session = self.client.session
+        session[session_key] = {
+            'user_id': self.examiner.id,
+            'student_id': s_id,
+            'assignment_id': a_id,
+            'expires_at': (datetime.now(tz=tz.utc) + timedelta(hours=4)).isoformat(),
+        }
+        session.save()
 
-    def test_valid_token_renders_page(self):
-        """Valid token allows access to dry_marking page."""
-        token = self._make_token()
+    def test_valid_session_auth_renders_page(self):
+        """Valid session authorization allows access to dry_marking page."""
+        self._set_session_auth()
         r = self.client.get(
             reverse('examiner:dry_marking',
                     kwargs={'assignment_id': self.assignment.id,
                             'student_id': self.student.id})
-            + f'?token={token}'
         )
         self.assertEqual(r.status_code, 200)
 
-    def test_missing_token_redirects(self):
-        """No token redirects to station dashboard."""
+    def test_missing_session_auth_redirects(self):
+        """No session authorization redirects to station dashboard."""
         r = self.client.get(
             reverse('examiner:dry_marking',
                     kwargs={'assignment_id': self.assignment.id,
@@ -271,8 +279,8 @@ class DryMarkingTokenTest(DryVerifyTestBase):
         )
         self.assertEqual(r.status_code, 302)
 
-    def test_invalid_token_redirects(self):
-        """Bad signature redirects to station dashboard."""
+    def test_no_session_auth_with_garbage_param_redirects(self):
+        """No session auth with garbage query params still redirects."""
         r = self.client.get(
             reverse('examiner:dry_marking',
                     kwargs={'assignment_id': self.assignment.id,
@@ -281,41 +289,59 @@ class DryMarkingTokenTest(DryVerifyTestBase):
         )
         self.assertEqual(r.status_code, 302)
 
-    def test_wrong_user_token_redirects(self):
-        """Token for different user redirects."""
-        token = self._make_token(user_id=99999)
+    def test_wrong_user_session_redirects(self):
+        """Session auth for different user redirects."""
+        from datetime import datetime, timedelta, timezone as tz
+        a_id = str(self.assignment.id)
+        s_id = str(self.student.id)
+        session_key = f'dry_auth_{a_id}_{s_id}'
+        session = self.client.session
+        session[session_key] = {
+            'user_id': 99999,
+            'student_id': s_id,
+            'assignment_id': a_id,
+            'expires_at': (datetime.now(tz=tz.utc) + timedelta(hours=4)).isoformat(),
+        }
+        session.save()
         r = self.client.get(
             reverse('examiner:dry_marking',
                     kwargs={'assignment_id': self.assignment.id,
                             'student_id': self.student.id})
-            + f'?token={token}'
         )
         self.assertEqual(r.status_code, 302)
 
-    def test_wrong_student_token_redirects(self):
-        """Token for different student redirects."""
+    def test_wrong_student_session_redirects(self):
+        """Session auth for different student redirects."""
+        from datetime import datetime, timedelta, timezone as tz
         other_student = SessionStudent.objects.create(
             session=self.session, student_number='99999',
             full_name='Other Student', path=self.path,
         )
-        token = self._make_token(student_id=other_student.id)
+        a_id = str(self.assignment.id)
+        s_id = str(self.student.id)
+        session_key = f'dry_auth_{a_id}_{s_id}'
+        session = self.client.session
+        session[session_key] = {
+            'user_id': self.examiner.id,
+            'student_id': str(other_student.id),
+            'assignment_id': a_id,
+            'expires_at': (datetime.now(tz=tz.utc) + timedelta(hours=4)).isoformat(),
+        }
+        session.save()
         r = self.client.get(
             reverse('examiner:dry_marking',
                     kwargs={'assignment_id': self.assignment.id,
                             'student_id': self.student.id})
-            + f'?token={token}'
         )
         self.assertEqual(r.status_code, 302)
 
-    def test_marking_interface_redirect_preserves_token(self):
-        """marking_interface redirects dry stations to dry_marking with token."""
-        token = self._make_token()
+    def test_marking_interface_redirect_for_dry_station(self):
+        """marking_interface redirects dry stations to dry_marking."""
+        self._set_session_auth()
         r = self.client.get(
             reverse('examiner:marking_interface',
                     kwargs={'assignment_id': self.assignment.id,
-                            'student_id': self.student.id})
-            + f'?token={token}',
+                            'student_id': self.student.id}),
             follow=False,
         )
         self.assertEqual(r.status_code, 302)
-        self.assertIn('token=', r.url)

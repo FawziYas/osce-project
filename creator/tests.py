@@ -11,6 +11,7 @@ from core.models import (
     Course, ILO, Exam, ExamSession, Path, Station, ChecklistItem,
     ChecklistLibrary, Examiner, ExaminerAssignment, SessionStudent,
 )
+from core.models.user_profile import UserProfile
 
 
 class CreatorTestBase(TestCase):
@@ -22,7 +23,7 @@ class CreatorTestBase(TestCase):
         cls.user = Examiner.objects.create_user(
             username='admin', password='AdminPass123!',
             full_name='Admin User', email='admin@osce.local',
-            is_staff=True,
+            is_staff=True, role='admin',
         )
         # Course & ILO
         cls.course = Course.objects.create(
@@ -79,12 +80,20 @@ class CreatorTestBase(TestCase):
         # Assignment
         cls.assignment = ExaminerAssignment.objects.create(
             session=cls.session, station=cls.station,
-            examiner=cls.examiner, is_primary=True,
+            examiner=cls.examiner,
         )
+        # Re-set passwords after signal override and disable force-change
+        cls.user.set_password('AdminPass123!')
+        cls.user.save(update_fields=['password'])
+        cls.examiner.set_password('ExPass123!')
+        cls.examiner.save(update_fields=['password'])
+        UserProfile.objects.filter(
+            user__in=[cls.user, cls.examiner]
+        ).update(must_change_password=False)
 
     def setUp(self):
         self.client = Client()
-        self.client.login(username='admin', password='AdminPass123!')
+        self.client.force_login(self.user)
 
 
 # ── Page view smoke tests ─────────────────────────────────────────────────

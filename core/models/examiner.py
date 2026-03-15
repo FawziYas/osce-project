@@ -63,14 +63,13 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
 
     # Display on marking screen
     title = models.CharField(max_length=20, blank=True, default='')  # Dr., Prof.
-    department = models.CharField(max_length=100, blank=True, default='')
 
-    # Coordinator-specific: department assignment and position
-    coordinator_department = models.ForeignKey(
+    # Department assignment (FK to Department model)
+    department = models.ForeignKey(
         'core.Department',
         null=True, blank=True,
         on_delete=models.SET_NULL,
-        related_name='coordinators',
+        related_name='members',
         db_index=True,
     )
     coordinator_position = models.CharField(
@@ -81,6 +80,9 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
 
     # Role-based access control
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_EXAMINER)
+
+    # Marks a virtual examiner account used for dry-marking (one per department)
+    is_dry_user = models.BooleanField(default=False)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -101,7 +103,7 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
             models.CheckConstraint(
                 condition=models.Q(
                     models.Q(role='coordinator', _negated=True)
-                ) | models.Q(coordinator_department__isnull=False),
+                ) | models.Q(department__isnull=False),
                 name='coordinator_must_have_department',
             ),
             # Coordinators must have a position set
@@ -111,13 +113,12 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
                 ) | ~models.Q(coordinator_position=''),
                 name='coordinator_must_have_position',
             ),
-            # Non-coordinators should not have department/position set
+            # Non-coordinators should not have coordinator position set
             models.CheckConstraint(
                 condition=models.Q(role='coordinator') | models.Q(
-                    coordinator_department__isnull=True,
                     coordinator_position='',
                 ),
-                name='non_coordinator_no_dept_fields',
+                name='non_coordinator_no_position',
             ),
         ]
 

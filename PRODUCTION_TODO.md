@@ -2,7 +2,7 @@
 
 **Project:** Django OSCE Exam System
 **Platform:** Microsoft Azure (covered by $100/mo university credit)
-**Last Updated:** March 4, 2026
+**Last Updated:** March 15, 2026
 
 ---
 
@@ -10,7 +10,7 @@
 
 | # | Change | Status | Notes |
 |---|--------|--------|-------|
-| 1 | **SQLite → PostgreSQL** | ⬜ TODO | `dj-database-url` configured in `production.py` — need Azure PostgreSQL Flexible Server |
+| 1 | **SQLite → PostgreSQL** | ✅ DONE | `dj-database-url` + SSL configured in `production.py`; `verify_rls` management command created. Provision Azure PostgreSQL Flexible Server + set `DATABASE_URL` env var to complete deployment. |
 | 2 | **`DEBUG = False` + `ALLOWED_HOSTS`** | ✅ DONE | Configured in `production.py` via env vars |
 | 3 | **WhiteNoise for static files** | ✅ DONE | Middleware added in `base.py`, `CompressedManifestStaticFilesStorage` in `production.py` |
 | 4 | **Gunicorn as WSGI server** | ✅ DONE | `gunicorn.conf.py` + `Procfile` created (gthread, auto workers, max-requests) |
@@ -112,8 +112,9 @@ Without this, 100+ concurrent examiners = database crash (SQLite locks on writes
 
 - [ ] **Set `DATABASE_URL` in App Service**
   ```
-  DATABASE_URL=postgresql://osce_app:PASSWORD@yourserver.postgres.database.azure.com:6432/osce_production
+  DATABASE_URL=postgresql://osce_app:PASSWORD@yourserver.postgres.database.azure.com:6432/osce_production?sslmode=require
   ```
+  (Note: `?sslmode=require` is mandatory for Azure PostgreSQL Flexible Server)
 
 - [ ] **Run migrations on production DB**
   ```bash
@@ -139,7 +140,7 @@ Without this, 100+ concurrent examiners = database crash (SQLite locks on writes
     az webapp up --name osce-app --resource-group osce-rg --runtime "PYTHON:3.13"
     ```
 
-- [ ] **Set startup command**
+- [x] **Set startup command** — `startup.sh` created (runs migrate, collectstatic, gunicorn)
   ```
   gunicorn osce_project.wsgi:application --config gunicorn.conf.py
   ```
@@ -154,7 +155,7 @@ Without this, 100+ concurrent examiners = database crash (SQLite locks on writes
   CELERY_BROKER_URL=rediss://:ACCESS_KEY@yourredis.redis.cache.windows.net:6380/0
   ```
 
-- [ ] **Run collectstatic**
+- [x] **Run collectstatic**
   ```bash
   python manage.py collectstatic --no-input
   ```
@@ -193,7 +194,7 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
   ```
   (Note: `rediss://` with double-s for SSL)
 
-- [ ] **Cache expensive queries in views** (exam detail, course list, session paths)
+- [x] **Cache expensive queries in views** (exam detail, course list, session paths)
 
   | Data | Cache Duration | Why |
   |------|---------------|-----|
@@ -242,32 +243,12 @@ Azure App Service provides free managed SSL for `*.azurewebsites.net` domains.
 RLS is fully coded in migration `0027_rls_policies.py` and activates automatically.
 After running migrations on PostgreSQL, verify:
 
-- [ ] **Verify RLS is enabled on all tables:**
-  ```sql
-  SELECT relname, relrowsecurity, relforcerowsecurity
-  FROM pg_class
-  WHERE relname IN ('departments','courses','exams','exam_sessions',
-                    'paths','stations','checklist_items',
-                    'examiner_assignments','station_scores','item_scores');
+- [ ] **Run `verify_rls` management command** after migrating production DB:
+  ```bash
+  python manage.py verify_rls
   ```
-  All rows should show `relrowsecurity=t` and `relforcerowsecurity=t`.
-
-- [ ] **Verify helper functions exist:**
-  ```sql
-  SELECT proname FROM pg_proc
-  WHERE proname IN ('app_role','is_global_role','is_coordinator',
-                    'app_department_id','app_user_id','station_department_id',
-                    'examiner_has_station','exam_department_id',
-                    'session_department_id','path_department_id');
-  ```
-  Should return 10 functions.
-
-- [ ] **Verify policies exist:**
-  ```sql
-  SELECT tablename, policyname, cmd FROM pg_policies
-  WHERE schemaname = 'public' ORDER BY tablename, policyname;
-  ```
-  Should return 40+ policies.
+  Checks: RLS enabled + forced on all 10 tables, 10 helper functions present, 40+ policies exist.
+  Use `--quiet` flag for CI/CD pipelines (exit-code only).
 
 - [ ] **Run RLS test matrix** (see `RLS_DESIGN.md` § 7 for full test cases)
 
@@ -320,7 +301,7 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 
 **CRITICAL:** This is a private exam management system. It **MUST NOT** be indexed by Google, Bing, or other search engines.
 
-- [ ] **Create `robots.txt`** — Place at `static/robots.txt`:
+- [x] **Create `robots.txt`** — Place at `static/robots.txt`:
   ```
   User-agent: *
   Disallow: /
@@ -332,17 +313,17 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
     path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain')),
     ```
 
-- [ ] **Add meta tag to base template** — In `templates/base.html` `<head>`:
+- [x] **Add meta tag to base template** — In `templates/base.html` `<head>`:
   ```html
   <meta name="robots" content="noindex, nofollow" />
   ```
 
-- [ ] **Disable sitemap** — If you have a `sitemap.xml`, delete it or return 404. Add to `urls.py`:
+- [x] **Disable sitemap** — If you have a `sitemap.xml`, delete it or return 404. Add to `urls.py`:
   ```python
   path('sitemap.xml', lambda request: HttpResponseNotFound()),
   ```
 
-- [ ] **Set X-Robots-Tag header on all responses** — In `production.py` or middleware:
+- [x] **Set X-Robots-Tag header on all responses** — In `production.py` or middleware:
   ```python
   # In middleware or settings
   SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
@@ -447,6 +428,8 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [x] **`runtime.txt`** — `python-3.13.12`
 - [x] **`gunicorn.conf.py`** — gthread workers, auto CPU detection, max-requests recycling, structured logging
 - [x] **`.env.example`** — All production env vars documented with examples
+- [x] **`startup.sh`** — Azure App Service startup script (migrate → collectstatic → gunicorn)
+- [x] **`.deployment`** — Azure SCM build configuration (`SCM_DO_BUILD_DURING_DEPLOYMENT=true`)
 
 ### Files to Verify Before Deploy
 
@@ -454,7 +437,7 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [x] **Confirmed `venv/` is in `.gitignore`**
 - [x] **Dev logs cleared** — `logs/audit.log` and `logs/auth.log` emptied
 - [ ] **`scripts/seed_demo_data.py`** — Never run against production DB
-- [ ] Production install uses `requirements.txt` only (not `requirements-dev.txt`)
+- [x] Production install uses `requirements.txt` only (not `requirements-dev.txt`)
 
 ### Optional Cleanup
 
@@ -479,9 +462,9 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 
 ### Security Scanning
 - [x] Run `python manage.py check --deploy` — All warnings resolved in `production.py`
-- [ ] Verify CSRF protection on all forms
+- [x] Verify CSRF protection on all forms
 - [ ] Test rate limiting (10 failed login attempts → lockout)
-- [ ] Verify no sensitive data in logs
+- [x] Verify no sensitive data in logs
 ---
 
 ## 📊 Database Security — What's at Risk
@@ -519,13 +502,13 @@ want audit writes to be non-blocking (recommended for exam day with 1000+ users)
 - [ ] `SECRET_KEY` in App Service environment (not in code)
 - [ ] `DEBUG = False` with `ALLOWED_HOSTS` set
 - [ ] HTTPS working (Azure managed certificate)
-- [ ] `collectstatic` run
+- [x] `collectstatic` run
 - [ ] Sentry configured and tested
 - [ ] Celery worker running (or sync fallback confirmed)
 - [ ] `CELERY_BROKER_URL` set if using async audit writes
 - [ ] Audit logging verified (login/logout events appear in AuditLog)
 - [ ] Backups enabled (7+ day retention)
-- [ ] `python manage.py check --deploy` passes with 0 warnings (all resolved in `production.py`)
+- [x] `python manage.py check --deploy` passes with 0 warnings (all resolved in `production.py`)
 - [ ] Load testing passed (50+ concurrent users) — Locust script ready at `scripts/locustfile.py`
 - [ ] Staff trained
 

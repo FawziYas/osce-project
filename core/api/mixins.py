@@ -52,7 +52,7 @@ class DepartmentScopedMixin:
 
         # Coordinators see only their department
         if getattr(user, 'role', '') == 'coordinator':
-            dept = getattr(user, 'coordinator_department', None)
+            dept = getattr(user, 'department', None)
             if dept is None:
                 return qs.none()
             if self.department_field is None:

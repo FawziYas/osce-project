@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -134,6 +134,14 @@ def upload_students_xlsx(request, session_id):
         wb = openpyxl.load_workbook(f)
         ws = wb.active
 
+        def _sanitize_cell(val):
+            """Strip formula-triggering prefixes from imported cell values."""
+            if not isinstance(val, str):
+                return val
+            if val and val[0] in ('=', '+', '@', '\t', '\r'):
+                return val.lstrip('=+@\t\r')
+            return val
+
         students_to_add = []
         first_row = True
         validation_errors = []
@@ -143,7 +151,7 @@ def upload_students_xlsx(request, session_id):
             if not any(row):
                 continue
             number = str(row[0]).strip() if row[0] is not None else ''
-            name = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ''
+            name = _sanitize_cell(str(row[1]).strip()) if len(row) > 1 and row[1] is not None else ''
 
             if first_row:
                 if number.lower() in ('student_number', 'id', 'number', 'student_id'):
@@ -220,6 +228,26 @@ def upload_students_xlsx(request, session_id):
         if 'Registration number must contain' in error_msg:
             return JsonResponse({'success': False, 'message': error_msg})
         return JsonResponse({'success': False, 'message': f'Error reading XLSX: {e}'})
+
+
+@login_required
+@require_GET
+def students_upload_status(request, session_id):
+    """
+    Poll the status of an async student import task.
+    GET /sessions/<id>/students/upload-status/?task_id=<uuid>
+    Returns: {status: 'pending'|'done'|'error', ...}
+    """
+    from django.core.cache import cache
+
+    task_id = request.GET.get('task_id', '')
+    if not task_id:
+        return JsonResponse({'status': 'error', 'message': 'Missing task_id'}, status=400)
+
+    result = cache.get(f'osce:students_import:{task_id}')
+    if result is None:
+        return JsonResponse({'status': 'pending'})
+    return JsonResponse(result)
 
 
 @permission_required('core.can_view_student_list', raise_exception=True)

@@ -17,19 +17,21 @@ TESTING = 'test' in sys.argv
 # Environment variables
 env = environ.Env(
     DEBUG=(bool, False),
-    ALLOWED_HOSTS=(list, ['*']),
+    ALLOWED_HOSTS=(list, ['localhost', '127.0.0.1']),
 )
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-production')
+# A dev-only fallback is provided so local runs work without a .env file.
+# production.py overrides this with a strict env('SECRET_KEY') — no default.
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-dev-only-change-in-production')
 
 # Secret admin URL path — scanners probing /admin/ get a 404
 # Change SECRET_ADMIN_URL in .env to rotate the admin URL with no code changes
 SECRET_ADMIN_URL = env('SECRET_ADMIN_URL', default='manage-osce-exam-77x')
 
 # Default password for every newly-created user (overridden on first login)
-DEFAULT_USER_PASSWORD = env('DEFAULT_USER_PASSWORD', default='123456789')
+DEFAULT_USER_PASSWORD = env('DEFAULT_USER_PASSWORD', default='12345678F')
 
 # Application definition
 INSTALLED_APPS = [
@@ -75,6 +77,8 @@ MIDDLEWARE = [
     'core.middleware.ContentSecurityPolicyMiddleware',
     'core.middleware.ReferrerPolicyMiddleware',
     'core.middleware.PermissionsPolicyMiddleware',
+    # Block search engine indexing (X-Robots-Tag on all responses)
+    'core.middleware.SearchEngineBlockingMiddleware',
 ]
 
 ROOT_URLCONF = 'osce_project.urls'

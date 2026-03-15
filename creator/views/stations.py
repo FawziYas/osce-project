@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Max
 from django.http import HttpResponseForbidden
 
@@ -282,6 +283,7 @@ def station_edit(request, station_id):
     existing_items = list(ChecklistItem.objects.filter(station=station).order_by('item_number'))
     existing_items_dicts = [
         {
+            'db_id': item.pk,
             'item_number': item.item_number,
             'description': item.description,
             'points': item.points,
@@ -327,24 +329,68 @@ def station_edit(request, station_id):
                     'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                 })
 
-            # Clear & recreate
-            ChecklistItem.objects.filter(station=station).delete()
+            # Build lookup of existing items by PK so we can update in-place
+            existing_by_id = {item.pk: item for item in existing_items}
+            submitted_db_ids = {
+                int(d['db_id']) for d in checklist_items if d.get('db_id')
+            }
 
-            item_count = 0
-            for item_data in checklist_items:
-                section = item_data.get('section')
-                ChecklistItem.objects.create(
-                    station=station,
-                    item_number=item_data.get('item_number', item_count + 1),
-                    description=item_data.get('description', ''),
-                    points=float(item_data.get('points', 1)),
-                    rubric_type=item_data.get('scoring_type', 'binary'),
-                    category=section or '',
-                    ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
-                )
-                item_count += 1
+            # Items the user removed — block if they have student submissions
+            removed_ids = set(existing_by_id.keys()) - submitted_db_ids
+            for pk in removed_ids:
+                old_item = existing_by_id[pk]
+                if old_item.item_scores.exists():
+                    messages.error(
+                        request,
+                        f'Cannot remove item "{old_item.description[:40]}" — students have already '
+                        'submitted answers for it.',
+                    )
+                    return render(request, 'creator/stations/form_simple.html', {
+                        'path': path,
+                        'exam': exam,
+                        'station': station,
+                        'ilos': ilos,
+                        'existing_items': existing_items,
+                        'existing_items_json': json.dumps(existing_items_dicts),
+                        'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
+                    })
 
-            station.save()
+            with transaction.atomic():
+                # Safe to delete: no student submissions on these removed items
+                for pk in removed_ids:
+                    existing_by_id[pk].delete()
+
+                item_count = 0
+                for item_data in checklist_items:
+                    section = item_data.get('section')
+                    raw_db_id = item_data.get('db_id')
+                    db_id = int(raw_db_id) if raw_db_id else None
+
+                    if db_id and db_id in existing_by_id:
+                        # Update in-place so ItemScore FKs remain intact
+                        item = existing_by_id[db_id]
+                        item.item_number = item_data.get('item_number', item_count + 1)
+                        item.description = item_data.get('description', '')
+                        item.points = float(item_data.get('points', 1))
+                        item.rubric_type = item_data.get('scoring_type', 'binary')
+                        item.category = section or ''
+                        item.ilo_id = int(item_data['ilo_id']) if item_data.get('ilo_id') else None
+                        item.save()
+                        # sync_station_max_score signal fires on item.save() above —
+                        # it handles proportional rescaling of ItemScore and StationScore.
+                    else:
+                        ChecklistItem.objects.create(
+                            station=station,
+                            item_number=item_data.get('item_number', item_count + 1),
+                            description=item_data.get('description', ''),
+                            points=float(item_data.get('points', 1)),
+                            rubric_type=item_data.get('scoring_type', 'binary'),
+                            category=section or '',
+                            ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
+                        )
+                    item_count += 1
+
+                station.save()
             messages.success(request, f'Station "{station.name}" updated with {item_count} checklist items.')
             if path:
                 return redirect('creator:path_detail', path_id=str(path.id))
@@ -374,15 +420,7 @@ def station_edit_dry(request, station_id):
     path = station.path
     exam = path.exam if path else None
     session = path.session if path else None
-    if session and session.actual_start and not request.user.is_superuser:
-        messages.error(
-            request,
-            'Checklist editing is forbidden because this session has already been activated.'
-        )
-        if path:
-            return redirect('creator:path_detail', path_id=str(path.id))
-        return redirect('creator:exam_detail', exam_id=str(exam.id) if exam else '')
-
+    session_started = bool(session and session.actual_start)
     ilos = ILO.objects.filter(
         course_id=exam.course_id
     ).order_by('number') if exam else ILO.objects.none()
@@ -435,61 +473,171 @@ def station_edit_dry(request, station_id):
                     'ilos': ilos,
                     'existing_items': existing_items,
                     'existing_items_json': json.dumps(existing_items_dicts),
+                    'session_started': session_started,
                     'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                 })
 
-            # Save old image file paths before deletion so we can restore them
-            old_images = {item.pk: item.image.name for item in existing_items if item.image}
+            # Build lookup of existing items by PK so we can update in-place
+            existing_by_id = {item.pk: item for item in existing_items}
+            submitted_db_ids = {
+                int(d['db_id']) for d in checklist_items if d.get('db_id')
+            }
 
-            # Clear & recreate checklist items
-            ChecklistItem.objects.filter(station=station).delete()
+            # Items the user removed from the form
+            removed_ids = set(existing_by_id.keys()) - submitted_db_ids
 
-            item_count = 0
-            for item_data in checklist_items:
-                section = item_data.get('section')
-                scoring_type = item_data.get('scoring_type', 'mcq')
-                rubric_levels = None
-                expected_response = ''
-                if scoring_type == 'mcq':
-                    rubric_levels = {
-                        'options': item_data.get('mcq_options', []),
-                        'correct_index': int(item_data.get('correct_index', -1)),
-                    }
-                elif scoring_type == 'essay':
-                    expected_response = item_data.get('key_answer', '')
-                new_item = ChecklistItem.objects.create(
-                    station=station,
-                    item_number=item_data.get('item_number', item_count + 1),
-                    description=item_data.get('description', ''),
-                    points=float(item_data.get('points', 1)),
-                    rubric_type=scoring_type,
-                    rubric_levels=rubric_levels,
-                    expected_response=expected_response,
-                    category=section or '',
-                    ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
-                )
-                # Handle image: new upload → validate & save; no upload + old db_id → restore
-                img_key = f'item_image_{item_data.get("item_id", "")}'
-                img_file = request.FILES.get(img_key)
-                if img_file:
-                    try:
-                        validate_question_image(img_file)
-                        img_file.name = sanitize_image_filename(img_file.name)
-                        new_item.image = img_file
-                        new_item.save()
-                    except ValidationError as ve:
-                        messages.warning(
-                            request,
-                            f'Image for item {item_count + 1} was skipped: {ve.message}'
+            # When a session has started, cannot remove any existing items
+            if session_started and removed_ids:
+                messages.error(request, 'Cannot remove checklist items after a session has started.')
+                return render(request, 'creator/stations/Dry_form_simple.html', {
+                    'path': path,
+                    'exam': exam,
+                    'station': station,
+                    'ilos': ilos,
+                    'existing_items': existing_items,
+                    'existing_items_json': json.dumps(existing_items_dicts),
+                    'session_started': session_started,
+                    'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
+                })
+
+            # Block removal if any removed item has student submissions
+            for pk in removed_ids:
+                old_item = existing_by_id[pk]
+                if old_item.item_scores.exists():
+                    messages.error(
+                        request,
+                        f'Cannot remove item "{old_item.description[:40]}" — students have already '
+                        'submitted answers for it. You can edit its details but not delete it.',
+                    )
+                    return render(request, 'creator/stations/Dry_form_simple.html', {
+                        'path': path,
+                        'exam': exam,
+                        'station': station,
+                        'ilos': ilos,
+                        'existing_items': existing_items,
+                        'existing_items_json': json.dumps(existing_items_dicts),
+                        'session_started': session_started,
+                        'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
+                    })
+
+            with transaction.atomic():
+                # Safe to delete: no student submissions on these removed items
+                for pk in removed_ids:
+                    existing_by_id[pk].delete()
+
+                item_count = 0
+                for item_data in checklist_items:
+                    section = item_data.get('section')
+                    scoring_type = item_data.get('scoring_type', 'mcq')
+                    rubric_levels = None
+                    expected_response = ''
+                    if scoring_type == 'mcq':
+                        rubric_levels = {
+                            'options': item_data.get('mcq_options', []),
+                            'correct_index': int(item_data.get('correct_index', -1)),
+                        }
+                    elif scoring_type == 'essay':
+                        expected_response = item_data.get('key_answer', '')
+
+                    raw_db_id = item_data.get('db_id')
+                    db_id = int(raw_db_id) if raw_db_id else None
+
+                    img_key = f'item_image_{item_data.get("item_id", "")}'
+                    img_file = request.FILES.get(img_key)
+
+                    if db_id and db_id in existing_by_id:
+                        # Update the existing ChecklistItem in-place so ItemScore FKs stay intact
+                        item = existing_by_id[db_id]
+                        item.item_number = item_data.get('item_number', item_count + 1)
+                        item.description = item_data.get('description', '')
+                        item.points = float(item_data.get('points', 1))
+                        if session_started:
+                            # Cannot change rubric type once session has started
+                            if scoring_type != item.rubric_type:
+                                messages.error(
+                                    request,
+                                    f'Cannot change the scoring type of item "{item.description[:40]}" after a session has started.'
+                                )
+                                return render(request, 'creator/stations/Dry_form_simple.html', {
+                                    'path': path, 'exam': exam, 'station': station,
+                                    'ilos': ilos, 'existing_items': existing_items,
+                                    'existing_items_json': json.dumps(existing_items_dicts),
+                                    'session_started': session_started,
+                                    'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
+                                })
+                            if item.rubric_type == 'mcq':
+                                existing_options = (item.rubric_levels or {}).get('options', [])
+                                new_options = item_data.get('mcq_options', [])
+                                if len(new_options) != len(existing_options):
+                                    messages.error(
+                                        request,
+                                        f'Cannot add or remove MCQ options for item "{item.description[:40]}" after a session has started.'
+                                    )
+                                    return render(request, 'creator/stations/Dry_form_simple.html', {
+                                        'path': path, 'exam': exam, 'station': station,
+                                        'ilos': ilos, 'existing_items': existing_items,
+                                        'existing_items_json': json.dumps(existing_items_dicts),
+                                        'session_started': session_started,
+                                        'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
+                                    })
+                                item.rubric_levels = {
+                                    'options': new_options,
+                                    'correct_index': int(item_data.get('correct_index', -1)),
+                                }
+                                item.expected_response = ''
+                            else:
+                                item.rubric_levels = None
+                                item.expected_response = item_data.get('key_answer', '')
+                        else:
+                            item.rubric_type = scoring_type
+                            item.rubric_levels = rubric_levels
+                            item.expected_response = expected_response
+                        item.category = section or ''
+                        item.ilo_id = int(item_data['ilo_id']) if item_data.get('ilo_id') else None
+                        if img_file:
+                            try:
+                                validate_question_image(img_file)
+                                img_file.name = sanitize_image_filename(img_file.name)
+                                item.image = img_file
+                            except ValidationError as ve:
+                                messages.warning(
+                                    request,
+                                    f'Image for item {item_count + 1} was skipped: {ve.message}',
+                                )
+                        elif item_data.get('image_removed'):
+                            item.image = None
+                        item.save()
+                        # Sync max_points on ungraded ItemScore records
+                        item.item_scores.filter(marked_at__isnull=True).update(
+                            max_points=float(item_data.get('points', 1))
                         )
-                elif item_data.get('db_id') and not item_data.get('image_removed'):
-                    db_id = int(item_data['db_id'])
-                    if db_id in old_images:
-                        new_item.image = old_images[db_id]
-                        new_item.save()
-                item_count += 1
+                    else:
+                        # New item — create it
+                        new_item = ChecklistItem.objects.create(
+                            station=station,
+                            item_number=item_data.get('item_number', item_count + 1),
+                            description=item_data.get('description', ''),
+                            points=float(item_data.get('points', 1)),
+                            rubric_type=scoring_type,
+                            rubric_levels=rubric_levels,
+                            expected_response=expected_response,
+                            category=section or '',
+                            ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
+                        )
+                        if img_file:
+                            try:
+                                validate_question_image(img_file)
+                                img_file.name = sanitize_image_filename(img_file.name)
+                                new_item.image = img_file
+                                new_item.save()
+                            except ValidationError as ve:
+                                messages.warning(
+                                    request,
+                                    f'Image for item {item_count + 1} was skipped: {ve.message}',
+                                )
+                    item_count += 1
 
-            station.save()
+                station.save()
             messages.success(request, f'Dry OSCE station "{station.name}" updated with {item_count} checklist items.')
             if path:
                 return redirect('creator:path_detail', path_id=str(path.id))
@@ -504,6 +652,7 @@ def station_edit_dry(request, station_id):
         'ilos': ilos,
         'existing_items': existing_items,
         'existing_items_json': json.dumps(existing_items_dicts),
+        'session_started': session_started,
         'next_station_number': station.station_number,
         'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
     })

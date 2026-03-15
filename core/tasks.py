@@ -50,9 +50,9 @@ def write_audit_log(self, payload):
             new_value=payload.get('new_value'),
             description=payload.get('description', ''),
             ip_address=payload.get('ip_address'),
-            user_agent=payload.get('user_agent', ''),
-            request_method=payload.get('request_method', ''),
-            request_path=payload.get('request_path', ''),
+            user_agent=payload.get('user_agent') or '',
+            request_method=payload.get('request_method') or '',
+            request_path=payload.get('request_path') or '',
             extra_data=payload.get('extra_data'),
         )
 
@@ -212,6 +212,14 @@ def bulk_import_examiners(self, file_path, requested_by_id=None):
         wb = openpyxl.load_workbook(file_path)
         ws = wb.active
 
+        def _sanitize_cell(val):
+            """Strip formula-triggering prefixes from imported cell values."""
+            if not isinstance(val, str):
+                return val
+            if val and val[0] in ('=', '+', '@', '\t', '\r'):
+                return val.lstrip('=+@\t\r')
+            return val
+
         headers = [str(c.value).strip().lower() for c in ws[1] if c.value]
         idx = {h: i for i, h in enumerate(headers)}
         rows = list(ws.iter_rows(min_row=3, values_only=True))
@@ -224,7 +232,7 @@ def bulk_import_examiners(self, file_path, requested_by_id=None):
             if not any(row):
                 continue
             try:
-                get = lambda col, default='': str(row[idx[col]]).strip() if col in idx and idx[col] < len(row) and row[idx[col]] else default
+                get = lambda col, default='': _sanitize_cell(str(row[idx[col]]).strip()) if col in idx and idx[col] < len(row) and row[idx[col]] else default
                 username = get('username').lower()
                 full_name = get('full_name')
                 email = get('email').lower()
@@ -296,9 +304,6 @@ def generate_pdf_report(self, session_id):
     Frontend polls GET /creator/sessions/<id>/pdf-status/?task_id=<uuid>
     """
     import base64
-    import os
-    from io import BytesIO
-    from collections import defaultdict
     from django.core.cache import cache
 
     task_id = self.request.id
@@ -306,99 +311,12 @@ def generate_pdf_report(self, session_id):
     cache.set(status_key, {'status': 'running'}, 60 * 10)
 
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-        from reportlab.lib.enums import TA_CENTER
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-        from reportlab.pdfbase import pdfmetrics
-        from reportlab.pdfbase.ttfonts import TTFont
-        import arabic_reshaper
-        from bidi.algorithm import get_display
-        from core.models import ExamSession, SessionStudent, Path
-
-        def reshape_arabic(text):
-            if not text:
-                return text
-            try:
-                return get_display(arabic_reshaper.reshape(text))
-            except Exception:
-                return text
+        from core.models import ExamSession
+        from creator.views.sessions import _build_student_paths_pdf
 
         session = ExamSession.objects.get(pk=session_id)
-        students = SessionStudent.objects.filter(session=session).order_by('student_number')
-        paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
-
-        students_by_path = defaultdict(list)
-        for s in students:
-            students_by_path[str(s.path_id) if s.path_id else 'unassigned'].append(s)
-
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer, pagesize=landscape(A4),
-            leftMargin=0.5 * inch, rightMargin=0.5 * inch,
-            topMargin=0.5 * inch, bottomMargin=0.5 * inch,
-        )
-        elements = []
-
-        try:
-            arial_path = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts', 'arial.ttf')
-            if os.path.exists(arial_path):
-                pdfmetrics.registerFont(TTFont('Arial', arial_path))
-                font = 'Arial'
-            else:
-                font = 'Helvetica'
-        except Exception:
-            font = 'Helvetica'
-
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle('T', parent=styles['Heading1'], fontSize=14,
-                                     alignment=TA_CENTER, spaceAfter=15, fontName=font)
-        elements.append(Paragraph(f'Student Path Assignments - {session.name or "Session"}', title_style))
-        elements.append(Spacer(1, 0.15 * inch))
-
-        paths_list = list(paths)
-        for page_start in range(0, len(paths_list), 5):
-            if page_start > 0:
-                elements.append(PageBreak())
-            page_paths = paths_list[page_start:page_start + 5]
-            data = [[f'Path {p.name}' for p in page_paths]]
-            max_s = max((len(students_by_path.get(str(p.id), [])) for p in page_paths), default=0)
-            for i in range(max_s):
-                row = []
-                for p in page_paths:
-                    ps = students_by_path.get(str(p.id), [])
-                    row.append(reshape_arabic(ps[i].full_name) if i < len(ps) else '')
-                data.append(row)
-
-            n = len(page_paths)
-            table = Table(data, colWidths=[(10 * inch) / n] * n)
-            style_cmds = [
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), font if font == 'Arial' else 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 11),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-                ('TOPPADDING', (0, 0), (-1, 0), 10),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ECF0F1')),
-                ('FONTNAME', (0, 1), (-1, -1), font),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-                ('TOPPADDING', (0, 1), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ]
-            for i in range(1, len(data)):
-                if i % 2 == 0:
-                    style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.white))
-            table.setStyle(TableStyle(style_cmds))
-            elements.append(table)
-            elements.append(Spacer(1, 0.2 * inch))
-
-        doc.build(elements)
-        buffer.seek(0)
-        pdf_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        pdf_bytes = _build_student_paths_pdf(session)
+        pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
         cache.set(status_key, {
             'status': 'done',
             'pdf_b64': pdf_b64,

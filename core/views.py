@@ -60,6 +60,14 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
+            # Block soft-deleted users from logging in
+            if getattr(user, 'is_deleted', False):
+                logger.warning(
+                    "Blocked login for soft-deleted user '%s'.", user.username,
+                )
+                messages.error(request, 'Invalid username or password. (Username is case-sensitive)')
+                return render(request, 'login.html')
+
             ip = _get_client_ip(request)
 
             # ── Single-active-session check ───────────────────────────────

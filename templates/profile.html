@@ -189,10 +189,10 @@
                     <span class="info-value ms-auto">{{ request.user.email }}</span>
                 </div>
 
-                {% if user.coordinator_department %}
+                {% if user.department %}
                 <div class="info-row border-bottom py-2">
                     <span class="info-label text-muted small fw-bold">DEPARTMENT</span>
-                    <span class="info-value ms-auto">{{ user.coordinator_department }}</span>
+                    <span class="info-value ms-auto">{{ user.department }}</span>
                 </div>
                 {% endif %}
                 <div class="info-row border-bottom py-2">
@@ -270,5 +270,22 @@
 
     </div>
 </div>
+
+<script>
+// Prevent double-submit on profile password form (disable all submit buttons)
+document.querySelectorAll('form').forEach(form => {
+    let submitted = false;
+    form.addEventListener('submit', function(e) {
+        if (submitted) { e.preventDefault(); return false; }
+        submitted = true;
+        // Disable all submit buttons
+        form.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        });
+    });
+});
+</script>
 {% endblock %}
 

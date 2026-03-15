@@ -151,6 +151,9 @@ def provision_new_user(sender, instance, created, **kwargs):
       2. Create a UserProfile with must_change_password=True
          (False for superusers — they already chose a password).
     """
+    if kwargs.get('raw'):
+        # Skip during fixture loading (loaddata uses raw=True) — data comes from the fixture itself
+        return
     if not created:
         return
 
@@ -166,19 +169,40 @@ def provision_new_user(sender, instance, created, **kwargs):
             instance.username,
         )
     else:
-        default_pw = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
-        instance.set_password(default_pw)
-        instance.save(update_fields=['password'])
+        if getattr(instance, 'is_dry_user', False):
+            # Dry users need to log in but should not be forced to change their password.
+            default_pw = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')
+            instance.set_password(default_pw)
+            instance.save(update_fields=['password'])
+            UserProfile.objects.get_or_create(
+                user=instance,
+                defaults={'must_change_password': False},
+            )
+            auth_logger.info(
+                "Dry user '%s' created.  Default password assigned.  must_change_password=False.",
+                instance.username,
+            )
+        else:
+            default_pw = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')
+            instance.set_password(default_pw)
+            instance.save(update_fields=['password'])
 
-        UserProfile.objects.get_or_create(
-            user=instance,
-            defaults={'must_change_password': True},
-        )
+            UserProfile.objects.get_or_create(
+                user=instance,
+                defaults={'must_change_password': True},
+            )
 
-        auth_logger.info(
-            "New user '%s' created.  Default password assigned.  must_change_password=True.",
-            instance.username,
-        )
+            auth_logger.info(
+                "New user '%s' created.  Default password assigned.  must_change_password=True.",
+                instance.username,
+            )
+
+    # Invalidate the examiner list cache so the new user appears immediately
+    try:
+        from core.utils.cache_utils import invalidate_examiner_list
+        invalidate_examiner_list()
+    except Exception:
+        pass
 
 
 # ── Auto-assign permissions based on role ────────────────────────────
@@ -203,16 +227,33 @@ def sync_role_permissions(sender, instance, **kwargs):
     except (ContentType.DoesNotExist, Permission.DoesNotExist):
         return  # Permission not created yet (e.g. during initial migration)
 
-    is_admin = getattr(instance, 'role', None) == 'admin'
-    is_head = (
-        getattr(instance, 'role', None) == 'coordinator' and
-        getattr(instance, 'coordinator_position', None) == 'head'
-    )
+    role = getattr(instance, 'role', None)
+    position = getattr(instance, 'coordinator_position', None)
+
+    is_admin = role == 'admin'
+    is_head = role == 'coordinator' and position == 'head'
 
     if is_admin or is_head:
         instance.user_permissions.add(perm)
     else:
         instance.user_permissions.remove(perm)
+
+    # ── can_open_dry_grading: admin, coordinator-head, coordinator-organizer ──
+    try:
+        ct_session = ContentType.objects.get(app_label='core', model='examsession')
+        dry_perm = Permission.objects.get(codename='can_open_dry_grading', content_type=ct_session)
+    except (ContentType.DoesNotExist, Permission.DoesNotExist):
+        return  # Permission not created yet
+
+    can_dry = (
+        is_admin
+        or (role == 'coordinator' and position in ('head', 'organizer'))
+    )
+
+    if can_dry:
+        instance.user_permissions.add(dry_perm)
+    else:
+        instance.user_permissions.remove(dry_perm)
 
 
 
@@ -351,3 +392,108 @@ def connect_hierarchy_signals():
         pre_save.connect(_hierarchy_pre_save, sender=model, dispatch_uid=f'audit_pre_{model.__name__}')
         post_save.connect(_hierarchy_post_save, sender=model, dispatch_uid=f'audit_post_{model.__name__}')
         post_delete.connect(_hierarchy_post_delete, sender=model, dispatch_uid=f'audit_del_{model.__name__}')
+    
+    # Connect scoring sync signals for ChecklistItem changes
+    post_save.connect(
+        sync_station_max_score,
+        sender=ChecklistItem,
+        dispatch_uid='sync_max_score_on_item_save',
+    )
+    post_delete.connect(
+        sync_station_max_score,
+        sender=ChecklistItem,
+        dispatch_uid='sync_max_score_on_item_delete',
+    )
+
+
+# ── Sync max_score + ItemScore rescaling when checklist item points change ─
+def sync_station_max_score(sender, instance, **kwargs):
+    """
+    Whenever a ChecklistItem is saved or deleted:
+
+    1. ITEM-LEVEL: For every existing ItemScore for this item, rescale the
+       student's earned score based on the old/new points ratio:
+         - full marks (score == old_max_points)  → award new full points
+         - zero (wrong / not done)               → keep 0, update max_points
+         - partial                               → scale proportionally
+       Then update max_points to the new value.
+
+    2. STATION-LEVEL: Recompute total_score and max_score on every
+       StationScore for this station (including already-submitted rows).
+    """
+    from core.models.scoring import StationScore, ItemScore
+
+    new_item_points = instance.points  # new points value (0 after delete)
+
+    # ── Step 1: Rescale ItemScore rows for this checklist item ──────────
+    item_scores = list(
+        ItemScore.objects.filter(checklist_item=instance)
+        if instance.pk else ItemScore.objects.none()
+    )
+
+    is_mcq = instance.rubric_type == 'mcq'
+    if is_mcq:
+        # For MCQ items the student's selected option index is stored in notes.
+        # Re-evaluate: correct index → full marks, anything else → 0.
+        rubric_levels = instance.rubric_levels or {}
+        correct_index = rubric_levels.get('correct_index', -1)
+        try:
+            correct_index = int(correct_index)
+        except (TypeError, ValueError):
+            correct_index = -1
+
+    updated_item_scores = []
+    for item_score in item_scores:
+        old_max = item_score.max_points or 0
+        old_score = item_score.score or 0
+
+        if is_mcq:
+            # Parse the student's saved selected option index from notes
+            try:
+                selected_index = int(item_score.notes)
+            except (TypeError, ValueError):
+                selected_index = -1  # no valid answer recorded
+            new_score = new_item_points if (correct_index >= 0 and selected_index == correct_index) else 0
+        elif old_max > 0:
+            if old_score >= old_max:
+                # Full marks → award new full points
+                new_score = new_item_points
+            elif old_score == 0:
+                # Wrong / not done → stays at 0
+                new_score = 0
+            else:
+                # Partial credit → scale proportionally
+                new_score = round(old_score / old_max * new_item_points, 2)
+        else:
+            new_score = 0
+
+        item_score.score = new_score
+        item_score.max_points = new_item_points
+        updated_item_scores.append(item_score)
+
+    if updated_item_scores:
+        ItemScore.objects.bulk_update(updated_item_scores, ['score', 'max_points'])
+
+    # ── Step 2: Recompute StationScore totals for the whole station ──────
+    station = instance.station
+    new_station_max = station.get_max_score()
+
+    station_scores = list(StationScore.objects.filter(station=station).prefetch_related('item_scores'))
+    updated_station_scores = []
+    for ss in station_scores:
+        ss.total_score = round(sum(i.score or 0 for i in ss.item_scores.all()), 2)
+        ss.max_score = new_station_max
+        if new_station_max and new_station_max > 0:
+            ss.percentage = round((ss.total_score / new_station_max) * 100, 2)
+        else:
+            ss.percentage = 0
+        updated_station_scores.append(ss)
+
+    if updated_station_scores:
+        StationScore.objects.bulk_update(updated_station_scores, ['total_score', 'max_score', 'percentage'])
+        logger.info(
+            'CHECKLIST_CHANGE | station=%s | rubric=%s | new_item_points=%s | new_station_max=%s '
+            '| item_scores_updated=%d | station_scores_updated=%d',
+            station.id, instance.rubric_type, new_item_points, new_station_max,
+            len(updated_item_scores), len(updated_station_scores),
+        )

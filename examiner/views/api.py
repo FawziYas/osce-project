@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -45,8 +46,8 @@ def get_session_students(request, session_id):
         session_id=session_id,
         examiner=request.user,
     ).exists()
-    if not has_assignment and not request.user.is_staff:
-        return JsonResponse({'error': 'Not assigned to this session'}, status=403)
+    if not has_assignment and not request.user.is_superuser:
+        return JsonResponse({'error': 'Not found'}, status=404)
 
     students = SessionStudent.objects.filter(
         session_id=session_id,
@@ -169,47 +170,65 @@ def start_marking(request):
         station_id=station_id,
         examiner=request.user,
     ).exists()
-    if not has_assignment and not request.user.is_staff:
-        return JsonResponse({'error': 'Not assigned to this station'}, status=403)
+    if not has_assignment and not request.user.is_superuser:
+        return JsonResponse({'error': 'Not found'}, status=404)
 
     # S7: Verify session is active
     session = student.session
     if hasattr(session, 'status') and session.status not in ('in_progress', 'active'):
         return JsonResponse({'error': 'Session is not active'}, status=400)
 
-    existing = StationScore.objects.filter(
-        session_student_id=session_student_id,
-        station_id=station_id,
-        examiner=request.user,
-    ).first()
+    with transaction.atomic():
+        existing = StationScore.objects.select_for_update().filter(
+            session_student_id=session_student_id,
+            station_id=station_id,
+            examiner=request.user,
+        ).first()
 
-    if existing:
-        item_scores = [{
-            'checklist_item_id': i.checklist_item_id,
-            'score': i.score,
-            'notes': i.notes,
-        } for i in existing.item_scores.all()]
+        if existing:
+            item_scores = [{
+                'checklist_item_id': i.checklist_item_id,
+                'score': i.score,
+                'notes': i.notes,
+            } for i in existing.item_scores.all()]
 
-        return JsonResponse({
-            'id': str(existing.id),
-            'local_uuid': str(existing.local_uuid),
-            'status': existing.status,
-            'total_score': existing.total_score,
-            'message': 'Resuming existing marking session',
-            'item_scores': item_scores,
-        })
+            return JsonResponse({
+                'id': str(existing.id),
+                'local_uuid': str(existing.local_uuid),
+                'status': existing.status,
+                'total_score': existing.total_score,
+                'message': 'Resuming existing marking session',
+                'item_scores': item_scores,
+            })
 
-    score = StationScore(
-        session_student_id=session_student_id,
-        station_id=station_id,
-        examiner=request.user,
-        started_at=utc_timestamp(),
-        status='in_progress',
-        client_id=client_id,
-        local_timestamp=data.get('local_timestamp', utc_timestamp()),
-        sync_status='synced',
-    )
-    score.save()
+        try:
+            score = StationScore(
+                session_student_id=session_student_id,
+                station_id=station_id,
+                examiner=request.user,
+                started_at=utc_timestamp(),
+                status='in_progress',
+                client_id=client_id,
+                local_timestamp=data.get('local_timestamp', utc_timestamp()),
+                sync_status='synced',
+            )
+            score.save()
+        except IntegrityError:
+            # Race condition: another request created the score between check and save
+            existing = StationScore.objects.filter(
+                session_student_id=session_student_id,
+                station_id=station_id,
+                examiner=request.user,
+            ).first()
+            if existing:
+                return JsonResponse({
+                    'id': str(existing.id),
+                    'local_uuid': str(existing.local_uuid),
+                    'status': existing.status,
+                    'total_score': existing.total_score,
+                    'message': 'Resuming existing marking session',
+                })
+            return JsonResponse({'error': 'Failed to create score'}, status=500)
 
     log_action(request, 'CREATE', 'StationScore', str(score.id),
                f'Started marking student {session_student_id} at station {station_id}')
@@ -241,11 +260,18 @@ def mark_item(request, station_score_id):
     checklist_item_id = data.get('checklist_item_id')
     item_score_val = data.get('score', 0)
     notes = data.get('notes', '')
-    max_points = data.get('max_points', 1)
 
     # For essay items on dry stations, marked_at must NOT be set here.
     # It is only set by the coordinator in the dry grading view after review.
-    checklist_item = get_object_or_404(ChecklistItem, pk=checklist_item_id)
+    checklist_item = get_object_or_404(ChecklistItem, pk=checklist_item_id, station=score.station)
+
+    # Validate score bounds (0 ≤ score ≤ max allowed points)
+    try:
+        item_score_val = float(item_score_val)
+    except (TypeError, ValueError):
+        item_score_val = 0
+    max_points = checklist_item.points or 1
+    item_score_val = max(0, min(item_score_val, max_points))
     is_dry_essay = (
         score.station is not None
         and score.station.is_dry
@@ -309,6 +335,19 @@ def batch_mark_items(request, station_score_id):
 
     # Pre-fetch rubric types for all checklist items in one query
     item_ids = [i['checklist_item_id'] for i in items if 'checklist_item_id' in i]
+
+    # Validate all checklist items belong to this station
+    if item_ids:
+        valid_items = {
+            ci.pk: ci.points
+            for ci in ChecklistItem.objects.filter(pk__in=item_ids, station=score.station)
+        }
+        invalid = set(item_ids) - set(valid_items.keys())
+        if invalid:
+            return JsonResponse({'error': 'Checklist items do not belong to this station'}, status=400)
+    else:
+        valid_items = {}
+
     essay_item_ids = set()
     if is_dry_station and item_ids:
         essay_item_ids = set(
@@ -323,14 +362,21 @@ def batch_mark_items(request, station_score_id):
         if 'checklist_item_id' not in item:
             continue
         cid = item['checklist_item_id']
+        # Validate score bounds using server-side max points
+        ci_max_points = valid_items.get(cid, 1)
+        try:
+            item_score_val = float(item.get('score', 0))
+        except (TypeError, ValueError):
+            item_score_val = 0
+        item_score_val = max(0, min(item_score_val, ci_max_points))
         # Don't set marked_at for dry essay items — coordinator grades them later
         is_dry_essay = is_dry_station and cid in essay_item_ids
         item_scores.append(ItemScore(
             station_score_id=station_score_id,
             checklist_item_id=cid,
-            score=item.get('score', 0),
+            score=item_score_val,
             notes=item.get('notes', ''),
-            max_points=item.get('max_points', 1),
+            max_points=ci_max_points,
             marked_at=None if is_dry_essay else now,
         ))
 
@@ -491,7 +537,7 @@ def sync_offline_data(request):
         # S3: Verify examiner is assigned (check via session_student → session)
         session_student_id = record.get('session_student_id')
         station_id = record.get('station_id')
-        if session_student_id and station_id and not request.user.is_staff:
+        if session_student_id and station_id and not request.user.is_superuser:
             try:
                 student = SessionStudent.objects.get(pk=session_student_id)
                 if (str(student.session_id), str(station_id)) not in {

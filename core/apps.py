@@ -9,5 +9,5 @@ class CoreConfig(AppConfig):
     def ready(self):
         # Import signal handlers so they are connected on startup
         import core.signals  # noqa: F401
-        # Connect hierarchy model audit signals
+        # Connect hierarchy model audit signals and checklist scoring sync signals
         core.signals.connect_hierarchy_signals()

@@ -212,6 +212,14 @@ def station_dashboard(request, assignment_id):
             'is_scored': s.id in scored_student_ids,
         })
 
+    # For dry stations, prefer non-submitted students first (so unscored appear before submitted)
+    try:
+        if station.is_dry:
+            student_list.sort(key=lambda x: (x['is_scored'], x['student'].sequence_number if hasattr(x['student'], 'sequence_number') else 0))
+    except Exception:
+        # Fail-safe: don't break station dashboard if attribute missing
+        pass
+
     scored_count = len(scored_student_ids)
     total_count = students.count()
     remaining_count = total_count - scored_count
@@ -283,24 +291,17 @@ def marking_interface(request, assignment_id, student_id):
         messages.error(request, 'You are not assigned to this station.')
         return redirect('examiner:home')
 
-    # Check session status — only block if NOT already submitted (review is allowed)
+    # Check session status — block unconditionally if not in_progress
     session = assignment.session
     if session and session.status != 'in_progress':
-        # Allow if already submitted (review mode) even after session ends
-        existing_score = StationScore.objects.filter(
-            session_student=student,
-            station_id=assignment.station_id,
-            examiner=request.user,
-            status='submitted',
-        ).first()
-        if not existing_score:
-            status_messages = {
-                'scheduled': ('This session is not yet active. Marking is disabled.', 'warning'),
-                'completed': ('This session has been completed. No further marking allowed.', 'info'),
-            }
-            msg, level = status_messages.get(session.status, ('This session is currently paused. Marking is disabled.', 'warning'))
-            getattr(messages, level)(request, msg)
-            return redirect('examiner:home')
+        status_messages = {
+            'scheduled': ('This session is not yet active. Marking is disabled.', 'warning'),
+            'finished': ('This session has ended. Marking is no longer available.', 'info'),
+            'completed': ('This session has been completed. No further marking allowed.', 'info'),
+        }
+        msg, level = status_messages.get(session.status, ('This session is currently paused. Marking is disabled.', 'warning'))
+        getattr(messages, level)(request, msg)
+        return redirect('examiner:home')
 
     if str(student.session_id) != str(assignment.session_id):
         messages.error(request, 'Student is not in this exam session.')
@@ -419,6 +420,18 @@ def dry_marking(request, assignment_id, student_id):
 
     if assignment.examiner_id != request.user.id:
         messages.error(request, 'You are not assigned to this station.')
+        return redirect('examiner:home')
+
+    # Block if session is not active
+    session = assignment.session
+    if session and session.status != 'in_progress':
+        status_messages = {
+            'scheduled': ('This session is not yet active. Marking is disabled.', 'warning'),
+            'finished': ('This session has ended. Marking is no longer available.', 'info'),
+            'completed': ('This session has been completed. No further marking allowed.', 'info'),
+        }
+        msg, level = status_messages.get(session.status, ('This session is currently paused. Marking is disabled.', 'warning'))
+        getattr(messages, level)(request, msg)
         return redirect('examiner:home')
 
     if str(student.session_id) != str(assignment.session_id):

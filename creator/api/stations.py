@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 
 from core.models import Station, StationScore
+from core.utils.roles import scope_queryset
 
 
 @login_required
@@ -15,7 +16,10 @@ def delete_station_api(request, station_id):
     if request.method != 'DELETE':
         return JsonResponse({'error': 'DELETE required'}, status=405)
 
-    station = get_object_or_404(Station, pk=station_id)
+    station = get_object_or_404(
+        scope_queryset(request.user, Station.objects.select_related('path__session__exam__course__department'), dept_field='path__session__exam__course__department'),
+        pk=station_id,
+    )
 
     score_count = StationScore.objects.filter(station=station).count()
     if score_count > 0:

@@ -1,6 +1,7 @@
 """
 Django admin registration for all core models.
 """
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.http import HttpResponseRedirect
@@ -19,11 +20,46 @@ from .models import (
     Theme, Course, ILO, Exam, Station, ChecklistItem,
     ExamSession, SessionStudent, StationScore, ItemScore,
     Examiner, ExaminerAssignment, Path, ChecklistLibrary,
-    OSCEExamPath, OSCERoomAssignment, OSCEPathStudent,
     StationVariant, TemplateLibrary, StationTemplate, AuditLog,
     AuditLogArchive,
     LoginAuditLog, UserSession, UserProfile, Department,
 )
+
+
+# ── Custom Form for Examiner to enforce role-specific constraints ──
+class ExaminerAdminForm(forms.ModelForm):
+    """Custom form for Examiner admin to validate coordinator constraints at form level."""
+
+    class Meta:
+        model = Examiner
+        fields = ('username', 'email', 'full_name', 'title', 'role', 'department',
+                  'coordinator_position', 'is_active', 'is_staff', 'is_superuser',
+                  'groups', 'user_permissions', 'password')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        role = cleaned_data.get('role')
+        department = cleaned_data.get('department')
+        coordinator_position = cleaned_data.get('coordinator_position')
+
+        # Enforce coordinator constraints at form level
+        if role == Examiner.ROLE_COORDINATOR:
+            if not department:
+                raise forms.ValidationError(
+                    'Coordinators must be assigned to a department.'
+                )
+            if not coordinator_position:
+                raise forms.ValidationError(
+                    'Coordinators must have a coordinator position selected.'
+                )
+
+        # Enforce non-coordinator constraint
+        if role != Examiner.ROLE_COORDINATOR and coordinator_position:
+            raise forms.ValidationError(
+                'Only coordinators can have a coordinator position.'
+            )
+
+        return cleaned_data
 
 
 # ── User Profiles (default-password / forced-change tracking) ────
@@ -84,7 +120,7 @@ def reset_examiner_password(modeladmin, request, queryset):
         modeladmin.message_user(request, 'Only superusers can reset passwords.', level='ERROR')
         return
 
-    default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '12345678F')
     count = 0
     for examiner in queryset:
         examiner.set_password(default_pw)
@@ -107,6 +143,7 @@ def reset_examiner_password(modeladmin, request, queryset):
 
 @admin.register(Examiner)
 class ExaminerAdmin(BaseUserAdmin):
+    form = ExaminerAdminForm
     list_display = ('username', 'email', 'full_name', 'role', 'title', 'department', 'is_active', 'get_must_change_password', 'is_deleted', 'is_staff')
     list_filter = ('role', 'is_active', 'is_deleted', 'is_staff', 'department')
     search_fields = ('username', 'email', 'full_name')
@@ -122,7 +159,7 @@ class ExaminerAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Personal Info', {'fields': ('full_name', 'email', 'title', 'department')}),
+        ('Personal Info', {'fields': ('full_name', 'email', 'title', 'department', 'coordinator_position')}),
         ('Role & Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Password Reset', {'fields': ('reset_password_button',)}),
     )
@@ -130,6 +167,11 @@ class ExaminerAdmin(BaseUserAdmin):
         (None, {
             'classes': ('wide',),
             'fields': ('username', 'email', 'full_name', 'role', 'password1', 'password2'),
+        }),
+        ('Department & Position', {
+            'classes': ('wide',),
+            'fields': ('department', 'coordinator_position'),
+            'description': 'Coordinators must have a department assigned and a coordinator position selected.',
         }),
     )
 
@@ -159,7 +201,7 @@ class ExaminerAdmin(BaseUserAdmin):
             messages.error(request, 'User not found.')
             return HttpResponseRedirect(reverse('admin:core_examiner_changelist'))
 
-        default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '123456789')
+        default_pw = getattr(_settings, 'DEFAULT_USER_PASSWORD', '12345678F')
         examiner.set_password(default_pw)
         examiner.save(update_fields=['password'])
 
@@ -387,22 +429,6 @@ class ChecklistLibraryAdmin(admin.ModelAdmin):
     list_filter = ('active',)
 
 
-# ── OSCE Paths ──────────────────────────────────────────────────
-@admin.register(OSCEExamPath)
-class OSCEExamPathAdmin(admin.ModelAdmin):
-    list_display = ('path_number', 'exam_session', 'start_time', 'status')
-
-
-@admin.register(OSCERoomAssignment)
-class OSCERoomAssignmentAdmin(admin.ModelAdmin):
-    list_display = ('room_number', 'room_name', 'station', 'examiner_name', 'status')
-
-
-@admin.register(OSCEPathStudent)
-class OSCEPathStudentAdmin(admin.ModelAdmin):
-    list_display = ('osce_path', 'room_assignment', 'student')
-
-
 # ── Variants / Templates ────────────────────────────────────────
 @admin.register(StationVariant)
 class StationVariantAdmin(admin.ModelAdmin):
@@ -573,7 +599,6 @@ class AuditLogAdmin(admin.ModelAdmin):
         'description', 'ip_address', 'user_agent',
         'request_method', 'request_path', 'extra_data',
     )
-    date_hierarchy = 'timestamp'
     list_per_page = 50
     list_select_related = ('user',)
     actions = [_export_audit_csv, _export_audit_json]
@@ -703,7 +728,7 @@ class AuditLogAdmin(admin.ModelAdmin):
 
         if role == 'coordinator':
             # Coordinator sees only their own department
-            dept = getattr(user, 'coordinator_department', None)
+            dept = getattr(user, 'department', None)
             if dept:
                 return qs.filter(department_id=dept.pk)
             return qs.none()
@@ -723,13 +748,12 @@ class AuditLogAdmin(admin.ModelAdmin):
 class LoginAuditLogAdmin(admin.ModelAdmin):
     """Read-only, non-deletable audit trail for login attempts."""
     list_display = ('timestamp', 'username_attempted', 'success', 'ip_address', 'user_agent_short')
-    list_filter = ('success', 'timestamp')
+    list_filter = ('success',)
     search_fields = ('username_attempted', 'ip_address')
     readonly_fields = (
         'id', 'user', 'username_attempted', 'ip_address',
         'user_agent', 'timestamp', 'success',
     )
-    date_hierarchy = 'timestamp'
     list_per_page = 50
 
     def user_agent_short(self, obj):
@@ -757,7 +781,6 @@ class AuditLogArchiveAdmin(admin.ModelAdmin):
     search_fields = ('username', 'resource_label', 'resource_id')
     readonly_fields = [f.name for f in AuditLogArchive._meta.get_fields()
                        if hasattr(f, 'column')]
-    date_hierarchy = 'timestamp'
     list_per_page = 50
 
     def has_add_permission(self, request):

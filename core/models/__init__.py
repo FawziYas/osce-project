@@ -9,9 +9,8 @@ from .session import ExamSession, SessionStudent
 from .scoring import StationScore, ItemScore
 from .department import Department
 from .examiner import Examiner, ExaminerAssignment
-from .path import Path, StudentPath, PathStation
+from .path import Path, StudentPath
 from .library import ChecklistLibrary
-from .osce_paths import OSCEExamPath, OSCERoomAssignment, OSCEPathStudent
 from .station_variant import StationVariant
 from .template_library import TemplateLibrary
 from .station_template import StationTemplate
@@ -33,15 +32,13 @@ __all__ = [
     # Sessions & Variants
     'ExamSession', 'SessionStudent', 'StationVariant',
     # Paths
-    'Path', 'StudentPath', 'PathStation',
+    'Path', 'StudentPath',
     # Scoring
     'StationScore', 'ItemScore',
     # Examiners
     'Examiner', 'ExaminerAssignment',
     # Departments
     'Department',
-    # OSCE rotation
-    'OSCEExamPath', 'OSCERoomAssignment', 'OSCEPathStudent',
     # Audit
     'AuditLog',
     'AuditLogArchive',

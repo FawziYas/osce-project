@@ -9,13 +9,32 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 
 from core.models import ExamSession, SessionStudent, Path, StationScore
+from core.utils.roles import scope_queryset
+
+
+def _scoped_session(user):
+    """Return ExamSession queryset scoped to the user's department."""
+    return scope_queryset(
+        user,
+        ExamSession.objects.select_related('exam', 'exam__course', 'exam__course__department'),
+        dept_field='exam__course__department',
+    )
+
+
+def _scoped_student(user):
+    """Return SessionStudent queryset scoped to the user's department."""
+    return scope_queryset(
+        user,
+        SessionStudent.objects.select_related('session__exam__course__department'),
+        dept_field='session__exam__course__department',
+    )
 
 
 @login_required
 @require_POST
 def update_student_path_assignment(request, student_id):
     """POST /api/creator/students/<id>/path"""
-    student = get_object_or_404(SessionStudent, pk=student_id)
+    student = get_object_or_404(_scoped_student(request.user), pk=student_id)
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -32,12 +51,12 @@ def delete_student(request, student_id):
     if request.method != 'DELETE':
         return JsonResponse({'error': 'DELETE required'}, status=405)
 
-    student = get_object_or_404(SessionStudent, pk=student_id)
+    student = get_object_or_404(_scoped_student(request.user), pk=student_id)
     session = ExamSession.objects.filter(pk=student.session_id).first()
 
-    if session and session.actual_start:
+    if session and session.actual_start and student.status != 'registered':
         return JsonResponse(
-            {'error': 'Cannot delete students after session has been activated'},
+            {'error': 'Cannot delete students who have already checked in or started the exam'},
             status=403,
         )
 
@@ -53,7 +72,7 @@ def delete_all_students(request, session_id):
     if request.method != 'DELETE':
         return JsonResponse({'error': 'DELETE required'}, status=405)
 
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(_scoped_session(request.user), pk=session_id)
 
     if session.actual_start:
         return JsonResponse(
@@ -75,7 +94,7 @@ def delete_all_students(request, session_id):
 @require_POST
 def redistribute_students(request, session_id):
     """POST /api/creator/sessions/<id>/redistribute-students"""
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(_scoped_session(request.user), pk=session_id)
 
     if session.actual_start:
         return JsonResponse(

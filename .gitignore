@@ -55,6 +55,13 @@ logs/*.log
 # Production artifacts
 /backups/
 
+# Database dumps
+osce_dev_*.sql
+osce_dev_*.dump
+osce_native.sql
+app_logs.zip
+deploy.zip
+
 # Test/tmp
 *.tmp
 test_*.txt

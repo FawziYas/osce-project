@@ -12,8 +12,9 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 
 from core.models import Examiner, ExaminerAssignment, ExamSession, Department
+from core.utils.roles import scope_queryset
 from core.utils.cache_utils import (
-    get_departments, invalidate_examiner_list,
+    get_departments, invalidate_examiner_list, invalidate_departments,
     EXAMINER_LIST_KEY, EXAMINER_LIST_TTL,
     EXAMINER_STATS_KEY, EXAMINER_STATS_TTL,
 )
@@ -23,13 +24,22 @@ from core.utils.cache_utils import (
 def examiner_list(request):
     """List all examiners (active only). Deleted shown separately for admin/superuser."""
     from django.core.cache import cache
+    from core.utils.roles import is_global
 
-    examiners = cache.get(EXAMINER_LIST_KEY)
-    if examiners is None:
-        examiners = list(
-            Examiner.objects.filter(role='examiner', is_deleted=False).order_by('full_name')
-        )
-        cache.set(EXAMINER_LIST_KEY, examiners, EXAMINER_LIST_TTL)
+    # Department-scoped query (cache only for global users)
+    if is_global(request.user):
+        examiners = cache.get(EXAMINER_LIST_KEY)
+        if examiners is None:
+            examiners = list(
+                Examiner.objects.filter(role='examiner', is_deleted=False).order_by('full_name')
+            )
+            cache.set(EXAMINER_LIST_KEY, examiners, EXAMINER_LIST_TTL)
+    else:
+        examiners = list(scope_queryset(
+            request.user,
+            Examiner.objects.filter(role='examiner', is_deleted=False),
+            dept_field='department',
+        ).order_by('full_name'))
 
     today = datetime.now().date()
 
@@ -70,7 +80,7 @@ def examiner_create(request):
 
         if Examiner.objects.filter(username=username).exists():
             messages.error(request, f'Username "{username}" already exists.')
-            default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+            default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')
             departments = get_departments()
             return render(request, 'creator/examiners/form.html', {
                 'examiner': None,
@@ -80,7 +90,7 @@ def examiner_create(request):
 
         if email and Examiner.objects.filter(email=email).exists():
             messages.error(request, f'Email "{email}" already exists.')
-            default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+            default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')
             departments = get_departments()
             return render(request, 'creator/examiners/form.html', {
                 'examiner': None,
@@ -93,9 +103,15 @@ def examiner_create(request):
             email=email,
             full_name=request.POST['full_name'].strip(),
             title=request.POST.get('title', '').strip() or '',
-            department=request.POST.get('department', '').strip() or '',
             is_active='is_active' in request.POST,
         )
+        # Set department FK by looking up the Department by name
+        dept_name = request.POST.get('department', '').strip()
+        if dept_name:
+            try:
+                examiner.department = Department.objects.get(name=dept_name)
+            except Department.DoesNotExist:
+                pass
         # Password is set automatically to DEFAULT_USER_PASSWORD by the
         # post_save signal.  User will be forced to change it on first login.
         examiner.save()
@@ -104,7 +120,7 @@ def examiner_create(request):
         messages.success(request, f'Examiner "{examiner.display_name}" created successfully.')
         return redirect('creator:examiner_list')
 
-    default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')
     departments = get_departments()
     return render(request, 'creator/examiners/form.html', {
         'examiner': None,
@@ -116,7 +132,10 @@ def examiner_create(request):
 @login_required
 def examiner_detail(request, examiner_id):
     """View examiner details and assignments."""
-    examiner = get_object_or_404(Examiner, pk=examiner_id)
+    examiner = get_object_or_404(
+        scope_queryset(request.user, Examiner.objects.all(), dept_field='department'),
+        pk=examiner_id,
+    )
     assignments = ExaminerAssignment.objects.filter(
         examiner=examiner
     ).select_related('session', 'station')
@@ -130,7 +149,10 @@ def examiner_detail(request, examiner_id):
 @login_required
 def examiner_edit(request, examiner_id):
     """Edit an examiner."""
-    examiner = get_object_or_404(Examiner, pk=examiner_id)
+    examiner = get_object_or_404(
+        scope_queryset(request.user, Examiner.objects.all(), dept_field='department'),
+        pk=examiner_id,
+    )
 
     if request.method == 'POST':
         email = request.POST.get('email', '').strip().lower()
@@ -145,7 +167,15 @@ def examiner_edit(request, examiner_id):
         examiner.email = email
         examiner.full_name = request.POST['full_name'].strip()
         examiner.title = request.POST.get('title', '').strip() or ''
-        examiner.department = request.POST.get('department', '').strip() or ''
+        # Set department FK by looking up the Department by name
+        dept_name = request.POST.get('department', '').strip()
+        if dept_name:
+            try:
+                examiner.department = Department.objects.get(name=dept_name)
+            except Department.DoesNotExist:
+                examiner.department = None
+        else:
+            examiner.department = None
         examiner.is_active = 'is_active' in request.POST
 
         examiner.save()
@@ -247,7 +277,9 @@ def examiner_unassign(request, assignment_id):
     # Redirect back to where the user came from
     next_url = request.POST.get('next') or request.GET.get('next', '')
     if next_url:
-        return redirect(next_url)
+        from django.utils.http import url_has_allowed_host_and_scheme
+        if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            return redirect(next_url)
     # If coming from session detail, go back there
     referer = request.META.get('HTTP_REFERER', '')
     if session_id and 'session' in referer:
@@ -404,12 +436,19 @@ def examiner_bulk_upload(request):
                     errors_list.append(f"Row {row_num}: Email '{email}' already exists")
                     continue
 
+                # Look up department FK
+                dept_obj = None
+                if department:
+                    try:
+                        dept_obj = Department.objects.get(name=department)
+                    except Department.DoesNotExist:
+                        pass
                 new_examiner = Examiner(
                     username=username,
                     email=email,
                     full_name=full_name,
                     title=title,
-                    department=department,
+                    department=dept_obj,
                     is_active=True,
                 )
                 # Password is set automatically by the post_save signal
@@ -471,8 +510,8 @@ def coordinator_list(request):
     dept_filter = request.GET.get('department', '').strip()
 
     coordinators_qs = Examiner.objects.filter(role='coordinator').select_related(
-        'coordinator_department'
-    ).order_by('coordinator_department__name', 'full_name')
+        'department'
+    ).order_by('department__name', 'full_name')
 
     if search_query:
         from django.db.models import Q
@@ -482,7 +521,7 @@ def coordinator_list(request):
             Q(email__icontains=search_query)
         )
     if dept_filter:
-        coordinators_qs = coordinators_qs.filter(coordinator_department_id=dept_filter)
+        coordinators_qs = coordinators_qs.filter(department_id=dept_filter)
 
     departments = Department.objects.order_by('name')
 
@@ -501,14 +540,14 @@ def coordinator_create(request):
         messages.error(request, 'You do not have permission to add coordinators.')
         return redirect('creator:dashboard')
 
-    default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '123456789')
+    default_password = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')
     departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip().lower()
         email = request.POST.get('email', '').strip().lower()
         full_name = request.POST.get('full_name', '').strip()
-        dept_id = request.POST.get('coordinator_department', '').strip()
+        dept_id = request.POST.get('department', '').strip()
         position = request.POST.get('coordinator_position', '').strip()
 
         errors = []
@@ -538,7 +577,7 @@ def coordinator_create(request):
 
         # Enforce single Head per department
         if position == 'head' and Examiner.objects.filter(
-            coordinator_department=dept, coordinator_position='head',
+            department=dept, coordinator_position='head',
             role='coordinator', is_deleted=False
         ).exists():
             messages.error(
@@ -557,7 +596,7 @@ def coordinator_create(request):
             email=email or '',
             full_name=full_name,
             role='coordinator',
-            coordinator_department=dept,
+            department=dept,
             coordinator_position=position,
             is_active=True,
         )
@@ -587,7 +626,7 @@ def coordinator_edit(request, coordinator_id):
         full_name = request.POST.get('full_name', '').strip()
         email = request.POST.get('email', '').strip().lower()
         is_active = request.POST.get('is_active') == 'on'
-        dept_id = request.POST.get('coordinator_department', '').strip()
+        dept_id = request.POST.get('department', '').strip()
         position = request.POST.get('coordinator_position', '').strip()
 
         errors = []
@@ -614,7 +653,7 @@ def coordinator_edit(request, coordinator_id):
 
         # Enforce single Head per department (excluding self)
         if position == 'head' and Examiner.objects.filter(
-            coordinator_department=dept, coordinator_position='head',
+            department=dept, coordinator_position='head',
             role='coordinator', is_deleted=False
         ).exclude(pk=coordinator_id).exists():
             messages.error(
@@ -629,7 +668,7 @@ def coordinator_edit(request, coordinator_id):
         coordinator.full_name = full_name
         coordinator.email = email or ''
         coordinator.is_active = is_active
-        coordinator.coordinator_department = dept
+        coordinator.department = dept
         coordinator.coordinator_position = position
         coordinator.save()
 
@@ -672,9 +711,9 @@ def department_list(request):
 
     departments = Department.objects.order_by('name')
     for dept in departments:
-        dept.head_count      = dept.coordinators.filter(coordinator_position='head',      is_deleted=False).count()
-        dept.rta_count       = dept.coordinators.filter(coordinator_position='rta',       is_deleted=False).count()
-        dept.organizer_count = dept.coordinators.filter(coordinator_position='organizer', is_deleted=False).count()
+        dept.head_count      = dept.members.filter(coordinator_position='head',      is_deleted=False).count()
+        dept.rta_count       = dept.members.filter(coordinator_position='rta',       is_deleted=False).count()
+        dept.organizer_count = dept.members.filter(coordinator_position='organizer', is_deleted=False).count()
 
     return render(request, 'creator/departments/list.html', {
         'departments': departments,
@@ -700,6 +739,24 @@ def department_create(request):
             return render(request, 'creator/departments/form.html', {'post': request.POST})
 
         dept = Department.objects.create(name=name)
+        invalidate_departments()
+        invalidate_examiner_list()
+
+        # Auto-create a dry-marking user for this department
+        slug = name.lower().replace(' ', '_')
+        dry_username = f'dry_{slug}'
+        if not Examiner.objects.filter(username=dry_username).exists():
+            dry_user = Examiner(
+                username=dry_username,
+                full_name=f'Dry {name}',
+                email='',
+                role='examiner',
+                department=dept,
+                is_active=True,
+                is_dry_user=True,
+            )
+            dry_user.save()  # signal sets default password with must_change_password=False
+
         messages.success(request, f'Department "{dept.name}" created.')
         return redirect('creator:department_list')
 
@@ -728,6 +785,8 @@ def department_edit(request, department_id):
 
         dept.name = name
         dept.save()
+        invalidate_departments()
+        invalidate_examiner_list()
         messages.success(request, f'Department "{dept.name}" updated.')
         return redirect('creator:department_list')
 
@@ -746,7 +805,12 @@ def department_delete(request, department_id):
 
     dept = get_object_or_404(Department, pk=department_id)
 
-    if dept.coordinators.filter(is_deleted=False).exists():
+    # Only block deletion if there are actual coordinators (with head or rta position)
+    coordinators = dept.members.filter(
+        is_deleted=False,
+        coordinator_position__in=['head', 'rta']
+    )
+    if coordinators.exists():
         messages.error(
             request,
             f'Cannot delete "{dept.name}" — it still has coordinators assigned. '
@@ -756,5 +820,7 @@ def department_delete(request, department_id):
 
     name = dept.name
     dept.delete()
+    invalidate_departments()
+    invalidate_examiner_list()
     messages.success(request, f'Department "{name}" deleted.')
     return redirect('creator:department_list')

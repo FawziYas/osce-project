@@ -20,11 +20,33 @@ from core.models import (
     Station,
     StationScore,
 )
+from core.utils.roles import scope_queryset
+
+
+def _scoped_session(user):
+    return scope_queryset(
+        user,
+        ExamSession.objects.select_related('exam', 'exam__course', 'exam__course__department'),
+        dept_field='exam__course__department',
+    )
 
 
 def _safe_filename(name: str) -> str:
     """Sanitize a string for safe use in Content-Disposition headers."""
     return re.sub(r'[^\w\-.]', '_', name)
+
+
+def _csv_safe(value) -> str:
+    """Sanitize a cell value to prevent CSV formula injection.
+
+    Prefixes strings starting with formula-triggering characters with a
+    single-quote so spreadsheet applications treat them as literal text.
+    """
+    if not isinstance(value, str):
+        return value
+    if value and value[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + value
+    return value
 
 
 @login_required
@@ -34,7 +56,7 @@ def get_session_summary(request, session_id):
     
     try:
         session = get_object_or_404(
-            ExamSession.objects.select_related('exam__course'), pk=session_id
+            _scoped_session(request.user), pk=session_id
         )
         exam_weight = float(session.exam.exam_weight or 0)
         pass_threshold = session.exam.course.pass_threshold
@@ -209,9 +231,9 @@ def _student_rows(students, station_headers, station_info_map, pass_threshold=70
     path_map = {p.id: p for p in Path.objects.filter(pk__in=path_ids)} if path_ids else {}
 
     for student in students:
-        row = [student.student_number, student.full_name]
+        row = [_csv_safe(student.student_number), _csv_safe(student.full_name)]
         path = path_map.get(student.path_id) if student.path_id else None
-        row.append(path.name if path else '')
+        row.append(_csv_safe(path.name) if path else '')
 
         total_score = 0
         max_score = 0
@@ -241,7 +263,7 @@ def _student_rows(students, station_headers, station_info_map, pass_threshold=70
 @login_required
 def export_students_csv(request, session_id):
     """GET /api/creator/reports/session/<id>/students/csv"""
-    session = get_object_or_404(ExamSession.objects.select_related('exam__course'), pk=session_id)
+    session = get_object_or_404(_scoped_session(request.user), pk=session_id)
     course_threshold = session.exam.course.pass_threshold
     students = SessionStudent.objects.filter(session=session).order_by('full_name')
     _, station_headers, station_info_map = _build_station_info(session_id)
@@ -271,7 +293,7 @@ def export_students_xlsx(request, session_id):
     from openpyxl.utils import get_column_letter
 
     session = get_object_or_404(
-        ExamSession.objects.select_related('exam__course'), pk=session_id
+        _scoped_session(request.user), pk=session_id
     )
     exam_weight = float(session.exam.exam_weight or 0)
     course_threshold = session.exam.course.pass_threshold
@@ -439,7 +461,7 @@ def export_students_xlsx(request, session_id):
 @login_required
 def export_stations_csv(request, session_id):
     """GET /api/creator/reports/session/<id>/stations/csv"""
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(_scoped_session(request.user), pk=session_id)
     # P5: Prefetch paths and stations in one query
     stations = Station.objects.filter(
         path__session_id=session_id, active=True
@@ -461,8 +483,8 @@ def export_stations_csv(request, session_id):
             avg_max = sum(max_scores) / len(max_scores) if max_scores else 0
             avg_pct = (avg_score / avg_max * 100) if avg_max > 0 else 0
             writer.writerow([
-                station.name,
-                station.path.name if station.path else '',
+                _csv_safe(station.name),
+                _csv_safe(station.path.name) if station.path else '',
                 round(avg_max, 2),
                 round(avg_score, 2),
                 round(avg_pct, 2),
@@ -480,7 +502,7 @@ def export_stations_csv(request, session_id):
 @login_required
 def export_raw_csv(request, session_id):
     """GET /api/creator/reports/session/<id>/raw/csv"""
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(_scoped_session(request.user), pk=session_id)
 
     # P1: Eliminate N+1 queries — prefetch everything in a single query chain
     item_scores = ItemScore.objects.filter(
@@ -518,14 +540,14 @@ def export_raw_csv(request, session_id):
         ss = iscore.station_score
         student = ss.session_student
         writer.writerow([
-            student.student_number,
-            student.full_name,
-            path_map.get(student.path_id, ''),
-            ss.station.name if ss.station else '',
-            iscore.checklist_item.description if iscore.checklist_item else '',
+            _csv_safe(student.student_number),
+            _csv_safe(student.full_name),
+            _csv_safe(path_map.get(student.path_id, '')),
+            _csv_safe(ss.station.name) if ss.station else '',
+            _csv_safe(iscore.checklist_item.description) if iscore.checklist_item else '',
             iscore.score or 0,
             iscore.max_points or 0,       # S8: was iscore.max_score (wrong field)
-            ss.examiner.full_name if ss.examiner else '',
+            _csv_safe(ss.examiner.full_name) if ss.examiner else '',
             iscore.marked_at or '',        # S8: was iscore.scored_at (wrong field)
         ])
 

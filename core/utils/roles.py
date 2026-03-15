@@ -70,12 +70,12 @@ def get_user_department(user):
     """
     Return the Department instance the user is scoped to, or None.
     - Superuser / Admin → None (global access)
-    - Coordinator → their coordinator_department
+    - Coordinator → their department
     """
     if is_global(user):
         return None  # sentinel for "show all"
     if is_coordinator(user):
-        return getattr(user, 'coordinator_department', None)
+        return getattr(user, 'department', None)
     return None
 
 
@@ -93,7 +93,7 @@ def user_can_access_department(user, dept_id):
     if is_global(user):
         return True
     if is_coordinator(user):
-        user_dept = getattr(user, 'coordinator_department', None)
+        user_dept = getattr(user, 'department', None)
         if user_dept and str(user_dept.pk) == str(dept_id):
             return True
     return False
@@ -117,7 +117,7 @@ def scope_queryset(user, qs, dept_field='department'):
     if is_global(user):
         return qs
     if is_coordinator(user):
-        dept = getattr(user, 'coordinator_department', None)
+        dept = getattr(user, 'department', None)
         if dept:
             return qs.filter(**{dept_field: dept})
         # Coordinator without department — should not happen (DB constraint)
@@ -135,7 +135,7 @@ def scope_queryset_by_dept_id(user, qs, dept_id_field='department_id'):
     if is_global(user):
         return qs
     if is_coordinator(user):
-        dept = getattr(user, 'coordinator_department', None)
+        dept = getattr(user, 'department', None)
         if dept:
             return qs.filter(**{dept_id_field: dept.pk})
         return qs.none()
@@ -156,7 +156,7 @@ def check_object_department(user, obj, dept_attr='department'):
         return True
     if is_coordinator(user):
         obj_dept = getattr(obj, dept_attr, None)
-        user_dept = getattr(user, 'coordinator_department', None)
+        user_dept = getattr(user, 'department', None)
         if obj_dept and user_dept:
             obj_dept_id = obj_dept.pk if hasattr(obj_dept, 'pk') else obj_dept
             return str(obj_dept_id) == str(user_dept.pk)
@@ -174,7 +174,7 @@ def check_exam_department(user, exam):
         return True
     if is_coordinator(user):
         course_dept = getattr(exam.course, 'department', None) if exam.course else None
-        user_dept = getattr(user, 'coordinator_department', None)
+        user_dept = getattr(user, 'department', None)
         if course_dept and user_dept:
             return str(course_dept.pk) == str(user_dept.pk)
     return False

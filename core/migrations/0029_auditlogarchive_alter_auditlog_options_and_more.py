@@ -101,10 +101,30 @@ class Migration(migrations.Migration):
             name='resource_type',
             field=models.CharField(db_index=True, max_length=50),
         ),
-        migrations.AlterField(
-            model_name='auditlog',
-            name='timestamp',
-            field=models.DateTimeField(auto_now_add=True, db_index=True),
+        # PostgreSQL cannot implicitly cast INTEGER → timestamptz.
+        # Use to_timestamp() to convert the stored Unix epoch values.
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql=(
+                        'ALTER TABLE audit_logs ALTER COLUMN "timestamp" '
+                        'TYPE timestamp with time zone '
+                        'USING to_timestamp("timestamp")'
+                    ),
+                    reverse_sql=(
+                        'ALTER TABLE audit_logs ALTER COLUMN "timestamp" '
+                        'TYPE integer '
+                        'USING EXTRACT(epoch FROM "timestamp")::integer'
+                    ),
+                ),
+            ],
+            state_operations=[
+                migrations.AlterField(
+                    model_name='auditlog',
+                    name='timestamp',
+                    field=models.DateTimeField(auto_now_add=True, db_index=True),
+                ),
+            ],
         ),
         migrations.AlterField(
             model_name='auditlog',

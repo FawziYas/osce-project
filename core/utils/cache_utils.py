@@ -29,6 +29,7 @@ EXAMINER_STATS_KEY       = 'osce:examiner_stats'
 EXAMINER_LIST_KEY        = 'osce:examiner_list'
 SESSION_DETAIL_KEY       = 'osce:session_detail:{session_id}'
 DASHBOARD_STATS_KEY      = 'osce:dashboard_stats'
+EXAM_DETAIL_KEY          = 'exam_detail_{exam_id}'
 
 
 # ── Department helpers ─────────────────────────────────────────────────────
@@ -65,6 +66,12 @@ def invalidate_session_detail(session_id):
     """Call when session, its paths, assignments or students change."""
     cache.delete(get_session_detail_cache_key(session_id))
     logger.debug('Cache INVALIDATED: session_detail %s', session_id)
+
+
+def invalidate_exam_detail(exam_id):
+    """Call when sessions are created, deleted, or status-changed for an exam."""
+    cache.delete(EXAM_DETAIL_KEY.format(exam_id=exam_id))
+    logger.debug('Cache INVALIDATED: exam_detail %s', exam_id)
 
 
 # ── Dashboard stats helpers ─────────────────────────────────────────────────

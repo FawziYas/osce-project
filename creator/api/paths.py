@@ -10,12 +10,30 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.models import ExamSession, Path, Station
 from core.models.mixins import TimestampMixin
+from core.utils.roles import scope_queryset
+
+
+def _scoped_session(user):
+    return scope_queryset(
+        user,
+        ExamSession.objects.select_related('exam', 'exam__course', 'exam__course__department'),
+        dept_field='exam__course__department',
+    )
+
+
+def _scoped_path(user):
+    return scope_queryset(
+        user,
+        Path.objects.select_related('session__exam__course__department'),
+        dept_field='session__exam__course__department',
+    )
 
 
 @login_required
 @require_GET
 def get_session_paths(request, session_id):
     """GET /api/creator/sessions/<id>/paths"""
+    get_object_or_404(_scoped_session(request.user), pk=session_id)
     paths = Path.objects.filter(
         session_id=session_id, is_deleted=False
     ).order_by('name')
@@ -29,7 +47,7 @@ def get_session_paths(request, session_id):
 @require_POST
 def create_session_path(request, session_id):
     """POST /api/creator/sessions/<id>/paths"""
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(_scoped_session(request.user), pk=session_id)
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -61,7 +79,7 @@ def create_session_path(request, session_id):
 @require_GET
 def get_path(request, path_id):
     """GET /api/creator/paths/<id>"""
-    path = get_object_or_404(Path, pk=path_id)
+    path = get_object_or_404(_scoped_path(request.user), pk=path_id)
     return JsonResponse(path.to_dict(include_stations=True, include_students=True))
 
 
@@ -71,7 +89,7 @@ def update_path(request, path_id):
     if request.method != 'PUT':
         return JsonResponse({'error': 'PUT required'}, status=405)
 
-    path = get_object_or_404(Path, pk=path_id)
+    path = get_object_or_404(_scoped_path(request.user), pk=path_id)
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -97,7 +115,7 @@ def delete_path_api(request, path_id):
     if request.method != 'DELETE':
         return JsonResponse({'error': 'DELETE required'}, status=405)
 
-    path = get_object_or_404(Path, pk=path_id)
+    path = get_object_or_404(_scoped_path(request.user), pk=path_id)
     session = path.session
 
     if session and session.actual_start:
@@ -123,6 +141,7 @@ def delete_path_api(request, path_id):
 @require_GET
 def get_path_stations(request, path_id):
     """GET /api/creator/paths/<id>/stations"""
+    get_object_or_404(_scoped_path(request.user), pk=path_id)
     stations = Station.objects.filter(
         path_id=path_id, active=True, is_deleted=False
     ).order_by('station_number')
@@ -133,7 +152,7 @@ def get_path_stations(request, path_id):
 @require_POST
 def add_station_to_path(request, path_id):
     """POST /api/creator/paths/<id>/stations – add a station to this path."""
-    path = get_object_or_404(Path, pk=path_id)
+    path = get_object_or_404(_scoped_path(request.user), pk=path_id)
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -179,6 +198,7 @@ def remove_station_from_path(request, path_id, station_id):
     if request.method != 'DELETE':
         return JsonResponse({'error': 'DELETE required'}, status=405)
 
+    path = get_object_or_404(_scoped_path(request.user), pk=path_id)
     station = get_object_or_404(Station, pk=station_id, path_id=path_id)
     removed_num = station.station_number
 
@@ -202,6 +222,7 @@ def remove_station_from_path(request, path_id, station_id):
 @require_POST
 def reorder_path_stations(request, path_id):
     """POST /api/creator/paths/<id>/stations/reorder"""
+    get_object_or_404(_scoped_path(request.user), pk=path_id)
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):

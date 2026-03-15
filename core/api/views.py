@@ -117,13 +117,13 @@ class DepartmentCoordinatorsViewSet(mixins.ListModelMixin,
         # For coordinators: verify they own this department
         if (not user.is_superuser
                 and getattr(user, 'role', '') == 'coordinator'):
-            coord_dept = getattr(user, 'coordinator_department', None)
+            coord_dept = getattr(user, 'department', None)
             if coord_dept is None or str(coord_dept.pk) != str(dept_id):
                 return Examiner.objects.none()
 
         return Examiner.objects.filter(
             role='coordinator',
-            coordinator_department_id=dept_id,
+            department_id=dept_id,
             is_deleted=False,
         ).order_by('coordinator_position', 'full_name')
 
@@ -305,7 +305,7 @@ class ChecklistItemViewSet(mixins.ListModelMixin,
             return base_qs.order_by('item_number')
 
         if getattr(user, 'role', '') == 'coordinator':
-            dept = getattr(user, 'coordinator_department', None)
+            dept = getattr(user, 'department', None)
             if dept is None:
                 return base_qs.none()
             return base_qs.filter(
@@ -425,8 +425,13 @@ class StationScoreViewSet(SessionStateGuard,
         session_student_id = data['session_student_id']
         session_student = get_object_or_404(SessionStudent, pk=session_student_id)
 
-        # Check session is active (via guard)
+        # Validate session_student belongs to the station's session (IDOR prevention)
         session = station.path.session if station.path else None
+        if session and str(session_student.session_id) != str(session.pk):
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'session_student_id': 'Student does not belong to this station\'s session.'})
+
+        # Check session is active (via guard)
         if session and session.status != 'in_progress':
             from core.api.guards import SessionNotActiveError
             raise SessionNotActiveError()

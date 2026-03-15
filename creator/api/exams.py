@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 from core.models import (
     Course, Exam, Station, ChecklistItem, ILO, ExamSession, ItemScore,
 )
+from core.utils.roles import scope_queryset
 
 
 @login_required
@@ -22,6 +23,7 @@ def get_exams(request):
     qs = Exam.objects.select_related('course')
     if not include_deleted:
         qs = qs.filter(is_deleted=False)
+    qs = scope_queryset(request.user, qs, dept_field='course__department')
 
     exams = qs.order_by('-created_at')
     # P2: Use annotate to eliminate N+1 count queries
@@ -45,6 +47,11 @@ def get_exams(request):
 @require_GET
 def get_exam_stations(request, exam_id):
     """GET /api/creator/exams/<id>/stations"""
+    # Verify user can access this exam's department
+    exam = get_object_or_404(
+        scope_queryset(request.user, Exam.objects.all(), dept_field='course__department'),
+        pk=exam_id,
+    )
     # P2: Use annotate to eliminate N+1 per station
     stations = Station.objects.filter(
         exam_id=exam_id
@@ -66,6 +73,11 @@ def get_exam_stations(request, exam_id):
 @require_GET
 def get_station_items(request, station_id):
     """GET /api/creator/stations/<id>/items"""
+    # Verify user can access this station's department
+    station = get_object_or_404(
+        scope_queryset(request.user, Station.objects.select_related('path__session__exam__course__department'), dept_field='path__session__exam__course__department'),
+        pk=station_id,
+    )
     ILO_THEMES = getattr(settings, 'ILO_THEMES', {})
 
     items = ChecklistItem.objects.filter(
@@ -101,7 +113,10 @@ def get_station_items(request, station_id):
 @require_GET
 def get_exam_summary(request, exam_id):
     """GET /api/creator/exams/<id>/summary"""
-    exam = get_object_or_404(Exam, pk=exam_id)
+    exam = get_object_or_404(
+        scope_queryset(request.user, Exam.objects.all(), dept_field='course__department'),
+        pk=exam_id,
+    )
     stations = Station.objects.filter(exam=exam).order_by('station_number')
 
     theme_summary = {}
@@ -143,7 +158,10 @@ def get_exam_summary(request, exam_id):
 @require_POST
 def delete_exam_api(request, exam_id):
     """DELETE (POST) /api/creator/exams/<id>/delete"""
-    exam = get_object_or_404(Exam, pk=exam_id)
+    exam = get_object_or_404(
+        scope_queryset(request.user, Exam.objects.all(), dept_field='course__department'),
+        pk=exam_id,
+    )
     active = ExamSession.objects.filter(
         exam=exam, status__in=['in_progress', 'scheduled']
     ).count()
@@ -158,7 +176,10 @@ def delete_exam_api(request, exam_id):
 @require_POST
 def restore_exam_api(request, exam_id):
     """POST /api/creator/exams/<id>/restore"""
-    exam = get_object_or_404(Exam, pk=exam_id)
+    exam = get_object_or_404(
+        scope_queryset(request.user, Exam.objects.all(), dept_field='course__department'),
+        pk=exam_id,
+    )
     if not exam.is_deleted:
         return JsonResponse({'error': 'Exam is not deleted'}, status=400)
     exam.restore()
@@ -176,7 +197,10 @@ def complete_exam(request, exam_id):
     This is the only way sessions reach the 'completed' state in normal flow.
     Cannot be reversed except by superusers or staff admins.
     """
-    exam = get_object_or_404(Exam, pk=exam_id, is_deleted=False)
+    exam = get_object_or_404(
+        scope_queryset(request.user, Exam.objects.filter(is_deleted=False), dept_field='course__department'),
+        pk=exam_id,
+    )
 
     if exam.status not in ('in_progress', 'ready'):
         return JsonResponse(

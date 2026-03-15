@@ -57,8 +57,8 @@
                     <td class="fw-semibold">{{ coordinator.full_name }}</td>
                     <td><code>{{ coordinator.username }}</code></td>
                     <td>
-                        {% if coordinator.coordinator_department %}
-                            {{ coordinator.coordinator_department.name }}
+                        {% if coordinator.department %}
+                            {{ coordinator.department.name }}
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}

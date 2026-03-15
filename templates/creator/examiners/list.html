@@ -39,19 +39,30 @@
                         Please use the Excel template to ensure correct formatting.
                     </div>
 
-                    <div class="mb-3">
-                        <label for="file" class="form-label">Select XLSX File</label>
-                        <input class="form-control" type="file" id="file" name="file" accept=".xlsx" required>
+                    <div id="uploadFormFields">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select XLSX File</label>
+                            <input class="form-control" type="file" id="file" name="file" accept=".xlsx" required>
+                        </div>
+
+                        <h6>Required Columns:</h6>
+                        <ul class="small mb-0">
+                            <li><code>full_name</code> - Name of examiner</li>
+                            <li><code>username</code> - Unique login ID</li>
+                        </ul>
                     </div>
 
-                    <h6>Required Columns:</h6>
-                    <ul class="small mb-0">
-                        <li><code>full_name</code> - Name of examiner</li>
-                        <li><code>username</code> - Unique login ID</li>
-                    </ul>
+                    <!-- Progress area (hidden until upload starts) -->
+                    <div id="uploadProgress" class="d-none">
+                        <div class="mb-2 fw-semibold" id="uploadProgressLabel">Uploading…</div>
+                        <div class="progress mb-3" style="height:20px;">
+                            <div id="uploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%">0%</div>
+                        </div>
+                        <div id="uploadResult"></div>
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" id="uploadCancelBtn" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" id="submitBtn" class="btn btn-primary">
                         <span id="btnText">Upload &amp; Import</span>
                         <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -235,17 +246,101 @@ searchInput?.addEventListener('keyup', filterTable);
 departmentFilter?.addEventListener('change', filterTable);
 statusFilter?.addEventListener('change', filterTable);
 
-// Handle Bulk Upload UI
+// Handle Bulk Upload UI – AJAX + Celery polling
 const uploadForm = document.getElementById('uploadForm');
 if (uploadForm) {
-    uploadForm.addEventListener('submit', function() {
-        const btn = document.getElementById('submitBtn');
-        const text = document.getElementById('btnText');
-        const spinner = document.getElementById('btnSpinner');
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const btn        = document.getElementById('submitBtn');
+        const btnText    = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const fields     = document.getElementById('uploadFormFields');
+        const progress   = document.getElementById('uploadProgress');
+        const bar        = document.getElementById('uploadProgressBar');
+        const label      = document.getElementById('uploadProgressLabel');
+        const result     = document.getElementById('uploadResult');
+        const cancelBtn  = document.getElementById('uploadCancelBtn');
 
         btn.disabled = true;
-        text.textContent = 'Importing Data... Please Wait...';
-        spinner.classList.remove('d-none');
+        btnText.textContent = 'Uploading…';
+        btnSpinner.classList.remove('d-none');
+
+        function showResult(html, isError) {
+            fields.classList.add('d-none');
+            progress.classList.remove('d-none');
+            bar.style.width = '100%';
+            bar.textContent = '100%';
+            bar.classList.remove('progress-bar-animated');
+            bar.classList.toggle('bg-danger', isError);
+            label.textContent = isError ? 'Import failed' : 'Import complete';
+            result.innerHTML = html;
+            btn.classList.add('d-none');
+            cancelBtn.textContent = 'Close';
+            cancelBtn.onclick = function() {
+                location.reload();
+            };
+        }
+
+        function pollStatus(taskId) {
+            fields.classList.add('d-none');
+            progress.classList.remove('d-none');
+            label.textContent = 'Importing examiners…';
+
+            const pollInterval = setInterval(async function() {
+                try {
+                    const r  = await fetch(`{% url 'creator:bulk_import_status' %}?task_id=${taskId}`);
+                    const d  = await r.json();
+                    const pct = d.progress || 0;
+                    bar.style.width = pct + '%';
+                    bar.textContent = pct + '%';
+
+                    if (d.status === 'done') {
+                        clearInterval(pollInterval);
+                        let html = `<div class="alert alert-success py-2 mb-2">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Imported <strong>${d.success_count}</strong> examiner(s).
+                            ${d.error_count ? `<br><span class="text-warning">${d.error_count} row(s) had errors.</span>` : ''}
+                        </div>`;
+                        if (d.errors && d.errors.length) {
+                            html += '<ul class="small text-danger mb-0">' + d.errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+                        }
+                        showResult(html, false);
+                    } else if (d.status === 'error') {
+                        clearInterval(pollInterval);
+                        showResult(`<div class="alert alert-danger py-2 mb-0"><i class="bi bi-x-circle me-1"></i>${d.message || 'Unknown error'}</div>`, true);
+                    }
+                } catch (_) { /* network hiccup, keep polling */ }
+            }, 1500);
+        }
+
+        fetch(uploadForm.action, { method: 'POST', body: new FormData(uploadForm) })
+            .then(r => r.json())
+            .then(data => {
+                if (data.task_id) {
+                    pollStatus(data.task_id);
+                } else if (data.status === 'done') {
+                    // Sync fallback result
+                    let html = `<div class="alert alert-success py-2 mb-2">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Imported <strong>${data.success_count}</strong> examiner(s).
+                        ${data.error_count ? `<br><span class="text-warning">${data.error_count} row(s) had errors.</span>` : ''}
+                    </div>`;
+                    if (data.errors && data.errors.length) {
+                        html += '<ul class="small text-danger mb-0">' + data.errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+                    }
+                    showResult(html, false);
+                } else {
+                    const msg = data.error || data.message || 'Upload failed.';
+                    showResult(`<div class="alert alert-danger py-2 mb-0"><i class="bi bi-x-circle me-1"></i>${msg}</div>`, true);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btnText.textContent = 'Upload & Import';
+                btnSpinner.classList.add('d-none');
+                alert('Upload error: ' + err.message);
+            });
     });
 }
 </script>

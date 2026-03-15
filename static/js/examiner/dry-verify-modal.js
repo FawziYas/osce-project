@@ -79,7 +79,7 @@
 
     function setFeedback(text, cls) {
         feedback.className = 'verify-feedback ' + cls;
-        feedback.innerHTML = text;
+        feedback.textContent = text;
     }
 
     /* ── Mode switching (reg ↔ masterkey) ─────────────── */
@@ -302,7 +302,42 @@
     /* ── Redirect ────────────────────────────────────── */
     function performRedirect() {
         setTimeout(function () {
-            window.location.href = state.redirectUrl;
+            const w = screen.availWidth  || window.screen.width  || 1920;
+            const h = screen.availHeight || window.screen.height || 1080;
+            const features = [
+                'width='     + w,
+                'height='    + h,
+                'left=0',
+                'top=0',
+                'toolbar=no',
+                'menubar=no',
+                'location=no',
+                'status=no',
+                'scrollbars=yes',
+                'resizable=no',
+                'popup=yes',
+            ].join(',');
+
+            const examWindow = window.open(state.redirectUrl, 'DryOSCEExam_' + state.studentId, features);
+            if (examWindow) {
+                examWindow.focus();
+                bsModal.hide();
+            } else {
+                // Popup was blocked — do NOT navigate away from the dashboard.
+                // Re-enable the form and show a clear instruction.
+                state.busy = false;
+                input.readOnly = false;
+                input.disabled = false;
+                btnSubmit.disabled = false;
+                setInputBorder(null);
+                setIconClear();
+                setFeedback(
+                    '<i class="bi bi-exclamation-triangle-fill"></i> ' +
+                    '<strong>Pop-ups are blocked.</strong> ' +
+                    'Please allow pop-ups for this site in your browser, then click <em>Verify &amp; Start</em> again.',
+                    'text-danger'
+                );
+            }
         }, 600);
     }
 

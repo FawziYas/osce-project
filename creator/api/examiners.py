@@ -9,20 +9,25 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
-from core.models import Examiner, ExaminerAssignment
+from core.models import Examiner, ExaminerAssignment, ExamSession
+from core.utils.roles import scope_queryset
 
 
 @login_required
 @require_GET
 def get_examiners(request):
     """GET /api/creator/examiners"""
-    examiners = Examiner.objects.filter(is_active=True, role='examiner').order_by('full_name')
+    examiners = scope_queryset(
+        request.user,
+        Examiner.objects.filter(is_active=True, role='examiner', is_deleted=False).select_related('department'),
+        dept_field='department',
+    ).order_by('full_name')
     return JsonResponse([{
         'id': e.id,
         'username': e.username,
         'full_name': e.full_name,
         'title': e.title,
-        'department': e.department,
+        'department': e.department.name if e.department else '',
         'display_name': e.display_name,
     } for e in examiners], safe=False)
 
@@ -41,15 +46,25 @@ def create_examiner_api(request):
     if Examiner.objects.filter(username=data['username']).exists():
         return JsonResponse({'error': 'Username already exists'}, status=400)
 
+    # Look up department FK by name
+    dept_obj = None
+    dept_name = data.get('department', '').strip()
+    if dept_name:
+        from core.models import Department
+        try:
+            dept_obj = Department.objects.get(name=dept_name)
+        except Department.DoesNotExist:
+            pass
+
     examiner = Examiner(
         username=data['username'],
         email=data.get('email', f"{data['username']}@osce.local"),
         full_name=data['full_name'],
         title=data.get('title', ''),
-        department=data.get('department', ''),
+        department=dept_obj,
         is_active=True,
     )
-    examiner.set_password(data.get('password') or getattr(settings, 'DEFAULT_USER_PASSWORD', 'ChangeMe@123'))
+    examiner.set_password(data.get('password') or getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F'))
     examiner.save()
 
     return JsonResponse({
@@ -63,6 +78,10 @@ def create_examiner_api(request):
 @require_GET
 def get_session_assignments(request, session_id):
     """GET /api/creator/sessions/<id>/assignments"""
+    session = get_object_or_404(
+        scope_queryset(request.user, ExamSession.objects.all(), dept_field='exam__course__department'),
+        pk=session_id,
+    )
     assignments = ExaminerAssignment.objects.filter(
         session_id=session_id
     ).select_related('station', 'examiner')
@@ -81,6 +100,10 @@ def get_session_assignments(request, session_id):
 @require_POST
 def create_assignment(request, session_id):
     """POST /api/creator/sessions/<id>/assignments"""
+    session = get_object_or_404(
+        scope_queryset(request.user, ExamSession.objects.all(), dept_field='exam__course__department'),
+        pk=session_id,
+    )
     try:
         data = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):

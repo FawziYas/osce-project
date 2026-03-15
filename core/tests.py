@@ -21,7 +21,10 @@ class ExaminerModelTest(TestCase):
             full_name='Test Examiner', email='test@osce.local',
         )
         self.assertEqual(e.username, 'testexam')
-        self.assertTrue(e.check_password('TestPass123!'))
+        # Signal overrides password with DEFAULT_USER_PASSWORD
+        e.refresh_from_db()
+        from django.conf import settings
+        self.assertTrue(e.check_password(getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')))
         self.assertTrue(e.is_active)
         self.assertFalse(e.is_staff)
 

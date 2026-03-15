@@ -648,4 +648,206 @@
 
     global.generateSessionReport = generateSessionReport;
 
+    /* ═══════════════════════════════════════════════════════════════════════
+       Student Path Distribution Report
+       — 3 paths side-by-side per A4 page, 12 pt text, native Arabic
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    function buildStudentPathsCSS() {
+        /* Extend the shared session-report CSS with 3-column path layout rules */
+        return buildCSS() + '\n' + [
+        '/* ── 3-column path layout ──────────────────────────────────── */',
+        '.spl-title { font-size: 16pt; font-weight: 700; margin: 0; color: var(--white); }',
+
+        '/* Each group of up to 3 paths sits in a flex row that breaks the page after it */',
+        '.paths-page {',
+        '    display: flex; gap: 0;',
+        '    page-break-after: always; break-after: page;',
+        '    width: 100%;',
+        '}',
+        '.paths-page.last-page { page-break-after: auto; break-after: auto; }',
+
+        '.path-col {',
+        '    flex: 1; min-width: 0; overflow: hidden;',
+        '    border: 1px solid var(--mgray); border-right-width: 0;',
+        '}',
+        '.path-col:last-child { border-right-width: 1px; }',
+
+        '.path-col-header {',
+        '    background: var(--navy); color: var(--white);',
+        '    text-align: center; font-weight: 700; font-size: 12pt;',
+        '    padding: 9px 8px;',
+        '    border-bottom: 3px solid var(--accent);',
+        '    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
+        '}',
+        '.path-col-sub {',
+        '    background: var(--navy2); color: rgba(255,255,255,.85);',
+        '    font-size: 7.5pt; text-align: center;',
+        '    padding: 3px 6px; border-bottom: 1px solid #1a3a5c;',
+        '}',
+
+        '.student-row {',
+        '    padding: 6px 10px;',
+        '    border-bottom: 1px solid var(--mgray);',
+        '    font-size: 12pt; line-height: 1.35;',
+        '    text-align: center; word-break: break-word;',
+        '}',
+        '.student-row:nth-child(even) { background: var(--lgray); }',
+        '.student-row.ar {',
+        '    font-family: "Times New Roman","Arabic Typesetting","Traditional Arabic",',
+        '                 "Simplified Arabic","Noto Naskh Arabic",serif;',
+        '    direction: rtl; text-align: right; padding-right: 12px;',
+        '}',
+        '.path-empty {',
+        '    padding: 10px; text-align: center;',
+        '    color: var(--dgray); font-style: italic; font-size: 9pt;',
+        '}',
+        ].join('\n');
+    }
+
+    async function generateStudentPathsReport(sessionId, meta) {
+        var btn     = document.getElementById('pdfDownloadBtn');
+        var content = document.getElementById('pdfBtnContent');
+        var spinner = document.getElementById('pdfBtnSpinner');
+        var origLabel = content ? content.innerHTML : '';
+
+        if (btn)     { btn.style.pointerEvents = 'none'; }
+        if (content) { content.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Generating\u2026'; }
+        if (spinner) { spinner.classList.remove('d-none'); }
+
+        try {
+            var paths = await fetchJSON('/api/creator/sessions/' + sessionId + '/paths');
+
+            var generatedAt  = fmtNow();
+            var sessionName  = unescapeJs(meta.sessionName || String(sessionId));
+            var title        = 'Student Path Assignments \u2013 ' + sessionName;
+
+            /* ── Build path column markup ──────────────────────────────── */
+            function buildPathColumn(path) {
+                var students = path.students || [];
+                var count    = students.length;
+                var hdr = [
+                    '<div class="path-col-header">Path ' + esc(path.name) + '</div>',
+                    '<div class="path-col-sub">' + count + ' student' +
+                        (count !== 1 ? 's' : '') + '</div>',
+                ].join('');
+
+                if (!count) {
+                    return hdr + '<div class="path-empty">No students assigned</div>';
+                }
+                var rows = students.map(function (stu) {
+                    var name = stu.full_name || '\u2014';
+                    var ar   = hasArabic(name);
+                    return '<div class="student-row' + (ar ? ' ar' : '') + '">' +
+                           (ar ? arabicCell(name) : esc(name)) + '</div>';
+                }).join('');
+                return hdr + rows;
+            }
+
+            /* ── Group paths into chunks of 3 ─────────────────────────── */
+            var PER_PAGE  = 3;
+            var pageGroups = [];
+            for (var i = 0; i < paths.length; i += PER_PAGE) {
+                pageGroups.push(paths.slice(i, i + PER_PAGE));
+            }
+            if (!pageGroups.length) { pageGroups.push([]); }
+
+            var pagesHtml = pageGroups.map(function (group, pageIdx) {
+                var isLast = pageIdx === pageGroups.length - 1;
+                var cols;
+                if (!group.length) {
+                    cols = '<div class="path-col"><div class="path-empty">No paths defined.</div></div>';
+                } else {
+                    cols = group.map(function (p) {
+                        return '<div class="path-col">' + buildPathColumn(p) + '</div>';
+                    }).join('');
+                    /* Pad empty columns to keep flex row balanced */
+                    for (var k = group.length; k < PER_PAGE; k++) {
+                        cols += '<div class="path-col"></div>';
+                    }
+                }
+                return '<div class="paths-page' + (isLast ? ' last-page' : '') + '">' + cols + '</div>';
+            }).join('\n');
+
+            /* ── Page header (same design as session report) ───────────── */
+            var reportHeader = [
+                '<div class="print-controls">',
+                '  <button class="btn-print" onclick="window.print()">\uD83D\uDDA8\uFE0F Print / Save as PDF</button>',
+                '  <button class="btn-close-w" onclick="window.close()">\u2715 Close</button>',
+                '  <span style="font-size:8pt;color:#555">Use your browser\'s <b>Print &rarr; Save as PDF</b> for the best Arabic rendering.</span>',
+                '</div>',
+                '<div class="rpt-header">',
+                '  <div class="rpt-header-top">',
+                '    <div class="rpt-logo-area">',
+                '      <div class="rpt-logo-box">',
+                '        <span class="logo-main">OSCE</span>',
+                '        <span class="logo-sub">SYSTEM</span>',
+                '      </div>',
+                '      <div class="rpt-title-area">',
+                '        <h1 class="spl-title">Student Path Assignments</h1>',
+                '        <p>' + esc(sessionName) + ' &mdash; Confidential</p>',
+                '      </div>',
+                '    </div>',
+                '    <div class="rpt-meta">',
+                '      <div>Generated: <strong>' + esc(generatedAt) + '</strong></div>',
+                '      <div>Total Paths: <strong>' + esc(String(paths.length)) + '</strong></div>',
+                '    </div>',
+                '  </div>',
+                '</div>',
+            ].join('\n');
+
+            var footer = [
+                '<div class="rpt-footer">',
+                '  <span>Generated by OSCE Management System</span>',
+                '  <span class="conf">CONFIDENTIAL &ndash; Unauthorized distribution is strictly prohibited.</span>',
+                '  <span>' + esc(generatedAt) + '</span>',
+                '</div>',
+            ].join('\n');
+
+            var html = [
+                '<!DOCTYPE html>',
+                '<html lang="en">',
+                '<head>',
+                '  <meta charset="UTF-8">',
+                '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+                '  <title>' + esc(title) + '</title>',
+                '  <style>' + buildStudentPathsCSS() + '</style>',
+                '</head>',
+                '<body>',
+                reportHeader,
+                '<div class="report-wrapper" style="padding-top:14px;">',
+                pagesHtml,
+                '</div>',
+                footer,
+                '<script>',
+                '  window.addEventListener("load", function () {',
+                '    setTimeout(function () { window.print(); }, 700);',
+                '  });',
+                '<\/script>',
+                '</body>',
+                '</html>',
+            ].join('\n');
+
+            var win = window.open('', '_blank', 'width=960,height=720,scrollbars=yes');
+            if (!win) {
+                alert('Pop-up blocked.\nPlease allow pop-ups for this site and click the button again.');
+                return;
+            }
+            win.document.open();
+            win.document.write(html);
+            win.document.close();
+            win.document.title = title;
+
+        } catch (err) {
+            console.error('[student-paths] Error:', err);
+            alert('Failed to generate student path list:\n' + err.message);
+        } finally {
+            if (btn)     { btn.style.pointerEvents = ''; }
+            if (content) { content.innerHTML = origLabel; }
+            if (spinner) { spinner.classList.add('d-none'); }
+        }
+    }
+
+    global.generateStudentPathsReport = generateStudentPathsReport;
+
 })(window);

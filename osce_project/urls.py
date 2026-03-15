@@ -4,12 +4,15 @@ Root URL configuration for OSCE Django project.
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import HttpResponseNotFound
 from django.urls import path, include
-from django.views.generic import RedirectView
+from django.views.generic import RedirectView, TemplateView
 from core.views import login_view, logout_view, admin_gateway_view, force_change_password_view, profile_view
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/login/', permanent=False), name='home'),
+    path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain')),
+    path('sitemap.xml', lambda request: HttpResponseNotFound()),
     path('login/', login_view, name='login'),
     path('logout/', logout_view, name='logout'),
     path('change-password/', force_change_password_view, name='force_change_password'),

@@ -307,6 +307,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Prevent Backspace from triggering browser back-navigation when
+    // no text input is focused (mirrors the behaviour of a POST-form page
+    // like dry grading, where Backspace is always absorbed by a number input).
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace') {
+            const el = document.activeElement;
+            const tag = el ? el.tagName.toLowerCase() : '';
+            if (tag !== 'input' && tag !== 'textarea' && !el.isContentEditable) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+
+// bfcache guard: if the browser restores this page from cache after submit,
+// force a reload so the next student cannot see the previous student's answers.
+window.addEventListener('pageshow', function(e) {
+    if (e.persisted) {
+        window.location.reload();
+    }
 });
 
 // ============================================================================
@@ -758,6 +779,9 @@ function showConfirmModal() {
 
 function closeConfirmModal() {
     document.getElementById('confirm-modal').style.display = 'none';
+    // Blur the submit button so Enter/Space doesn't immediately re-open the modal
+    const submitBtn = document.getElementById('submit-btn');
+    if (submitBtn) submitBtn.blur();
 }
 
 async function confirmSubmit() {
@@ -785,7 +809,9 @@ async function confirmSubmit() {
             if (examTimer) examTimer.stop();
             scoreIsSubmitted = true; // disable beforeunload guard
 
-            window.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
+            // Use replace() so marking is removed from browser history —
+            // pressing back from the dashboard cannot return here.
+            window.location.replace("{% url 'examiner:station_dashboard' assignment.id %}");
         } else {
             throw new Error(result.error || 'Submit failed');
         }

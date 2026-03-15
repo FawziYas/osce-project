@@ -28,26 +28,26 @@
                         <label class="form-label">Username <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="username" required
                                value="{{ post.username|default:'' }}"
-                               placeholder="52526">
-                        <div class="form-text">Use financial number (e.g., 52526).</div>
+                               placeholder="52026">
+                        <div class="form-text">Use financial number (e.g., 52026).</div>
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Email</label>
                         <input type="email" class="form-control" name="email"
                                value="{{ post.email|default:'' }}"
-                               placeholder="fawzi@najah.edu">
+                               placeholder="fawzi.yasin@najah.edu">
                     </div>
 
                     <!-- Department -->
                     <div class="col-md-6">
                         <label class="form-label">Department <span class="text-danger">*</span></label>
                         {% if departments %}
-                        <select class="form-select" name="coordinator_department" required>
+                        <select class="form-select" name="department" required>
                             <option value="">— Select department —</option>
                             {% for dept in departments %}
                             <option value="{{ dept.id }}"
-                                {% if post.coordinator_department == dept.id|stringformat:"s" %}selected{% endif %}>
+                                {% if post.department == dept.id|stringformat:"s" %}selected{% endif %}>
                                 {{ dept.name }}
                             </option>
                             {% endfor %}
@@ -90,4 +90,21 @@
     </div>
 
 </div>
+
+<script>
+// Prevent double-submit on coordinator form (disable all submit buttons)
+document.querySelectorAll('form').forEach(form => {
+    let submitted = false;
+    form.addEventListener('submit', function(e) {
+        if (submitted) { e.preventDefault(); return false; }
+        submitted = true;
+        // Disable all submit buttons
+        form.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -16,27 +16,29 @@ from core.models import (
     Station,
     StationScore,
 )
+from core.utils.roles import scope_queryset
 
 
 @login_required
 def get_stats_overview(request):
     """GET /api/creator/stats/overview"""
+    user = request.user
     return JsonResponse({
-        'courses': Course.objects.count(),
-        'ilos': ILO.objects.count(),
-        'exams': Exam.objects.filter(is_deleted=False).count(),
-        'stations': Station.objects.filter(
+        'courses': scope_queryset(user, Course.objects.all(), dept_field='department').count(),
+        'ilos': scope_queryset(user, ILO.objects.all(), dept_field='course__department').count(),
+        'exams': scope_queryset(user, Exam.objects.filter(is_deleted=False), dept_field='course__department').count(),
+        'stations': scope_queryset(user, Station.objects.filter(
             active=True,
             is_deleted=False,
             path__session__exam__is_deleted=False,
-        ).count(),
-        'library_items': ChecklistLibrary.objects.count(),
-        'examiners': Examiner.objects.count(),
-        'sessions': ExamSession.objects.filter(
+        ), dept_field='path__session__exam__course__department').count(),
+        'library_items': scope_queryset(user, ChecklistLibrary.objects.all(), dept_field='ilo__course__department').count(),
+        'examiners': scope_queryset(user, Examiner.objects.filter(role='examiner', is_deleted=False), dept_field='department').count(),
+        'sessions': scope_queryset(user, ExamSession.objects.filter(
             exam__is_deleted=False,
-        ).count(),
-        'students_registered': SessionStudent.objects.filter(
+        ), dept_field='exam__course__department').count(),
+        'students_registered': scope_queryset(user, SessionStudent.objects.filter(
             session__exam__is_deleted=False,
-        ).count(),
-        'scores_recorded': StationScore.objects.count(),
+        ), dept_field='session__exam__course__department').count(),
+        'scores_recorded': scope_queryset(user, StationScore.objects.all(), dept_field='station__path__session__exam__course__department').count(),
     })

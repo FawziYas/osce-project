@@ -24,13 +24,13 @@ class Department(TimestampMixin):
     @property
     def head_coordinator(self):
         """Return the coordinator with position=head for this dept, if any."""
-        return self.coordinators.filter(
+        return self.members.filter(
             coordinator_position='head', is_deleted=False
         ).first()
 
     @property
     def rta_coordinators(self):
         """Return all RTA coordinators for this dept."""
-        return self.coordinators.filter(
+        return self.members.filter(
             coordinator_position='rta', is_deleted=False
         )

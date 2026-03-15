@@ -42,7 +42,7 @@
                 <td><a href="{% url 'creator:exam_detail' exam.id %}" class="text-decoration-none fw-bold">{{ exam.name }}</a></td>
                 <td>
                     {% if exam.course %}
-                        <span class="badge bg-primary me-1">{{ exam.course.short_code|default:exam.course.code }}</span>
+                        <span class="badge bg-primary me-1">{{ exam.course.code }}</span>
                     {% else %}<span class="text-muted">-</span>{% endif %}
                 </td>
                    <td><span class="badge bg-info text-dark">{{ exam.stations.count }} stations</span></td>

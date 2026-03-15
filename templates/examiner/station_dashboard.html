@@ -152,7 +152,9 @@
                                 {% endif %}
                                 <div class="student-info-cell">
                                     <div class="student-name-sm">{{ entry.student.full_name }}</div>
-                                    <div class="student-id-sm">{{ entry.student.student_number }}</div>
+                                   {% if not assignment.station.is_dry %}
+                                     <div class="student-id-sm">{{ entry.student.student_number }}</div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </td>
@@ -311,3 +313,12 @@
 <script src="{% static 'js/examiner/dry-verify-modal.js' %}"></script>
 {% endblock %}
 {% endif %}
+
+<!-- bfcache guard: reload when returning to this dashboard -->
+<script>
+window.addEventListener('pageshow', function(e) {
+    if (e.persisted) {
+        window.location.reload();
+    }
+});
+</script>

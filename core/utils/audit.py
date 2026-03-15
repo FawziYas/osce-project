@@ -64,10 +64,8 @@ def _resolve_department_id(resource):
     if dept_id and isinstance(dept_id, int):
         return dept_id
 
-    # Has coordinator_department FK (Examiner model)
-    coord_dept = getattr(resource, 'coordinator_department', None)
-    if coord_dept is not None:
-        return getattr(coord_dept, 'pk', None)
+    # Has coordinator_department FK (Examiner model) — now renamed to department
+    # (handled above via getattr .department)
 
     # Course FK → department
     course = getattr(resource, 'course', None)
@@ -216,7 +214,7 @@ class AuditLogService:
                     if request else ''
                 ),
                 'request_method': (
-                    getattr(request, 'method', '')
+                    getattr(request, 'method', '') or ''
                     if request else ''
                 ),
                 'request_path': (
@@ -273,9 +271,9 @@ def _write_audit_log_sync(payload):
             new_value=payload.get('new_value'),
             description=payload.get('description', ''),
             ip_address=payload.get('ip_address'),
-            user_agent=payload.get('user_agent', ''),
-            request_method=payload.get('request_method', ''),
-            request_path=payload.get('request_path', ''),
+            user_agent=payload.get('user_agent') or '',
+            request_method=payload.get('request_method') or '',
+            request_path=payload.get('request_path') or '',
             extra_data=payload.get('extra_data'),
         )
     except Exception:

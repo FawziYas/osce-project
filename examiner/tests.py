@@ -10,6 +10,7 @@ from core.models import (
     Course, Exam, ExamSession, Path, Station, ChecklistItem,
     Examiner, ExaminerAssignment, SessionStudent, ILO,
 )
+from core.models.user_profile import UserProfile
 
 
 class ExaminerTestBase(TestCase):
@@ -52,12 +53,18 @@ class ExaminerTestBase(TestCase):
         )
         cls.assignment = ExaminerAssignment.objects.create(
             session=cls.session, station=cls.station,
-            examiner=cls.examiner, is_primary=True,
+            examiner=cls.examiner,
         )
         cls.student = SessionStudent.objects.create(
             session=cls.session, student_number='12345',
             full_name='Test Student', path=cls.path,
         )
+        # Re-set password after signal override and disable force-change
+        cls.examiner.set_password('ExamPass123!')
+        cls.examiner.save(update_fields=['password'])
+        UserProfile.objects.filter(
+            user=cls.examiner
+        ).update(must_change_password=False)
 
 
 class ExaminerLoginTest(ExaminerTestBase):
@@ -65,16 +72,16 @@ class ExaminerLoginTest(ExaminerTestBase):
 
     def test_login_page(self):
         r = self.client.get(reverse('examiner:login'))
-        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.status_code, 302)  # Redirects to unified /login/
 
     def test_login_success(self):
-        r = self.client.post(reverse('examiner:login'), {
+        r = self.client.post(reverse('login'), {
             'username': 'examiner1', 'password': 'ExamPass123!',
         })
         self.assertIn(r.status_code, [200, 302])
 
     def test_login_failure(self):
-        r = self.client.post(reverse('examiner:login'), {
+        r = self.client.post(reverse('login'), {
             'username': 'examiner1', 'password': 'wrong',
         })
         self.assertEqual(r.status_code, 200)  # Re-renders form
@@ -93,7 +100,7 @@ class ExaminerAuthenticatedTest(ExaminerTestBase):
 
     def setUp(self):
         self.client = Client()
-        self.client.login(username='examiner1', password='ExamPass123!')
+        self.client.force_login(self.examiner)
 
     def test_home_page(self):
         r = self.client.get(reverse('examiner:home'))

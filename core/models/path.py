@@ -126,28 +126,3 @@ class Path(TimestampMixin):
 
 # Backward-compatibility alias
 StudentPath = Path
-
-
-class PathStation(TimestampMixin):
-    """
-    DEPRECATED legacy junction table.
-    Kept only for migration compatibility.
-    """
-
-    id = models.AutoField(primary_key=True)
-    student_path_id = models.IntegerField(null=True, blank=True)
-    path = models.ForeignKey(
-        Path, on_delete=models.CASCADE, null=True, blank=True,
-        related_name='legacy_path_stations'
-    )
-    station = models.ForeignKey(
-        'core.Station', on_delete=models.CASCADE, db_index=True
-    )
-    sequence_order = models.IntegerField()
-    notes = models.TextField(blank=True, default='')
-
-    class Meta:
-        db_table = 'path_stations'
-
-    def __str__(self):
-        return f'PathStation {self.id}'

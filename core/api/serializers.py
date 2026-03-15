@@ -48,7 +48,7 @@ class DepartmentListSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_coordinator_count(self, obj):
-        return obj.coordinators.filter(is_deleted=False).count()
+        return obj.members.filter(is_deleted=False).count()
 
 
 class DepartmentDetailSerializer(serializers.ModelSerializer):
@@ -62,7 +62,7 @@ class DepartmentDetailSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_coordinators(self, obj):
-        qs = obj.coordinators.filter(is_deleted=False).order_by('coordinator_position', 'full_name')
+        qs = obj.members.filter(is_deleted=False).order_by('coordinator_position', 'full_name')
         return CoordinatorSummarySerializer(qs, many=True).data
 
     def get_course_count(self, obj):

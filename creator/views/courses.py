@@ -1,6 +1,7 @@
 """
 Course and ILO CRUD views.
 """
+from django.core.cache import cache
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -23,9 +24,16 @@ from core.utils.roles import (
 @login_required
 def course_list(request):
     """List courses — scoped to user's department for coordinators."""
-    courses = scope_queryset(request.user, Course.objects.all(), dept_field='department')
-    courses = courses.order_by('year_level', 'code')
     user = request.user
+    dept = getattr(user, 'department', None)
+    cache_key = f'course_list_{user.pk}_{dept.pk if dept else "all"}'
+    courses = cache.get(cache_key)
+    if courses is None:
+        courses = list(
+            scope_queryset(user, Course.objects.all(), dept_field='department')
+            .order_by('year_level', 'code')
+        )
+        cache.set(cache_key, courses, timeout=1800)  # 30 min
     can_add_course = user.is_superuser or getattr(user, 'role', None) == 'admin'
     can_edit_course = can_add_course or is_head_coordinator(user)
     return render(request, 'creator/courses/list.html', {
@@ -68,7 +76,9 @@ def course_create(request):
         messages.success(request, f'Course "{course.code}" created successfully.')
         next_url = request.POST.get('next')
         if next_url:
-            return redirect(next_url)
+            from django.utils.http import url_has_allowed_host_and_scheme
+            if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
         return redirect('creator:course_detail', course_id=course.id)
 
     return render(request, 'creator/courses/form.html', {'course': None, 'year_range': range(1, 7), 'departments': departments})
@@ -120,7 +130,9 @@ def course_edit(request, course_id):
         messages.success(request, f'Course "{course.code}" updated.')
         next_url = request.POST.get('next')
         if next_url:
-            return redirect(next_url)
+            from django.utils.http import url_has_allowed_host_and_scheme
+            if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
         return redirect('creator:course_detail', course_id=course.id)
 
     return render(request, 'creator/courses/form.html', {'course': course, 'year_range': range(1, 7), 'departments': departments})

@@ -42,15 +42,23 @@
                     </td>
                   
                     <td class="text-center">
-                        {% if dept.organizer_count %}
-                            <span class="badge bg-warning text-dark">{{ dept.organizer_count }}</span>
+                        {% if dept.organizer_coordinators %}
+                            <div class="d-flex flex-column gap-2 align-items-center">
+                                {% for org in dept.organizer_coordinators %}
+                                    <span class="badge bg-warning text-dark">{{ org.full_name }}</span>
+                                {% endfor %}
+                            </div>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
                       <td class="text-center">
-                        {% if dept.rta_count %}
-                            <span class="badge bg-primary">{{ dept.rta_count }}</span>
+                        {% if dept.rta_coordinators %}
+                            <div class="d-flex flex-column gap-2 align-items-center">
+                                {% for rta in dept.rta_coordinators %}
+                                    <span class="badge bg-primary">{{ rta.full_name }}</span>
+                                {% endfor %}
+                            </div>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}

@@ -321,11 +321,19 @@ CREATE POLICY item_score_select ON item_scores FOR SELECT USING (
     SELECT 1 FROM checklist_items ci
     WHERE ci.id = item_scores.checklist_item_id
     AND examiner_has_station(ci.station_id)
-  ) AND examiner_id = app_user_id())
+  ) AND EXISTS (
+    SELECT 1 FROM station_scores ss
+    WHERE ss.id = item_scores.station_score_id
+    AND ss.examiner_id = app_user_id()
+  ))
 );
 CREATE POLICY item_score_insert ON item_scores FOR INSERT WITH CHECK (
   is_global_role() OR
-  (app_role() = 'EXAMINER' AND examiner_id = app_user_id() AND EXISTS (
+  (app_role() = 'EXAMINER' AND EXISTS (
+    SELECT 1 FROM station_scores ss
+    WHERE ss.id = item_scores.station_score_id
+    AND ss.examiner_id = app_user_id()
+  ) AND EXISTS (
     SELECT 1 FROM checklist_items ci
     WHERE ci.id = item_scores.checklist_item_id
     AND examiner_has_station(ci.station_id)
@@ -333,7 +341,11 @@ CREATE POLICY item_score_insert ON item_scores FOR INSERT WITH CHECK (
 );
 CREATE POLICY item_score_update ON item_scores FOR UPDATE USING (
   is_global_role() OR
-  (app_role() = 'EXAMINER' AND examiner_id = app_user_id())
+  (app_role() = 'EXAMINER' AND EXISTS (
+    SELECT 1 FROM station_scores ss
+    WHERE ss.id = item_scores.station_score_id
+    AND ss.examiner_id = app_user_id()
+  ))
 );
 CREATE POLICY item_score_delete ON item_scores FOR DELETE USING (is_global_role());
 """

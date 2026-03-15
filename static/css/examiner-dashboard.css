@@ -511,8 +511,14 @@
     background: #f0fdf480;
 }
 
-.students-table tr:hover {
-    background: #F9FAFB;
+.students-table tbody tr {
+    transition: all 0.2s ease-in-out;
+    position: relative;
+}
+
+.students-table tbody tr:hover {
+    background: #EEF9F8;
+    box-shadow: inset 4px 0 0 #14b8a6, 0 2px 8px rgba(20, 184, 166, 0.12);
 }
 
 /* STUDENT CELL */

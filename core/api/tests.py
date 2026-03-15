@@ -64,13 +64,13 @@ class AuthorizationTestBase(TestCase):
         cls.coord_a = Examiner.objects.create_user(
             username='coord_a', password='pass1234',
             full_name='Coordinator A', role='coordinator',
-            coordinator_department=cls.dept_a,
+            department=cls.dept_a,
             coordinator_position='head',
         )
         cls.coord_b = Examiner.objects.create_user(
             username='coord_b', password='pass1234',
             full_name='Coordinator B', role='coordinator',
-            coordinator_department=cls.dept_b,
+            department=cls.dept_b,
             coordinator_position='head',
         )
         cls.examiner_assigned = Examiner.objects.create_user(

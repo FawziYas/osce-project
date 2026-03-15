@@ -44,9 +44,15 @@
                     <i class="bi bi-trash me-1"></i>Delete Exam
                 </button>
             {% elif exam.status == 'in_progress' %}
+                {% if all_sessions_finished %}
                 <button type="button" class="btn btn-success" onclick="completeExam()">
                     <i class="bi bi-check2-all me-1"></i>Complete Exam
                 </button>
+                {% else %}
+                <button type="button" class="btn btn-success" disabled title="All sessions must be marked as Finished before the exam can be completed">
+                    <i class="bi bi-check2-all me-1"></i>Complete Exam
+                </button>
+                {% endif %}
                 <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#archiveModal">
                     <i class="bi bi-archive me-1"></i>Archive Exam
                 </button>
@@ -124,10 +130,14 @@
                         </a>
                     </td>
                     <td>
-                        {% if session.has_dry_stations and session.status == 'finished' %}
-                        <a href="{% url 'creator:session_dry_grading' session.id %}" class="btn btn-sm btn-outline-success" title="Open session for dry marking workflow">
-                            <i class="bi bi-clipboard-check me-1"></i>Mark Dry
-                        </a>
+                        {% if can_dry_grade and session.has_dry_stations %}
+                            {% if session.status == 'finished' or session.status == 'completed' %}
+                            <a href="{% url 'creator:session_dry_grading' session.id %}" class="btn btn-sm btn-outline-success" title="Open session for dry marking workflow">
+                                <i class="bi bi-clipboard-check me-1"></i>Mark Dry
+                            </a>
+                            {% else %}
+                            <span class="text-muted small">-</span>
+                            {% endif %}
                         {% else %}
                         <span class="text-muted small">-</span>
                         {% endif %}

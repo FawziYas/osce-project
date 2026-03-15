@@ -1,6 +1,6 @@
 /* Shared builder helpers for form_simple + template_form. */
 
-function addNewItem(description = '', points = null, scale = 'binary', iloId = '', customLabels = null, startCollapsed = false) {
+function addNewItem(description = '', points = null, scale = 'binary', iloId = '', customLabels = null, startCollapsed = false, dbId = null) {
     const container = document.getElementById('checklistContainer');
     const template = document.getElementById('itemTemplate');
     const clone = template.content.cloneNode(true);
@@ -8,6 +8,7 @@ function addNewItem(description = '', points = null, scale = 'binary', iloId = '
     itemCounter++;
     const itemCard = clone.querySelector('.checklist-item-card');
     itemCard.dataset.itemId = itemCounter;
+    if (dbId) itemCard.dataset.dbId = String(dbId);
 
     const descInput = clone.querySelector('.item-description-input');
     descInput.value = description;

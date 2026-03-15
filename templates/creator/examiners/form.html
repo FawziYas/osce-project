@@ -30,18 +30,18 @@
                         <label class="form-label">Full Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="full_name" required
                                value="{{ examiner.full_name|default:'' }}"
-                               placeholder="Mohammed Ahmed">
+                               placeholder="Fawzi Yasin">
                     </div>
 
                     <div class="col-md-6">
                         <label class="form-label">Username <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="username" required
                                value="{{ examiner.username|default:'' }}"
-                               placeholder="700125" {% if examiner %}readonly{% endif %}>
+                               placeholder="52026" {% if examiner %}readonly{% endif %}>
                         {% if examiner %}
                         <div class="form-text">Username cannot be changed</div>
                         {%else %}
-                        <div class="form-text">Use financial number (e.g., 700125).</div>
+                        <div class="form-text">Use financial number (e.g., 52026).</div>
 
                         {% endif %}
                     </div>
@@ -50,7 +50,7 @@
                         <label class="form-label">Email</label>
                         <input type="email" class="form-control" name="email"
                                value="{{ examiner.email|default:'' }}"
-                               placeholder="moh@najah.edu">
+                               placeholder="fawzi.yasin@najah.edu">
                     </div>
 
                     <div class="col-md-6">
@@ -58,7 +58,7 @@
                         <select class="form-select" name="department" required>
                             <option value="">-- Select Department --</option>
                             {% for dept in departments %}
-                            <option value="{{ dept.name }}" {% if examiner and examiner.department == dept.name %}selected{% endif %}>{{ dept.name }}</option>
+                            <option value="{{ dept.name }}" {% if examiner and examiner.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -111,4 +111,21 @@
        
     </div>
 </div>
+
+<script>
+// Prevent double-submit on examiner form (disable all submit buttons)
+document.querySelectorAll('form').forEach(form => {
+    let submitted = false;
+    form.addEventListener('submit', function(e) {
+        if (submitted) { e.preventDefault(); return false; }
+        submitted = true;
+        // Disable all submit buttons
+        form.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        });
+    });
+});
+</script>
 {% endblock %}

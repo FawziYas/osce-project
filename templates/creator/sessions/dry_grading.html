@@ -40,6 +40,17 @@
     transition: all 0.2s;
 }
 
+/* Hide number input spinner arrows */
+.mark-input::-webkit-outer-spin-button,
+.mark-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.mark-input[type=number] {
+    -moz-appearance: textfield;
+}
+
 .mark-input:focus {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
     border-color: #3b82f6;
@@ -309,8 +320,8 @@
                                 name="mark_{{ row.id }}"
                                 class="form-control mark-input mx-auto"
                                 min="0"
+                                step="0.01"
                                 max="{{ selected_item.points }}"
-                                step="0.5"
                                 value="{% if row.marked_at %}{{ row.score }}{% endif %}"
                                 placeholder="0 – {{ selected_item.points }}"
                             >
@@ -388,6 +399,48 @@
             });
         });
     }
+
+    // ── Arrow key handler: up/down move by 0.5 ──
+    document.querySelectorAll('.mark-input').forEach(function (input) {
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                const min = parseFloat(this.min) || 0;
+                const max = parseFloat(this.max) || 100;
+                const step = 0.5;
+                let current = parseFloat(this.value) || min;
+                
+                if (e.key === 'ArrowUp') {
+                    current = Math.min(current + step, max);
+                } else {
+                    current = Math.max(current - step, min);
+                }
+                
+                this.value = current;
+                this.dispatchEvent(new Event('input', { bubbles: true }));
+                this.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        // Wheel/scroll handler
+        input.addEventListener('wheel', function (e) {
+            e.preventDefault();
+            const min = parseFloat(this.min) || 0;
+            const max = parseFloat(this.max) || 100;
+            const step = 0.5;
+            let current = parseFloat(this.value) || min;
+            
+            if (e.deltaY < 0) {
+                current = Math.min(current + step, max);
+            } else {
+                current = Math.max(current - step, min);
+            }
+            
+            this.value = current;
+            this.dispatchEvent(new Event('input', { bubbles: true }));
+            this.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
 }());
 </script>
 {% endblock %}

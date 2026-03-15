@@ -124,6 +124,10 @@
                             <span class="badge bg-success bg-opacity-10 text-success border border-success">
                                 {{ station.get_max_score }} marks
                             </span>
+
+                            {% if station.is_dry %}
+                                        <span class="badge bg-purple-soft text-purple border border-purple"><i class="bi bi-clipboard-check me-1"></i>Dry Station</span>
+                            {% endif %}
                         </div>
                     </div>
 

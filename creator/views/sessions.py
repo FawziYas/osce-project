@@ -24,13 +24,17 @@ from core.utils.cache_utils import (
     EXAMINER_LIST_KEY, EXAMINER_LIST_TTL,
     invalidate_session_detail, get_session_detail_cache_key,
     SESSION_DETAIL_KEY, SESSION_DETAIL_TTL,
+    invalidate_exam_detail,
 )
 from core.utils.roles import check_exam_department, check_session_department
 
 
 def _can_open_dry_grading(user):
-    """Allow only superuser, admin, coordinator-head, and coordinator-organizer."""
+    """Allow superuser, admin, coordinator-head/organizer, or users with the can_open_dry_grading permission."""
     if user.is_superuser:
+        return True
+
+    if user.has_perm('core.can_open_dry_grading'):
         return True
 
     role = getattr(user, 'role', None)
@@ -161,6 +165,7 @@ def session_create(request, exam_id):
 
         path_labels = ', '.join(str(i + 1) for i in range(number_of_paths))
         messages.success(request, f'Session "{session.name}" created with {number_of_paths} paths ({path_labels}). Now add stations.')
+        invalidate_exam_detail(exam_id)
         return redirect('creator:session_detail', session_id=str(session.id))
 
     return render(request, 'creator/sessions/form.html', {'exam': exam, 'session': None})
@@ -201,6 +206,7 @@ def session_edit(request, session_id):
         session.notes = request.POST.get('notes', '')
         session.save()
         invalidate_session_detail(session_id)
+        invalidate_exam_detail(str(exam.id))
         messages.success(request, f'Session "{session.name}" updated.')
         return redirect('creator:exam_detail', exam_id=str(exam.id))
 
@@ -226,6 +232,7 @@ def session_delete(request, session_id):
     session.status = 'cancelled'
     session.save()
     invalidate_session_detail(session_id)
+    invalidate_exam_detail(exam_id)
     _sync_exam_status(session.exam)  # recalculate exam status after session cancelled
 
     messages.success(request, f"Session '{session_name}' has been cancelled.")
@@ -359,128 +366,285 @@ def session_detail(request, session_id):
     })
 
 
-@login_required
-def download_student_paths_pdf(request, session_id):
-    """Download PDF with students grouped by path — dept-scoped."""
-    session_obj = get_object_or_404(ExamSession, pk=session_id)
-    if not check_session_department(request.user, session_obj):
-        return HttpResponseForbidden('You do not have access to this session.')
+def _build_student_paths_pdf(session):
+    """
+    Build and return the raw PDF bytes for the student-path distribution report.
+    Shared by the sync view and the async Celery task.
+    """
+    from datetime import datetime
+    from io import BytesIO
+    from collections import defaultdict
+
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib.enums import TA_CENTER
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.platypus import (
+        SimpleDocTemplate, Table, TableStyle,
+        Paragraph, Spacer, PageBreak,
+    )
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     import arabic_reshaper
     from bidi.algorithm import get_display
 
-    def reshape_arabic(text):
+    # ── Arabic reshape helper ────────────────────────────────────────────
+    def ra(text):
         if not text:
             return text
         try:
-            return get_display(arabic_reshaper.reshape(text))
+            return get_display(arabic_reshaper.reshape(str(text)))
         except Exception:
-            return text
+            return str(text) if text else ''
 
-    session = get_object_or_404(ExamSession, pk=session_id)
-    students = SessionStudent.objects.filter(session=session).order_by('student_number')
-    paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
+    # ── Font setup ───────────────────────────────────────────────────────
+    fnt = 'Helvetica'
+    fnt_bold = 'Helvetica-Bold'
+    try:
+        win_fonts = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts')
+        times_path = os.path.join(win_fonts, 'times.ttf')
+        times_bold_path = os.path.join(win_fonts, 'timesbd.ttf')
+        tnr_path = os.path.join(win_fonts, 'times new roman.ttf')
+        tnr_bold_path = os.path.join(win_fonts, 'times new roman bold.ttf')
+
+        registered = False
+        if os.path.exists(times_path) or os.path.exists(tnr_path):
+            p = times_path if os.path.exists(times_path) else tnr_path
+            pdfmetrics.registerFont(TTFont('TimesNew', p))
+            fnt = 'TimesNew'
+            registered = True
+        if os.path.exists(times_bold_path) or os.path.exists(tnr_bold_path):
+            pb = times_bold_path if os.path.exists(times_bold_path) else tnr_bold_path
+            pdfmetrics.registerFont(TTFont('TimesNew-Bold', pb))
+            fnt_bold = 'TimesNew-Bold'
+            registered = True
+
+        if not registered:
+            arial_path = os.path.join(win_fonts, 'arial.ttf')
+            arial_bold_path = os.path.join(win_fonts, 'arialbd.ttf')
+            if os.path.exists(arial_path):
+                pdfmetrics.registerFont(TTFont('Arial', arial_path))
+                fnt = 'Arial'
+            if os.path.exists(arial_bold_path):
+                pdfmetrics.registerFont(TTFont('Arial-Bold', arial_bold_path))
+                fnt_bold = 'Arial-Bold'
+    except Exception:
+        pass
+
+    # ── Colour palette ───────────────────────────────────────────────────
+    C_NAVY    = colors.HexColor('#1A1A2E')   # page header / footer band
+    C_COL_HDR = colors.HexColor('#0F3460')   # path column header bg
+    C_STRIPE  = colors.HexColor('#E8EEF7')   # alternating row stripe
+    C_BORDER  = colors.HexColor('#CBD5E1')   # table border
+    C_INFO    = colors.HexColor('#F0F4FF')   # summary block bg
+
+    # ── Data ─────────────────────────────────────────────────────────────
+    students       = list(SessionStudent.objects.filter(session=session).order_by('student_number'))
+    paths          = list(Path.objects.filter(session=session, is_deleted=False).order_by('name'))
+    total_students = len(students)
+    total_paths    = len(paths)
 
     students_by_path = defaultdict(list)
     for s in students:
         key = str(s.path_id) if s.path_id else 'unassigned'
         students_by_path[key].append(s)
 
+    exam_name    = ra(session.exam.name) if session.exam else ''
+    session_name = ra(session.name or 'Session')
+    date_str     = str(session.session_date) if session.session_date else '—'
+    generated_at = datetime.now().strftime('%d %b %Y  %H:%M')
+
+    page_w, page_h = A4
+    usable_w = page_w - 0.9 * inch
+
+    # ── Canvas header / footer ───────────────────────────────────────────
+    def _draw_page(canvas, doc):
+        canvas.saveState()
+
+        # Header band
+        band_h = 0.65 * inch
+        canvas.setFillColor(C_NAVY)
+        canvas.rect(0, page_h - band_h, page_w, band_h, fill=True, stroke=False)
+
+        canvas.setFillColor(colors.white)
+        canvas.setFont(fnt_bold, 11.5)
+        canvas.drawString(0.45 * inch, page_h - 0.27 * inch, 'Student Path Distribution')
+        canvas.setFont(fnt, 8.5)
+        canvas.drawString(0.45 * inch, page_h - 0.48 * inch, exam_name)
+
+        canvas.setFont(fnt, 8.5)
+        canvas.drawRightString(page_w - 0.45 * inch, page_h - 0.27 * inch, session_name)
+        canvas.drawRightString(page_w - 0.45 * inch, page_h - 0.48 * inch, date_str)
+
+        # Accent underline
+        canvas.setStrokeColor(colors.HexColor('#0F3460'))
+        canvas.setLineWidth(2)
+        canvas.line(0, page_h - band_h, page_w, page_h - band_h)
+
+        # Footer
+        fy = 0.28 * inch
+        canvas.setStrokeColor(C_BORDER)
+        canvas.setLineWidth(0.5)
+        canvas.line(0.45 * inch, fy + 0.15 * inch,
+                    page_w - 0.45 * inch, fy + 0.15 * inch)
+
+        canvas.setFillColor(colors.HexColor('#888888'))
+        canvas.setFont(fnt, 7.5)
+        canvas.drawString(0.45 * inch, fy, f'Generated: {generated_at}')
+        canvas.drawCentredString(page_w / 2, fy, f'Page {doc.page}')
+        canvas.drawRightString(page_w - 0.45 * inch, fy,
+                               f'Students: {total_students}  |  Paths: {total_paths}')
+
+        canvas.restoreState()
+
+    # ── Summary info block ───────────────────────────────────────────────
+    def _info_table():
+        style_p = ParagraphStyle('inf', fontName=fnt, fontSize=8.5, leading=13)
+        cells = [
+            Paragraph(f'<b>Exam:</b>  {exam_name}', style_p),
+            Paragraph(f'<b>Session:</b>  {session_name}', style_p),
+            Paragraph(f'<b>Date:</b>  {date_str}', style_p),
+            Paragraph(f'<b>Total Students:</b>  {total_students}', style_p),
+            Paragraph(f'<b>Total Paths:</b>  {total_paths}', style_p),
+        ]
+        widths = [usable_w * f for f in [0.3, 0.23, 0.17, 0.17, 0.13]]
+        t = Table([cells], colWidths=widths)
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0), C_INFO),
+            ('BOX',           (0, 0), (-1, 0), 0.5, C_BORDER),
+            ('INNERGRID',     (0, 0), (-1, 0), 0.5, C_BORDER),
+            ('TOPPADDING',    (0, 0), (-1, 0), 7),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
+            ('LEFTPADDING',   (0, 0), (-1, 0), 9),
+            ('VALIGN',        (0, 0), (-1, 0), 'MIDDLE'),
+        ]))
+        return t
+
+    # ── Document ─────────────────────────────────────────────────────────
     buffer = BytesIO()
-    pagesize = landscape(A4)
-    doc = SimpleDocTemplate(buffer, pagesize=pagesize,
-                            leftMargin=0.5 * inch, rightMargin=0.5 * inch,
-                            topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=0.45 * inch,
+        rightMargin=0.45 * inch,
+        topMargin=0.85 * inch,
+        bottomMargin=0.65 * inch,
+    )
     elements = []
 
-    # Font setup
-    try:
-        arial_path = os.path.join(os.environ.get('WINDIR', r'C:\Windows'), 'Fonts', 'arial.ttf')
-        if os.path.exists(arial_path):
-            pdfmetrics.registerFont(TTFont('Arial', arial_path))
-            default_font = 'Arial'
-        else:
-            default_font = 'Helvetica'
-    except Exception:
-        default_font = 'Helvetica'
+    # 3 paths per page — each path is a column, student names only (no # or ID)
+    PATHS_PER_PAGE = 3
+    path_groups = [paths[i:i + PATHS_PER_PAGE] for i in range(0, len(paths), PATHS_PER_PAGE)]
+    if not path_groups:
+        path_groups = [[]]
 
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        'CustomTitle', parent=styles['Heading1'],
-        fontSize=14, alignment=TA_CENTER, spaceAfter=15, fontName=default_font,
+    col_w = usable_w / PATHS_PER_PAGE
+
+    hdr_name_style = ParagraphStyle(
+        'hn', fontName=fnt_bold, fontSize=13,
+        alignment=TA_CENTER, textColor=colors.white, leading=18,
+    )
+    hdr_count_style = ParagraphStyle(
+        'hc', fontName=fnt, fontSize=9,
+        alignment=TA_CENTER, textColor=colors.HexColor('#B0C4DE'), leading=13,
     )
 
-    elements.append(
-        Paragraph(f"Student Path Assignments - {session.name or 'Session'}", title_style)
-    )
-    elements.append(Spacer(1, 0.15 * inch))
-
-    paths_list = list(paths)
-    per_page = 5
-
-    for page_start in range(0, len(paths_list), per_page):
-        if page_start > 0:
+    for grp_idx, group in enumerate(path_groups):
+        if grp_idx > 0:
             elements.append(PageBreak())
 
-        page_paths = paths_list[page_start:page_start + per_page]
-        header_row = [f'Path {p.name}' for p in page_paths]
+        elements.append(_info_table())
+        elements.append(Spacer(1, 0.10 * inch))
+
+        # Pad group to always PATHS_PER_PAGE entries
+        padded = list(group) + [None] * (PATHS_PER_PAGE - len(group))
+        col_students = [
+            students_by_path.get(str(p.id), []) if p else []
+            for p in padded
+        ]
+        max_rows = max(len(s) for s in col_students) if any(col_students) else 0
+
+        # Header row: [path name + count, path name + count, path name + count]
+        header_row = []
+        for i, path in enumerate(padded):
+            if path is None:
+                header_row.append('')
+            else:
+                cnt = len(col_students[i])
+                header_row.append([
+                    Paragraph(f'<font size=10>Path</font> {ra(path.name)}', hdr_name_style),
+                    Paragraph(f'{cnt} student{"s" if cnt != 1 else ""}', hdr_count_style),
+                ])
+
         data = [header_row]
-
-        max_students = max(
-            (len(students_by_path.get(str(p.id), [])) for p in page_paths), default=0
-        )
-
-        for i in range(max_students):
+        for row_idx in range(max_rows):
             row = []
-            for p in page_paths:
-                ps = students_by_path.get(str(p.id), [])
-                if i < len(ps):
-                    row.append(reshape_arabic(ps[i].full_name))
+            for col_idx in range(PATHS_PER_PAGE):
+                stud_list = col_students[col_idx]
+                if row_idx < len(stud_list):
+                    s = stud_list[row_idx]
+                    row.append(ra(s.full_name or '—'))
                 else:
                     row.append('')
             data.append(row)
 
-        num_cols = len(header_row)
-        col_width = (10 * inch) / num_cols
-        table = Table(data, colWidths=[col_width] * num_cols)
+        table = Table(data, colWidths=[col_w] * PATHS_PER_PAGE, repeatRows=1)
 
         style_cmds = [
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), default_font if default_font == 'Arial' else 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            # Header row
+            ('BACKGROUND',    (0, 0), (-1, 0), C_COL_HDR),
+            ('TEXTCOLOR',     (0, 0), (-1, 0), colors.white),
+            ('FONTNAME',      (0, 0), (-1, 0), fnt_bold),
+            ('ALIGN',         (0, 0), (-1, 0), 'CENTER'),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, 0), 10),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-            ('TOPPADDING', (0, 0), (-1, 0), 10),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ECF0F1')),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 1), (-1, -1), default_font),
-            ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('TOPPADDING', (0, 1), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            # Data rows
+            ('FONTNAME',      (0, 1), (-1, -1), fnt_bold),
+            ('FONTSIZE',      (0, 1), (-1, -1), 11),
+            ('ALIGN',         (0, 1), (-1, -1), 'CENTER'),
+            ('TOPPADDING',    (0, 1), (-1, -1), 7),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 7),
+            # Borders
+            ('BOX',           (0, 0), (-1, -1), 0.75, C_COL_HDR),
+            ('INNERGRID',     (0, 0), (-1, -1), 0.4, C_BORDER),
+            ('LINEBELOW',     (0, 0), (-1, 0), 1.5, C_COL_HDR),
+            # Strong vertical lines between columns
+            ('LINEBEFORE',    (1, 0), (1, -1), 1.5, C_COL_HDR),
+            ('LINEBEFORE',    (2, 0), (2, -1), 1.5, C_COL_HDR),
         ]
+
+        # Alternating row shading
         for i in range(1, len(data)):
-            if i % 2 == 0:
-                style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.white))
+            bg = C_STRIPE if i % 2 == 1 else colors.white
+            style_cmds.append(('BACKGROUND', (0, i), (-1, i), bg))
 
         table.setStyle(TableStyle(style_cmds))
         elements.append(table)
-        elements.append(Spacer(1, 0.2 * inch))
 
-    doc.build(elements)
+    if not paths:
+        elements.append(_info_table())
+        elements.append(Spacer(1, 0.3 * inch))
+        elements.append(Paragraph(
+            'No paths defined for this session.',
+            ParagraphStyle('np', fontName=fnt, fontSize=11, alignment=TA_CENTER),
+        ))
+
+    doc.build(elements, onFirstPage=_draw_page, onLaterPages=_draw_page)
     buffer.seek(0)
+    return buffer.getvalue()
 
-    response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+
+@login_required
+def download_student_paths_pdf(request, session_id):
+    """Download PDF with students grouped by path — dept-scoped."""
+    session_obj = get_object_or_404(ExamSession, pk=session_id)
+    if not check_session_department(request.user, session_obj):
+        return HttpResponseForbidden('You do not have access to this session.')
+
+    pdf_bytes = _build_student_paths_pdf(session_obj)
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename=student_paths_{session_id}.pdf'
     return response
 
@@ -489,15 +653,17 @@ def download_student_paths_pdf(request, session_id):
 def request_pdf_async(request, session_id):
     """
     Dispatch async PDF generation via Celery.
-    Returns JSON {'task_id': str} for the frontend to poll.
+    Returns JSON with either 'task_id' for async polling or 'fallback_url' for sync download.
     """
     from django.conf import settings
+    from django.urls import reverse
     session = get_object_or_404(ExamSession, pk=session_id)
 
     broker = getattr(settings, 'CELERY_BROKER_URL', '')
     if not broker:
-        # Celery not configured – fall back to inline synchronous generation
-        return download_student_paths_pdf(request, session_id)
+        # Celery not configured – return fallback URL for direct download
+        fallback_url = reverse('creator:download_student_paths_pdf', args=[session_id])
+        return JsonResponse({'fallback_url': fallback_url})
 
     from core.tasks import generate_pdf_report
     result = generate_pdf_report.delay(str(session_id))
@@ -622,12 +788,21 @@ def assign_examiner(request, session_id):
 @login_required
 def get_path_stations_for_assignment(request, session_id, path_id):
     """AJAX endpoint: return HTML partial with station rows — dept-scoped."""
-    session = get_object_or_404(ExamSession, pk=session_id)
+    session = get_object_or_404(
+        ExamSession.objects.select_related('exam__course__department'),
+        pk=session_id,
+    )
     if not check_session_department(request.user, session):
         return HttpResponseForbidden('You do not have access to this session.')
     path = get_object_or_404(Path, pk=path_id, session=session, is_deleted=False)
     stations = path.get_stations_in_order()
-    all_examiners = Examiner.objects.filter(is_active=True, role='examiner').order_by('full_name')
+
+    # Filter examiners to those matching the exam's department
+    exam_dept = session.exam.course.department
+    examiner_qs = Examiner.objects.filter(is_active=True, role='examiner')
+    if exam_dept is not None:
+        examiner_qs = examiner_qs.filter(department=exam_dept)
+    all_examiners = examiner_qs.order_by('full_name')
 
     # Pre-load existing assignments for this path's stations
     existing = ExaminerAssignment.objects.filter(
@@ -677,7 +852,7 @@ def session_dry_grading(request, session_id):
         return HttpResponseForbidden('You do not have access to this session.')
 
     if not _can_open_dry_grading(request.user):
-        return HttpResponseForbidden('Only superuser, admin, head, or organizer can access dry marking.')
+        return HttpResponseForbidden('Access denied.')
 
     if session.status not in ('finished', 'completed'):
         messages.warning(request, 'Dry marking is available only after the session is finished.')

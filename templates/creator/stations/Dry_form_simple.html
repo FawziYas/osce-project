@@ -21,6 +21,19 @@
     </nav>
 </div>
 
+{% if session_started %}
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+    <i class="bi bi-lock-fill fs-5"></i>
+    <div>
+        <strong>Session in Progress — Limited Editing.</strong>
+        <ul class="mb-0 mt-1 small">
+            <li>You can edit descriptions, points, correct answer, and ILO.</li>
+            <li class="text-danger fw-semibold">Cannot: delete items, change item type (MCQ/Essay), add MCQ options, or remove MCQ options.</li>
+        </ul>
+    </div>
+</div>
+{% endif %}
+
 <form method="POST" id="stationForm" enctype="multipart/form-data">
     {% csrf_token %}
 <div class="station-builder">
@@ -465,12 +478,38 @@ document.getElementById('stationForm').addEventListener('submit', function(e) {
     }
 
     document.getElementById('checklistDataInput').value = JSON.stringify(items);
+
+    // Disable the submit button to prevent double-submission
+    const btn = document.getElementById('submitBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving…';
+    }
 });
+
+const SESSION_STARTED = {{ session_started|yesno:'true,false' }};
+
+function lockExistingItem(card) {
+    // Disable question type change
+    const typeSelect = card.querySelector('.question-type-select');
+    if (typeSelect) {
+        typeSelect.disabled = true;
+        typeSelect.title = 'Question type cannot be changed after a session has started';
+    }
+    // Hide delete-item button
+    const deleteBtn = card.querySelector('.delete-btn');
+    if (deleteBtn) deleteBtn.setAttribute('hidden', '');
+    // Hide MCQ option remove/add buttons
+    card.querySelectorAll('.remove-option-btn').forEach(b => b.setAttribute('hidden', ''));
+    const addOptBtn = card.querySelector('.add-option-btn');
+    if (addOptBtn) addOptBtn.setAttribute('hidden', '');
+}
 
 // Initialize existing items if editing
 const existingItems = {{ existing_items_json|safe }};
 if (existingItems && existingItems.length > 0) {
     document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('checklistContainer');
         let lastSection = null;
         existingItems.forEach(item => {
             if (item.category && item.category !== lastSection) {
@@ -495,6 +534,9 @@ if (existingItems && existingItems.length > 0) {
                 true,
                 item.image_path || null
             );
+            if (SESSION_STARTED && item.db_id) {
+                lockExistingItem(container.lastElementChild);
+            }
         });
     });
 }

@@ -4,6 +4,7 @@ Exam CRUD views – list, wizard, detail, edit, delete/archive/restore.
 import json
 from datetime import datetime, time
 
+from django.core.cache import cache
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -206,23 +207,37 @@ def exam_detail(request, exam_id):
     exam = get_object_or_404(Exam, pk=exam_id)
     if not check_exam_department(request.user, exam):
         return HttpResponseForbidden('You do not have access to this exam.')
-    dry_station_exists_subquery = Station.objects.filter(
-        path__session_id=OuterRef('pk'),
-        active=True,
-        is_dry=True,
-    )
-    sessions = ExamSession.objects.filter(exam=exam).annotate(
-        has_dry_stations=Exists(dry_station_exists_subquery)
-    ).order_by('session_date')
-    stations = Station.objects.filter(exam=exam, active=True)
-    
-    # Calculate total students across all sessions
-    total_students = SessionStudent.objects.filter(
-        session__exam=exam
-    ).count()
+
+    cache_key = f'exam_detail_{exam_id}'
+    cached = cache.get(cache_key)
+    if cached:
+        sessions, stations, total_students = cached['sessions'], cached['stations'], cached['total_students']
+    else:
+        dry_station_exists_subquery = Station.objects.filter(
+            path__session_id=OuterRef('pk'),
+            active=True,
+            is_dry=True,
+        )
+        sessions = list(ExamSession.objects.filter(exam=exam).annotate(
+            has_dry_stations=Exists(dry_station_exists_subquery)
+        ).order_by('session_date'))
+        stations = list(Station.objects.filter(exam=exam, active=True))
+        total_students = SessionStudent.objects.filter(
+            session__exam=exam
+        ).count()
+        cache.set(cache_key, {'sessions': sessions, 'stations': stations, 'total_students': total_students}, timeout=600)
 
     can_delete_sessions = request.user.is_superuser or request.user.has_perm('core.can_delete_session')
-    has_dry_stations = stations.filter(is_dry=True).exists()
+    has_dry_stations = any(s.is_dry for s in stations)
+
+    u = request.user
+    _role = getattr(u, 'role', None)
+    can_dry_grade = (
+        u.is_superuser
+        or _role == 'admin'
+        or (_role == 'coordinator' and getattr(u, 'coordinator_position', None) in ('head', 'organizer'))
+        or u.has_perm('core.can_open_dry_grading')
+    )
 
     return render(request, 'creator/exams/detail.html', {
         'exam': exam,
@@ -232,6 +247,7 @@ def exam_detail(request, exam_id):
         'can_delete_sessions': can_delete_sessions,
         'can_delete_exam': _can_delete_exam(request.user),
         'has_dry_stations': has_dry_stations,
+        'can_dry_grade': can_dry_grade,
     })
 
 

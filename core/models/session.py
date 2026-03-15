@@ -47,6 +47,7 @@ class ExamSession(models.Model):
         permissions = [
             ('can_revert_session', 'Can revert completed session to scheduled'),
             ('can_delete_session', 'Can archive/delete sessions'),
+            ('can_open_dry_grading', 'Can open dry grading for a session'),
         ]
 
     def __str__(self):

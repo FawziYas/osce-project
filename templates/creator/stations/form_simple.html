@@ -684,7 +684,8 @@ document.getElementById('stationForm').addEventListener('submit', function(e) {
                     points: getItemPoints(card),
                     scoring_type: scoringType,
                     ilo_id: iloId,
-                    section: currentSection
+                    section: currentSection,
+                    db_id: card.dataset.dbId || null
                 };
                 if (scoringType === 'custom') {
                     itemData.custom_labels = getCustomLabels(card);
@@ -727,6 +728,13 @@ document.getElementById('stationForm').addEventListener('submit', function(e) {
     }
 
     document.getElementById('checklistDataInput').value = JSON.stringify(items);
+
+    // Disable the submit button to prevent double-submission
+    const btn = document.getElementById('submitBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving…';
+    }
 });
 
 
@@ -756,7 +764,8 @@ if (existingItems && existingItems.length > 0) {
                 mapLegacyScale(item.rubric_type || 'binary'),
                 item.ilo_id ? String(item.ilo_id) : '',
                 null,
-                true
+                true,
+                item.db_id || null
             );
         });
     });

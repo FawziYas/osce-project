@@ -13,6 +13,15 @@
     --font-size-base: 14px;
 }
 
+/* ── Purple utility classes (used for Dry Station badges) ────────────── */
+.bg-purple-soft {
+    background-color: #f3e8ff !important;
+}
+
+.text-purple {
+    color: #7b1fa2 !important;
+}
+
 /* ── Base ────────────────────────────────────────────────────────────── */
 body {
     font-size: var(--font-size-base);
@@ -199,6 +208,10 @@ body {
 .theme-badge-6 { background: #dc3545; }
 .theme-badge-7 { background: #6c757d; }
 
+/* Purple utilities used by Dry Station badge */
+.bg-purple-soft { background-color: #f3e8ff !important; }
+.text-purple { color: #7e22ce !important; }
+.border-purple { border-color: #e9d5ff !important; }
 /* ── Table Cards — Scrollable on Small Screens ──────────────────────── */
 .table-card {
     background: white;

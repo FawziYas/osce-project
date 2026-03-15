@@ -390,7 +390,7 @@ class RLSSessionMiddleware:
             role = 'EXAMINER'
 
         # Department
-        dept = getattr(user, 'coordinator_department', None)
+        dept = getattr(user, 'department', None)
         dept_id = str(dept.pk) if dept else ''
 
         # Station IDs (for examiners)
@@ -405,3 +405,18 @@ class RLSSessionMiddleware:
             station_ids = ','.join(str(s) for s in ids)
 
         return (user_id, role, dept_id, station_ids)
+
+
+class SearchEngineBlockingMiddleware:
+    """
+    Adds X-Robots-Tag header to all responses to prevent search engine indexing.
+    This is a private exam management system and must not be indexed.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response['X-Robots-Tag'] = 'noindex, nofollow'
+        return response

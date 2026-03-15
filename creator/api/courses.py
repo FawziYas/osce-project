@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET
 
 from core.models import Course, ILO, ChecklistLibrary
+from core.utils.roles import scope_queryset
 
 
 @login_required
@@ -15,8 +16,10 @@ from core.models import Course, ILO, ChecklistLibrary
 def get_courses(request):
     """GET /api/creator/courses"""
     # P4: Use annotate to eliminate N+1 count per course
-    courses = Course.objects.annotate(
-        _ilo_count=Count('ilos'),
+    courses = scope_queryset(
+        request.user,
+        Course.objects.annotate(_ilo_count=Count('ilos')),
+        dept_field='department',
     ).order_by('code')
     return JsonResponse([{
         'id': c.id,
@@ -32,6 +35,11 @@ def get_courses(request):
 @require_GET
 def get_course_ilos(request, course_id):
     """GET /api/creator/courses/<id>/ilos"""
+    # Verify user can access this course's department
+    course = get_object_or_404(
+        scope_queryset(request.user, Course.objects.all(), dept_field='department'),
+        pk=course_id,
+    )
     # P4: Use annotate to eliminate N+1 count per ILO
     ilos = ILO.objects.filter(
         course_id=course_id
@@ -56,6 +64,11 @@ def get_course_ilos(request, course_id):
 @require_GET
 def get_ilo_library(request, ilo_id):
     """GET /api/creator/ilos/<id>/library"""
+    # Verify user can access this ILO's department via its course
+    ilo = get_object_or_404(
+        scope_queryset(request.user, ILO.objects.all(), dept_field='course__department'),
+        pk=ilo_id,
+    )
     items = ChecklistLibrary.objects.filter(ilo_id=ilo_id).order_by('id')
     return JsonResponse([{
         'id': item.id,

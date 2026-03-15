@@ -324,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadChecklist();
     setupBackButton();
     setupClipboardRestrictions();
+    requestFullscreenMode();
 
     if (!MARKING_DATA.reviewMode && !scoreIsSubmitted) {
         window.addEventListener('beforeunload', function(e) {
@@ -331,6 +332,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+function requestFullscreenMode() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) {
+        req.call(el).catch(() => {
+            // Browsers may block if not triggered by a user gesture on first load.
+            // Fall back: enter on the first user interaction.
+            const enterOnInteraction = () => {
+                req.call(el).catch(() => {});
+                document.removeEventListener('click', enterOnInteraction);
+                document.removeEventListener('keydown', enterOnInteraction);
+                document.removeEventListener('touchstart', enterOnInteraction);
+            };
+            document.addEventListener('click', enterOnInteraction, { once: true });
+            document.addEventListener('keydown', enterOnInteraction, { once: true });
+            document.addEventListener('touchstart', enterOnInteraction, { once: true });
+        });
+    }
+}
 
 function initializeTimer() {
     if (!MARKING_DATA.duration) return;
@@ -405,11 +426,19 @@ function setupClipboardRestrictions() {
 
     document.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
-        const isClipboardShortcut = (event.ctrlKey || event.metaKey) && ['c', 'x', 'v'].includes(key);
+        const ctrlOrCmd = event.ctrlKey || event.metaKey;
         const isShiftInsertPaste = event.shiftKey && key === 'insert';
+        const isDevTools = key === 'f12';
 
-        if (isClipboardShortcut || isShiftInsertPaste) {
+        // Block every Ctrl/Cmd keyboard combo (Ctrl + any key), plus F12/Shift+Insert.
+        if (ctrlOrCmd || isShiftInsertPaste || isDevTools) {
             event.preventDefault();
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey || e.button === 1) {
+            e.preventDefault();
         }
     });
 }
@@ -788,6 +817,31 @@ async function confirmSubmit() {
     submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Submitting...';
 
     try {
+        // Flush ALL current evaluations in one awaited batch before submitting.
+        // This prevents the SQLite "database is locked" race caused by in-flight
+        // fire-and-forget saveItemScore() calls still writing when submit arrives.
+        const batchItems = [];
+        for (const [itemIdStr, ev] of Object.entries(evaluations)) {
+            batchItems.push({
+                checklist_item_id: parseInt(itemIdStr),
+                score: ev.score || 0,
+                max_points: ev.maxPoints || 1,
+                notes: ev.essayText !== undefined
+                    ? ev.essayText
+                    : (ev.selectedIndex !== undefined ? String(ev.selectedIndex) : ''),
+            });
+        }
+        if (batchItems.length > 0) {
+            await fetch(`/api/score/${MARKING_DATA.stationScoreId}/items/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': MARKING_DATA.csrfToken,
+                },
+                body: JSON.stringify({ items: batchItems }),
+            });
+        }
+
         const response = await fetch(`/api/score/${MARKING_DATA.stationScoreId}/submit/`, {
             method: 'POST',
             headers: {
@@ -804,7 +858,15 @@ async function confirmSubmit() {
         if (result.success) {
             if (examTimer) examTimer.stop();
             scoreIsSubmitted = true;
-            window.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
+            // If we are running inside a popup opened by the dashboard, reload
+            // the dashboard tab and close this popup window.
+            if (window.opener && !window.opener.closed) {
+                window.opener.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
+                window.close();
+            } else {
+                // Fallback: not a popup — just navigate in the same tab.
+                window.location.replace("{% url 'examiner:station_dashboard' assignment.id %}");
+            }
         } else {
             throw new Error(result.error || 'Submit failed');
         }
@@ -909,5 +971,15 @@ function showError(message) {
             </button>
         </div>`;
 }
+
+// When the browser restores this page from the back/forward cache (bfcache)
+// the DOM is frozen at whatever state it was in when we navigated away —
+// which may be mid-submit ("Submitting...").  Force a fresh reload so the
+// server-rendered state (submitted / review mode) is shown correctly.
+window.addEventListener('pageshow', function (e) {
+    if (e.persisted) {
+        window.location.reload();
+    }
+});
 </script>
 {% endblock %}
