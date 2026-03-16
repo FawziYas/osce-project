@@ -87,6 +87,10 @@ def get_station_checklist(request, station_id):
     ).select_related('ilo', 'ilo__theme').order_by('item_number')
 
     def build_item_response(item):
+        try:
+            image_url = request.build_absolute_uri(item.image.url) if item.image else None
+        except Exception:
+            image_url = None
         response = {
             'id': item.id,
             'item_number': item.item_number,
@@ -98,7 +102,7 @@ def get_station_checklist(request, station_id):
             'rubric_levels': None,
             'ilo_name': item.ilo.theme_name if item.ilo else None,
             'ilo_number': item.ilo.number if item.ilo else None,
-            'image_url': request.build_absolute_uri(item.image.url) if item.image else None,
+            'image_url': image_url,
         }
 
         # Parse rubric levels

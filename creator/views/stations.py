@@ -425,6 +425,12 @@ def station_edit_dry(request, station_id):
         course_id=exam.course_id
     ).order_by('number') if exam else ILO.objects.none()
     existing_items = list(ChecklistItem.objects.filter(station=station).order_by('item_number'))
+    def _safe_image_url(item):
+        try:
+            return request.build_absolute_uri(item.image.url) if item.image else None
+        except Exception:
+            return None
+
     existing_items_dicts = [
         {
             'item_number': item.item_number,
@@ -436,7 +442,7 @@ def station_edit_dry(request, station_id):
             'ilo_id': item.ilo_id,
             'category': item.category,
             'db_id': item.pk,
-            'image_url': request.build_absolute_uri(item.image.url) if item.image else None,
+            'image_url': _safe_image_url(item),
         }
         for item in existing_items
     ]
