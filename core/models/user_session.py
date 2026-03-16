@@ -35,15 +35,13 @@ class UserSession(models.Model):
 
     def is_session_alive(self):
         """
-        Check that the session key still exists AND has not expired.
-        
-        Checks both:
-        1. Session key exists in Django's session store
-        2. Session expire_date is in the future (not expired)
+        Check that the session key still exists and has not expired.
+
+        Uses Django's backend-agnostic SessionStore.exists() so this works
+        correctly regardless of SESSION_ENGINE (db, cache, cached_db, etc.).
+        On a cache backend Session.objects would always be empty, causing the
+        check to always return False and bypassing single-session enforcement.
         """
-        from django.contrib.sessions.models import Session
-        now = timezone.now()
-        return Session.objects.filter(
-            session_key=self.session_key,
-            expire_date__gt=now  # Only valid if expiry is in the future
-        ).exists()
+        from importlib import import_module
+        engine = import_module(settings.SESSION_ENGINE)
+        return engine.SessionStore.exists(self.session_key)

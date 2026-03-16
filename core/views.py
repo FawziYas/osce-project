@@ -100,11 +100,13 @@ def login_view(request):
                             "active session already exists (key %s).",
                             user.username, ip, existing.session_key[:8]
                         )
+                        # Try to get expiry time — only works for db/cached_db backends
                         try:
-                            session_obj = Session.objects.get(session_key=existing.session_key)
+                            from django.contrib.sessions.models import Session as DjSession
+                            session_obj = DjSession.objects.get(session_key=existing.session_key)
                             minutes_left = max(1, int((session_obj.expire_date - timezone.now()).total_seconds() / 60))
                             duration = f'in {minutes_left} minute{"s" if minutes_left != 1 else ""}'
-                        except Session.DoesNotExist:
+                        except Exception:
                             duration = 'soon'
                         messages.error(
                             request,
