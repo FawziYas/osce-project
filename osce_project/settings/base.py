@@ -275,8 +275,9 @@ else:
 AXES_FAILURE_LIMIT = 10
 # Lock out for 10 minutes
 AXES_COOLOFF_TIME = timedelta(minutes=10)
-# Lock based on username and IP for better security
-AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
+# Lock based on username only so devices sharing the same public IP
+# (e.g. same WiFi) don't affect each other for different accounts
+AXES_LOCKOUT_PARAMETERS = ['username']
 # Reset attempts on successful login
 AXES_RESET_ON_SUCCESS = True
 # Use cache for performance
