@@ -10,12 +10,6 @@ from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
 
-ALLOWED_MIME_TYPES = {
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-}
-
 MAX_FILE_SIZE = 2 * 1024 * 1024   # 2 MB
 MIN_DIMENSION = 100                 # pixels
 MAX_DIMENSION = 4000                # pixels
@@ -29,13 +23,12 @@ def validate_question_image(value):
 
     Checks (in order):
       1. File size <= 2 MB
-      2. Real MIME type via python-magic (content sniffing, not just extension)
-      3. Extension matches detected MIME type
-      4. Image dimensions within allowed range (via Pillow)
+      2. Real image format via Pillow (content sniffing, no system library needed)
+      3. Extension matches detected format
+      4. Image dimensions within allowed range
       5. Strips EXIF metadata from the in-memory file before Django saves it
     """
-    from PIL import Image
-    import magic  # python-magic-bin on Windows
+    from PIL import Image, UnidentifiedImageError
 
     file = value.file
 
@@ -49,15 +42,25 @@ def validate_question_image(value):
             f'File size must be under 2 MB (your file is {size_mb:.1f} MB).'
         )
 
-    # ── 2. Real MIME type (content sniffing) ──────────────────────────────────
-    header = file.read(2048)
-    file.seek(0)
-    detected_mime = magic.from_buffer(header, mime=True)
+    # ── 2. Real image format via Pillow (content sniffing from header bytes) ──
+    # Pillow reads magic bytes (FF D8 FF for JPEG, \x89PNG for PNG, etc.)
+    # without requiring any system library like libmagic.
+    _FORMAT_TO_MIME = {
+        'JPEG': 'image/jpeg',
+        'PNG':  'image/png',
+        'WEBP': 'image/webp',
+    }
+    try:
+        img = Image.open(io.BytesIO(file.read()))
+        file.seek(0)
+        detected_mime = _FORMAT_TO_MIME.get(img.format)
+    except (UnidentifiedImageError, Exception):
+        raise ValidationError('Only JPEG, PNG, or WebP files are allowed.')
 
-    if detected_mime not in ALLOWED_MIME_TYPES:
+    if not detected_mime:
         raise ValidationError(
             f'Only JPEG, PNG, or WebP files are allowed. '
-            f'Detected type: {detected_mime}.'
+            f'Detected format: {img.format}.'
         )
 
     # ── 3. Extension matches MIME ─────────────────────────────────────────────
@@ -78,6 +81,7 @@ def validate_question_image(value):
 
     # ── 4. Image dimensions via Pillow ────────────────────────────────────────
     try:
+        file.seek(0)
         img = Image.open(io.BytesIO(file.read()))
         file.seek(0)
         img.verify()  # catches truncated or corrupted images
