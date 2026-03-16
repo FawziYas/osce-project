@@ -75,42 +75,41 @@ def login_view(request):
 
             ip = _get_client_ip(request)
 
-            # ── Single-active-session check (only for users with enforce_single_session=True) ─
-            if getattr(user, 'enforce_single_session', False):
-                try:
-                    existing = UserSession.objects.get(user=user)
+            # ── Single-active-session check ───────────────────────────────────────────────────
+            try:
+                existing = UserSession.objects.get(user=user)
 
-                    # Same session reconnecting (same browser/PC) — allow through
-                    current_session_key = request.session.session_key
-                    if current_session_key and current_session_key == existing.session_key:
-                        logger.info(
-                            "User '%s' re-login from same session — allowed.",
-                            user.username,
-                        )
-                    elif existing.is_session_alive():
-                        # A real open session exists on a DIFFERENT browser/PC — block
-                        logger.warning(
-                            "Blocked login for user '%s' from IP %s — "
-                            "active session already exists (key %s).",
-                            user.username, ip, existing.session_key[:8]
-                        )
-                        try:
-                            session_obj = Session.objects.get(session_key=existing.session_key)
-                            minutes_left = max(1, int((session_obj.expire_date - timezone.now()).total_seconds() / 60))
-                            duration = f'in {minutes_left} minute{"s" if minutes_left != 1 else ""}'
-                        except Session.DoesNotExist:
-                            duration = 'soon'
-                        messages.error(
-                            request,
-                            f'There is already an open session for this account (expires {duration}). '
-                            'If your computer crashed, ask the Administrator to end your previous session.'
-                        )
-                        return render(request, 'login.html')
-                    else:
-                        # Stale record (session expired/deleted) — clean it up
-                        existing.delete()
-                except UserSession.DoesNotExist:
-                    pass  # No prior session — proceed normally
+                # Same session reconnecting (same browser/PC) — allow through
+                current_session_key = request.session.session_key
+                if current_session_key and current_session_key == existing.session_key:
+                    logger.info(
+                        "User '%s' re-login from same session — allowed.",
+                        user.username,
+                    )
+                elif existing.is_session_alive():
+                    # A real open session exists on a DIFFERENT browser/PC — block
+                    logger.warning(
+                        "Blocked login for user '%s' from IP %s — "
+                        "active session already exists (key %s).",
+                        user.username, ip, existing.session_key[:8]
+                    )
+                    try:
+                        session_obj = Session.objects.get(session_key=existing.session_key)
+                        minutes_left = max(1, int((session_obj.expire_date - timezone.now()).total_seconds() / 60))
+                        duration = f'in {minutes_left} minute{"s" if minutes_left != 1 else ""}'
+                    except Session.DoesNotExist:
+                        duration = 'soon'
+                    messages.error(
+                        request,
+                        f'There is already an open session for this account (expires {duration}). '
+                        'If your computer crashed, ask the Administrator to end your previous session.'
+                    )
+                    return render(request, 'login.html')
+                else:
+                    # Stale record (session expired/deleted) — clean it up
+                    existing.delete()
+            except UserSession.DoesNotExist:
+                pass  # No prior session — proceed normally
             # ─────────────────────────────────────────────────────────────
 
             login(request, user)

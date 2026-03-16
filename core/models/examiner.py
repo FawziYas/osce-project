@@ -84,9 +84,6 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
     # Marks a virtual examiner account used for dry-marking (one per department)
     is_dry_user = models.BooleanField(default=False)
 
-    # When True, a second login from a different device/browser is blocked
-    enforce_single_session = models.BooleanField(default=False)
-
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)

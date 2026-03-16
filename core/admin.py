@@ -161,7 +161,6 @@ class ExaminerAdmin(BaseUserAdmin):
         (None, {'fields': ('username', 'password')}),
         ('Personal Info', {'fields': ('full_name', 'email', 'title', 'department', 'coordinator_position')}),
         ('Role & Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Session Policy', {'fields': ('enforce_single_session',), 'description': 'Enable to block this user from logging in on a second device while their session is active.'}),
         ('Password Reset', {'fields': ('reset_password_button',)}),
     )
     add_fieldsets = (
