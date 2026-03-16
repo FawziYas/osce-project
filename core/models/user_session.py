@@ -41,7 +41,12 @@ class UserSession(models.Model):
         correctly regardless of SESSION_ENGINE (db, cache, cached_db, etc.).
         On a cache backend Session.objects would always be empty, causing the
         check to always return False and bypassing single-session enforcement.
+
+        Note: exists() is an instance method in Django, so we must instantiate
+        SessionStore before calling it — calling it on the class directly fails
+        with TypeError (session_key arg is treated as self).
         """
         from importlib import import_module
         engine = import_module(settings.SESSION_ENGINE)
-        return engine.SessionStore.exists(self.session_key)
+        store = engine.SessionStore()
+        return store.exists(self.session_key)
