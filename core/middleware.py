@@ -357,8 +357,9 @@ class RLSSessionMiddleware:
             return
 
         user = getattr(request, 'user', None)
-        user_id, role, dept_id, station_ids = self._resolve_vars(user)
+        user_id, role, dept_id = self._resolve_vars(user)
 
+        # Set core vars first so RLS policies work for any follow-up queries
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT "
@@ -366,13 +367,26 @@ class RLSSessionMiddleware:
                 "set_config('app.current_role',    %s, false), "
                 "set_config('app.department_id',   %s, false), "
                 "set_config('app.station_ids',     %s, false)",
-                [user_id, role, dept_id, station_ids],
+                [user_id, role, dept_id, ''],
             )
 
+        # Now that RLS vars are set, resolve station_ids for examiners
+        if role == 'EXAMINER' and user_id:
+            station_ids = self._resolve_station_ids(user)
+            if station_ids:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('app.station_ids', %s, false)",
+                        [station_ids],
+                    )
+
     def _resolve_vars(self, user):
-        """Resolve (user_id, role, department_id, station_ids) from user."""
+        """Resolve (user_id, role, department_id) from user model fields only.
+
+        Avoids any FK traversal that would hit RLS-protected tables.
+        """
         if user is None or not getattr(user, 'is_authenticated', False):
-            return ('', 'ANONYMOUS', '', '')
+            return ('', 'ANONYMOUS', '')
 
         user_id = str(user.pk)
 
@@ -389,20 +403,21 @@ class RLSSessionMiddleware:
         else:
             role = 'EXAMINER'
 
-        # Department
-        dept = getattr(user, 'department', None)
-        dept_id = str(dept.pk) if dept else ''
+        # Use raw FK column — no query to RLS-protected departments table
+        raw_dept_id = getattr(user, 'department_id', None)
+        dept_id = str(raw_dept_id) if raw_dept_id else ''
 
-        # Station IDs (for examiners)
-        station_ids = ''
-        if role == 'EXAMINER':
-            from core.models import ExaminerAssignment
-            ids = list(
-                ExaminerAssignment.objects.filter(
-                    examiner=user,
-                ).values_list('station_id', flat=True)
-            )
-            station_ids = ','.join(str(s) for s in ids)
+        return (user_id, role, dept_id)
+
+    def _resolve_station_ids(self, user):
+        """Resolve station IDs for examiner. Called AFTER set_config."""
+        from core.models import ExaminerAssignment
+        ids = list(
+            ExaminerAssignment.objects.filter(
+                examiner=user,
+            ).values_list('station_id', flat=True)
+        )
+        return ','.join(str(s) for s in ids)
 
         return (user_id, role, dept_id, station_ids)
 
