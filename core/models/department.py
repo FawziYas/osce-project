@@ -29,6 +29,13 @@ class Department(TimestampMixin):
         ).first()
 
     @property
+    def organizer_coordinators(self):
+        """Return all Organizer coordinators for this dept."""
+        return self.members.filter(
+            coordinator_position='organizer', is_deleted=False
+        )
+
+    @property
     def rta_coordinators(self):
         """Return all RTA coordinators for this dept."""
         return self.members.filter(

@@ -553,18 +553,6 @@ def station_edit_dry(request, station_id):
                         item.points = float(item_data.get('points', 1))
                         if session_started:
                             # Cannot change rubric type once session has started
-                            if scoring_type != item.rubric_type:
-                                messages.error(
-                                    request,
-                                    f'Cannot change the scoring type of item "{item.description[:40]}" after a session has started.'
-                                )
-                                return render(request, 'creator/stations/Dry_form_simple.html', {
-                                    'path': path, 'exam': exam, 'station': station,
-                                    'ilos': ilos, 'existing_items': existing_items,
-                                    'existing_items_json': json.dumps(existing_items_dicts),
-                                    'session_started': session_started,
-                                    'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
-                                })
                             if item.rubric_type == 'mcq':
                                 existing_options = (item.rubric_levels or {}).get('options', [])
                                 new_options = item_data.get('mcq_options', [])
