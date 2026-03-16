@@ -40,5 +40,8 @@ charset-normalizer==3.4.4
 # Images
 pillow==12.1.1
 
+# Azure Blob Storage for media files
+django-storages[azure]==1.14.4
+
 # Timezone
 tzdata==2025.3

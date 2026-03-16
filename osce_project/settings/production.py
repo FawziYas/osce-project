@@ -55,14 +55,32 @@ else:
 # ──────────────────────────────────────────────────────────────
 # Static files — WhiteNoise (compressed + hashed filenames)
 # ──────────────────────────────────────────────────────────────
-STORAGES = {
-    'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
-    },
-    'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
-    },
-}
+_azure_account_name = env('AZURE_ACCOUNT_NAME', default=None)
+_azure_account_key = env('AZURE_ACCOUNT_KEY', default=None)
+
+if _azure_account_name and _azure_account_key:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.azure_storage.AzureStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+    AZURE_ACCOUNT_NAME = _azure_account_name
+    AZURE_ACCOUNT_KEY = _azure_account_key
+    AZURE_CONTAINER = env('AZURE_MEDIA_CONTAINER', default='media')
+    AZURE_OVERWRITE_FILES = True
+    AZURE_URL_EXPIRATION_SECS = None  # public container → permanent URLs
+else:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
 
 # ──────────────────────────────────────────────────────────────
 # Redis cache (optional — falls back to local memory if not set)
