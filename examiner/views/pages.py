@@ -212,13 +212,15 @@ def station_dashboard(request, assignment_id):
             'is_scored': s.id in scored_student_ids,
         })
 
-    # For dry stations, prefer non-submitted students first (so unscored appear before submitted)
-    try:
-        if station.is_dry:
-            student_list.sort(key=lambda x: (x['is_scored'], x['student'].sequence_number if hasattr(x['student'], 'sequence_number') else 0))
-    except Exception:
-        # Fail-safe: don't break station dashboard if attribute missing
-        pass
+    # For dry stations only: sort non-submitted students before submitted ones,
+    # preserving sequence_number order within each group.
+    if station.is_dry:
+        student_list.sort(
+            key=lambda x: (
+                1 if x['is_scored'] else 0,
+                x['student'].sequence_number or 0,
+            )
+        )
 
     scored_count = len(scored_student_ids)
     total_count = students.count()
