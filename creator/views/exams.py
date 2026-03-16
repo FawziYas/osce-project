@@ -220,7 +220,7 @@ def exam_detail(request, exam_id):
         )
         sessions = list(ExamSession.objects.filter(exam=exam).annotate(
             has_dry_stations=Exists(dry_station_exists_subquery)
-        ).order_by('session_date'))
+        ).order_by('session_date', 'start_time'))
         stations = list(Station.objects.filter(exam=exam, active=True))
         total_students = SessionStudent.objects.filter(
             session__exam=exam

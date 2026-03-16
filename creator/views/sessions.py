@@ -88,15 +88,15 @@ def session_list(request, exam_id):
     if not check_exam_department(request.user, exam):
         return HttpResponseForbidden('You do not have access to this exam.')
     search_query = request.GET.get('search', '').strip()
-    sessions_qs = ExamSession.objects.filter(exam=exam).order_by('-session_date')
+    sessions_qs = ExamSession.objects.filter(exam=exam).order_by('session_date', 'start_time')
     
     if search_query:
         sessions_qs = sessions_qs.filter(
             name__icontains=search_query
         ) | ExamSession.objects.filter(
             exam=exam, session_date__icontains=search_query
-        ).order_by('-session_date')
-        sessions_qs = sessions_qs.order_by('-session_date').distinct()
+        ).order_by('session_date', 'start_time')
+        sessions_qs = sessions_qs.order_by('session_date', 'start_time').distinct()
     
     return render(request, 'creator/sessions/list.html', {
         'exam': exam,
