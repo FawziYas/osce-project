@@ -754,6 +754,7 @@ def department_create(request):
                 department=dept,
                 is_active=True,
                 is_dry_user=True,
+                allow_multi_login=True,
             )
             dry_user.save()  # signal sets default password with must_change_password=False
 

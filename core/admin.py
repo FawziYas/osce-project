@@ -161,6 +161,7 @@ class ExaminerAdmin(BaseUserAdmin):
         (None, {'fields': ('username', 'password')}),
         ('Personal Info', {'fields': ('full_name', 'email', 'title', 'department', 'coordinator_position')}),
         ('Role & Permissions', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Session & Access', {'fields': ('is_dry_user', 'allow_multi_login')}),
         ('Password Reset', {'fields': ('reset_password_button',)}),
     )
     add_fieldsets = (

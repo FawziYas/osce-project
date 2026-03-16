@@ -84,6 +84,14 @@ class Examiner(AbstractBaseUser, PermissionsMixin, TimestampMixin):
     # Marks a virtual examiner account used for dry-marking (one per department)
     is_dry_user = models.BooleanField(default=False)
 
+    # When True, this user is exempt from the single-active-session check and can
+    # log in from multiple browsers/devices simultaneously.  Auto-set for dry users
+    # and can be toggled per-user in the Django admin.
+    allow_multi_login = models.BooleanField(
+        default=False,
+        help_text='Allow this user to have multiple simultaneous sessions (bypasses single-session enforcement).',
+    )
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_deleted = models.BooleanField(default=False)
