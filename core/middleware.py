@@ -323,8 +323,8 @@ class RLSSessionMiddleware:
     Injects Django user context into the PostgreSQL session so
     Row-Level Security policies can read it via current_setting().
 
-    Uses set_config(..., true) so variables are transaction-scoped
-    and reset automatically after each request.
+    Uses set_config(..., false) so variables are session-scoped
+    (persist on the connection for all queries within the request).
 
     Sets 4 session variables:
       app.current_user_id  - integer user PK
@@ -362,10 +362,10 @@ class RLSSessionMiddleware:
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT "
-                "set_config('app.current_user_id', %s, true), "
-                "set_config('app.current_role',    %s, true), "
-                "set_config('app.department_id',   %s, true), "
-                "set_config('app.station_ids',     %s, true)",
+                "set_config('app.current_user_id', %s, false), "
+                "set_config('app.current_role',    %s, false), "
+                "set_config('app.department_id',   %s, false), "
+                "set_config('app.station_ids',     %s, false)",
                 [user_id, role, dept_id, station_ids],
             )
 
