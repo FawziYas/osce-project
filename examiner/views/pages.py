@@ -158,7 +158,7 @@ def station_dashboard(request, assignment_id):
     students = SessionStudent.objects.filter(
         session_id=assignment.session_id,
         path_id=station.path_id,
-    ).order_by('sequence_number')
+    ).order_by('sequence_number', 'student_number')
 
     # Scored students by this examiner
     scored_student_ids = set(
@@ -262,7 +262,7 @@ def select_student(request, assignment_id):
 
     students = SessionStudent.objects.filter(
         session_id=assignment.session_id,
-    ).order_by('rotation_group', 'sequence_number')
+    ).order_by('rotation_group', 'sequence_number', 'student_number')
 
     return render(request, 'examiner/select_student.html', {
         'assignment': assignment,
