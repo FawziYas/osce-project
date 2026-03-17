@@ -134,12 +134,9 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # ──────────────────────────────────────────────────────────────
-# Logging — rotating file handlers for production
+# Logging — console only for Azure (ephemeral /tmp/ filesystem)
+# Azure captures stdout/stderr via App Service log streaming.
 # ──────────────────────────────────────────────────────────────
-# Ensure logs/ directory exists before logging config is applied
-import os as _os
-_os.makedirs(BASE_DIR / 'logs', exist_ok=True)
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -155,49 +152,24 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'production',
         },
-        'audit_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': str(BASE_DIR / 'logs' / 'audit.log'),
-            'maxBytes': 10 * 1024 * 1024,  # 10 MB
-            'backupCount': 5,
-            'formatter': 'production',
-            'encoding': 'utf-8',
-        },
-        'auth_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': str(BASE_DIR / 'logs' / 'auth.log'),
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 5,
-            'formatter': 'production',
-            'encoding': 'utf-8',
-        },
-        'error_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': str(BASE_DIR / 'logs' / 'error.log'),
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 5,
-            'formatter': 'production',
-            'encoding': 'utf-8',
-            'level': 'ERROR',
-        },
     },
     'loggers': {
         'osce.audit': {
-            'handlers': ['console', 'audit_file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'osce.auth': {
-            'handlers': ['console', 'auth_file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'django': {
-            'handlers': ['console', 'error_file'],
+            'handlers': ['console'],
             'level': 'WARNING',
         },
         'django.request': {
-            'handlers': ['console', 'error_file'],
+            'handlers': ['console'],
             'level': 'ERROR',
             'propagate': False,
         },
