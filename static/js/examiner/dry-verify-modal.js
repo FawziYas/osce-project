@@ -79,7 +79,7 @@
 
     function setFeedback(text, cls) {
         feedback.className = 'verify-feedback ' + cls;
-        feedback.textContent = text;
+        feedback.innerHTML = text;
     }
 
     /* ── Mode switching (reg ↔ masterkey) ─────────────── */
@@ -144,7 +144,7 @@
         state.sessionId    = btn.dataset.sessionId;
         state.assignmentId = btn.dataset.assignmentId;
         state.verifyUrl    = btn.dataset.verifyUrl;
-        state.masterKeyUrl = btn.dataset.masterkeyUrl;  // data-masterkey-url → masterkeyUrl
+        state.masterKeyUrl = btn.dataset.masterkeyUrl;
 
         // Populate student info block
         studentNameEl.textContent = state.studentName;
