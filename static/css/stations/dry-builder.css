@@ -492,7 +492,7 @@
         gap: 4px;
         pointer-events: none;
         text-align: center;
-    }
+    }   
     .img-zone-placeholder .zone-icon { font-size: 1.5rem; opacity: 0.45; }
     .img-zone-placeholder .zone-text { font-size: 0.8rem; font-weight: 600; color: #495057; }
     .img-zone-placeholder .zone-hint { font-size: 0.7rem; color: #adb5bd; margin-top: 1px; }
