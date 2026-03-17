@@ -2,12 +2,14 @@
 Station CRUD views – create, detail, edit, delete, restore.
 """
 import json
+import re
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Max
 from django.http import HttpResponseForbidden
@@ -15,6 +17,14 @@ from django.http import HttpResponseForbidden
 from core.models import ILO, Station, ChecklistItem, Path
 from core.utils.roles import check_path_department, check_station_department
 from core.utils.image_validators import validate_question_image, sanitize_image_filename
+
+
+def _get_dept_folder(exam):
+    """Return a filesystem-safe department folder name for image uploads."""
+    dept = (exam.department or '').strip() if exam else ''
+    if not dept:
+        dept = 'general'
+    return re.sub(r'[^\w\-]', '_', dept).strip('_') or 'general'
 
 
 @login_required
@@ -210,8 +220,13 @@ def station_create_dry(request, path_id):
                 if img_file:
                     try:
                         validate_question_image(img_file)
-                        img_file.name = sanitize_image_filename(img_file.name)
-                        new_item.image = img_file
+                        filename = sanitize_image_filename(img_file.name)
+                        dept_folder = _get_dept_folder(exam)
+                        img_file.seek(0)
+                        saved_path = default_storage.save(
+                            f'question_images/{dept_folder}/{filename}', img_file
+                        )
+                        new_item.image = saved_path
                         new_item.save()
                     except ValidationError as ve:
                         messages.warning(
@@ -593,8 +608,13 @@ def station_edit_dry(request, station_id):
                         if img_file:
                             try:
                                 validate_question_image(img_file)
-                                img_file.name = sanitize_image_filename(img_file.name)
-                                item.image = img_file
+                                filename = sanitize_image_filename(img_file.name)
+                                dept_folder = _get_dept_folder(exam)
+                                img_file.seek(0)
+                                saved_path = default_storage.save(
+                                    f'question_images/{dept_folder}/{filename}', img_file
+                                )
+                                item.image = saved_path
                             except ValidationError as ve:
                                 messages.warning(
                                     request,
@@ -623,8 +643,13 @@ def station_edit_dry(request, station_id):
                         if img_file:
                             try:
                                 validate_question_image(img_file)
-                                img_file.name = sanitize_image_filename(img_file.name)
-                                new_item.image = img_file
+                                filename = sanitize_image_filename(img_file.name)
+                                dept_folder = _get_dept_folder(exam)
+                                img_file.seek(0)
+                                saved_path = default_storage.save(
+                                    f'question_images/{dept_folder}/{filename}', img_file
+                                )
+                                new_item.image = saved_path
                                 new_item.save()
                             except ValidationError as ve:
                                 messages.warning(

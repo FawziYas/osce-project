@@ -4,6 +4,7 @@ plus apply-templates-to-session.
 """
 import json
 import os
+import re
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
@@ -17,6 +18,14 @@ from core.models import (
     Exam, ExamSession, Path, ILO, StationTemplate, TemplateLibrary,
 )
 from core.utils.image_validators import validate_question_image, sanitize_image_filename
+
+def _get_dept_folder(exam):
+    """Return a filesystem-safe department folder name for image uploads."""
+    dept = (exam.department or '').strip() if exam else ''
+    if not dept:
+        dept = 'general'
+    return re.sub(r'[^\w\-]', '_', dept).strip('_') or 'general'
+
 
 # Preset library colors
 LIBRARY_COLORS = [
@@ -40,11 +49,12 @@ def _is_dry_template_items(items):
     return False
 
 
-def _process_template_item_images(request, items):
-    """Save any newly-uploaded item images into template_images/ storage.
+def _process_template_item_images(request, items, exam=None):
+    """Save any newly-uploaded item images into question_images/<dept>/ storage.
     Mutates items in-place, adding/updating 'image_path' for each item that
     has a file upload. Items that already carry an 'image_path' and have no
     new upload keep their existing path. Returns the (mutated) items list."""
+    dept_folder = _get_dept_folder(exam)
     for item in items:
         item_id = item.get('item_id', '')
         img_file = request.FILES.get(f'item_image_{item_id}')
@@ -53,7 +63,7 @@ def _process_template_item_images(request, items):
                 validate_question_image(img_file)
                 img_file.seek(0)
                 filename = sanitize_image_filename(img_file.name)
-                path = default_storage.save(f'question_images/{filename}', img_file)
+                path = default_storage.save(f'question_images/{dept_folder}/{filename}', img_file)
                 item['image_path'] = path
             except DjangoValidationError as ve:
                 messages.warning(request, f'Image for item skipped: {ve.message}')
@@ -291,7 +301,7 @@ def station_template_create_dry(request, exam_id):
                 items = []
 
             # Save uploaded images and embed paths in JSON before storing
-            _process_template_item_images(request, items)
+            _process_template_item_images(request, items, exam)
             template.set_checklist_items(items)
             template.save()
             messages.success(
@@ -383,7 +393,7 @@ def station_template_edit_dry(request, template_id):
                 items = []
 
             # Save uploaded images and embed paths in JSON before storing
-            _process_template_item_images(request, items)
+            _process_template_item_images(request, items, exam)
             template.set_checklist_items(items)
 
             template.save()
