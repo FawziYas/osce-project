@@ -76,41 +76,50 @@
 
 
 <!-- Search and Filter Section -->
-<div class="card mb-4">
+<form method="GET" id="filterForm" class="card mb-4">
     <div class="card-body">
-        <div class="row g-3">
+        <div class="row g-3 align-items-end">
             <div class="col-md-6">
                 <label for="searchInput" class="form-label fw-bold">
                     <i class="bi bi-search me-1"></i>Search Examiners
                 </label>
-                <input type="text" class="form-control" id="searchInput" placeholder="Search by name, username, or email...">
-                <small class="text-muted">Filters across name, username, and email</small>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="searchInput" name="q"
+                           value="{{ q }}" placeholder="Name, username, or email…"
+                           autocomplete="off">
+                    <button class="btn btn-primary" type="submit">Search</button>
+                    {% if q or department_filter or status_filter %}
+                    <a href="{% url 'creator:examiner_list' %}" class="btn btn-outline-secondary" title="Clear filters">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                    {% endif %}
+                </div>
+                <small class="text-muted">Searches across name, username, and email in all pages</small>
             </div>
             <div class="col-md-3">
                 <label for="departmentFilter" class="form-label fw-bold">
                     <i class="bi bi-funnel me-1"></i>Department
                 </label>
-                <select class="form-select" id="departmentFilter">
+                <select class="form-select" id="departmentFilter" name="department" onchange="this.form.submit()">
                     <option value="">All Departments</option>
-                    <option value="Internal Medicine">Internal Medicine</option>
-                    <option value="Pediatrics">Pediatrics</option>
-                    <option value="General Surgery">General Surgery</option>
-                    <option value="Obstetrics and Gynecology">Obstetrics and Gynecology</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept }}" {% if department_filter == dept %}selected{% endif %}>{{ dept }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="col-md-3">
                 <label for="statusFilter" class="form-label fw-bold">
                     <i class="bi bi-toggle-on me-1"></i>Status
                 </label>
-                <select class="form-select" id="statusFilter">
+                <select class="form-select" id="statusFilter" name="status" onchange="this.form.submit()">
                     <option value="">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
+                    <option value="Active" {% if status_filter == 'Active' %}selected{% endif %}>Active</option>
+                    <option value="Inactive" {% if status_filter == 'Inactive' %}selected{% endif %}>Inactive</option>
                 </select>
             </div>
         </div>
     </div>
-</div>
+</form>
 
 <div class="table-card">
     <div class="table-responsive">
@@ -170,7 +179,11 @@
             <tr>
                 <td colspan="7" class="text-center text-muted py-5">
                     <i class="bi bi-person-badge fs-1 d-block mb-2"></i>
-                    No examiners yet. <a href="{% url 'creator:examiner_create' %}">Add your first examiner</a>
+                    {% if q or department_filter or status_filter %}
+                        No examiners match your search.
+                    {% else %}
+                        No examiners yet. <a href="{% url 'creator:examiner_create' %}">Add your first examiner</a>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -178,6 +191,53 @@
     </table>
     </div>
 </div>
+
+<!-- Pagination + result count -->
+{% if paginator.num_pages > 1 or page_obj.paginator.count %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mt-3 gap-2">
+    <small class="text-muted">
+        Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ paginator.count }} examiner{{ paginator.count|pluralize }}
+        {% if q %} for "<strong>{{ q }}</strong>"{% endif %}
+    </small>
+    {% if paginator.num_pages > 1 %}
+    <nav>
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if department_filter %}department={{ department_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+            {% endif %}
+
+            {% for num in paginator.page_range %}
+                {% if num == page_obj.number %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num == 1 or num == paginator.num_pages or num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if department_filter %}department={{ department_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ num }}">{{ num }}</a>
+                </li>
+                {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}{% if department_filter %}department={{ department_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endif %}
 
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1">
@@ -208,43 +268,6 @@ function confirmDelete(examinerId, examinerName) {
     document.getElementById('deleteForm').action = `/creator/examiners/${examinerId}/delete/`;
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
-
-// Search and Filter Functionality
-const searchInput = document.getElementById('searchInput');
-const departmentFilter = document.getElementById('departmentFilter');
-const statusFilter = document.getElementById('statusFilter');
-const tableRows = document.querySelectorAll('table tbody tr');
-
-function filterTable() {
-    const searchValue = searchInput.value.toLowerCase();
-    const departmentValue = departmentFilter.value;
-    const statusValue = statusFilter.value;
-
-    tableRows.forEach(row => {
-        const cells = row.getElementsByTagName('td');
-        if (cells.length === 0) return;
-
-        const examinerCell = cells[0]?.textContent.toLowerCase() || '';
-        const usernameCell = cells[1]?.textContent.toLowerCase() || '';
-        const emailCell = cells[2]?.textContent.toLowerCase() || '';
-        const departmentCell = cells[3]?.textContent.trim() || '';
-        const statusCell = cells[5]?.textContent.trim() || '';
-
-        const searchMatch = searchValue === '' ||
-            examinerCell.includes(searchValue) ||
-            usernameCell.includes(searchValue) ||
-            emailCell.includes(searchValue);
-
-        const departmentMatch = departmentValue === '' || departmentCell === departmentValue;
-        const statusMatch = statusValue === '' || statusCell === statusValue;
-
-        row.style.display = (searchMatch && departmentMatch && statusMatch) ? '' : 'none';
-    });
-}
-
-searchInput?.addEventListener('keyup', filterTable);
-departmentFilter?.addEventListener('change', filterTable);
-statusFilter?.addEventListener('change', filterTable);
 
 // Handle Bulk Upload UI – AJAX + Celery polling
 const uploadForm = document.getElementById('uploadForm');

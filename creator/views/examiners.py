@@ -23,24 +23,49 @@ from core.utils.cache_utils import (
 
 @login_required
 def examiner_list(request):
-    """List all examiners (active only). Deleted shown separately for admin/superuser."""
+    """List examiners with server-side search, filter and pagination."""
     from django.core.cache import cache
+    from django.core.paginator import Paginator
+    from django.db.models import Q
     from core.utils.roles import is_global
 
-    # Department-scoped query (cache only for global users)
-    if is_global(request.user):
-        examiners = cache.get(EXAMINER_LIST_KEY)
-        if examiners is None:
-            examiners = list(
-                Examiner.objects.filter(role='examiner', is_deleted=False).order_by('full_name')
-            )
-            cache.set(EXAMINER_LIST_KEY, examiners, EXAMINER_LIST_TTL)
+    q               = request.GET.get('q', '').strip()
+    department_filter = request.GET.get('department', '').strip()
+    status_filter   = request.GET.get('status', '').strip()
+    page_number     = request.GET.get('page', 1)
+
+    has_filters = bool(q or department_filter or status_filter)
+
+    # Base queryset (scoped for non-global users)
+    base_qs = Examiner.objects.filter(role='examiner', is_deleted=False)
+    if not is_global(request.user):
+        base_qs = scope_queryset(request.user, base_qs, dept_field='department')
+
+    # Apply search / filters
+    if q:
+        base_qs = base_qs.filter(
+            Q(full_name__icontains=q) | Q(username__icontains=q) | Q(email__icontains=q)
+        )
+    if department_filter:
+        base_qs = base_qs.filter(department__name__iexact=department_filter)
+    if status_filter == 'Active':
+        base_qs = base_qs.filter(is_active=True)
+    elif status_filter == 'Inactive':
+        base_qs = base_qs.filter(is_active=False)
+
+    base_qs = base_qs.order_by('full_name')
+
+    # Cache unfiltered global list
+    if is_global(request.user) and not has_filters:
+        cached = cache.get(EXAMINER_LIST_KEY)
+        if cached is None:
+            cached = list(base_qs)
+            cache.set(EXAMINER_LIST_KEY, cached, EXAMINER_LIST_TTL)
+        paginator = Paginator(cached, 25)
     else:
-        examiners = list(scope_queryset(
-            request.user,
-            Examiner.objects.filter(role='examiner', is_deleted=False),
-            dept_field='department',
-        ).order_by('full_name'))
+        paginator = Paginator(base_qs, 25)
+
+    page_obj = paginator.get_page(page_number)
 
     today = datetime.now().date()
 
@@ -64,8 +89,21 @@ def examiner_list(request):
         }
         cache.set(EXAMINER_STATS_KEY, stats, EXAMINER_STATS_TTL)
 
+    # Distinct department choices for the filter dropdown
+    departments = list(
+        Examiner.objects.filter(role='examiner', is_deleted=False)
+        .exclude(department__isnull=True)
+        .values_list('department__name', flat=True).distinct().order_by('department__name')
+    )
+
     return render(request, 'creator/examiners/list.html', {
-        'examiners': examiners,
+        'examiners': page_obj,
+        'page_obj': page_obj,
+        'paginator': paginator,
+        'q': q,
+        'department_filter': department_filter,
+        'status_filter': status_filter,
+        'departments': departments,
         'stats': stats,
         'deleted_examiners': deleted_examiners,
         'can_see_deleted': can_see_deleted,

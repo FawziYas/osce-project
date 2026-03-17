@@ -37,16 +37,30 @@ class UserSession(models.Model):
         """
         Check that the session key still exists and has not expired.
 
-        Uses Django's backend-agnostic SessionStore.exists() so this works
-        correctly regardless of SESSION_ENGINE (db, cache, cached_db, etc.).
-        On a cache backend Session.objects would always be empty, causing the
-        check to always return False and bypassing single-session enforcement.
+        store.exists() on Django's DB backend only checks row presence — it does
+        NOT filter by expire_date.  Expired rows linger until clearsessions runs,
+        which caused the single-session block to never lift on its own locally.
 
-        Note: exists() is an instance method in Django, so we must instantiate
-        SessionStore before calling it — calling it on the class directly fails
-        with TypeError (session_key arg is treated as self).
+        Fix: for DB-backed sessions query the expire_date explicitly; for cache
+        backends (which auto-evict) fall back to exists() which is reliable there.
         """
         from importlib import import_module
+        from django.utils import timezone
+
         engine = import_module(settings.SESSION_ENGINE)
         store = engine.SessionStore()
-        return store.exists(self.session_key)
+
+        # Fast path: row/key doesn't exist at all
+        if not store.exists(self.session_key):
+            return False
+
+        # For DB backends the row may exist but be logically expired — check that
+        try:
+            from django.contrib.sessions.models import Session as DjSession
+            return DjSession.objects.filter(
+                session_key=self.session_key,
+                expire_date__gt=timezone.now(),
+            ).exists()
+        except Exception:
+            # Cache / cached_db backends don't use Session model; exists() is enough
+            return True

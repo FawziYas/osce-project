@@ -244,6 +244,12 @@ class ExaminerAdmin(BaseUserAdmin):
         except Exception:
             return None
 
+    def get_inlines(self, request, obj):
+        """Only show UserProfileInline on the change view (profile doesn't exist yet on add)."""
+        if obj is None:  # add view
+            return []
+        return self.inlines
+
     def has_delete_permission(self, request, obj=None):
         """Only superuser and admin can delete examiners."""
         if not request.user.is_superuser and getattr(request.user, 'role', None) != 'admin':
