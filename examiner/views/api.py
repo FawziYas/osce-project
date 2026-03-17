@@ -625,6 +625,118 @@ def sync_status(request):
 @login_required
 @require_POST
 def verify_student_registration(request):
+    """
+    Verify student registration number for dry exam start.
+    
+    Expected JSON body:
+    {
+        "student_id": <uuid>,
+        "student_number": "<registration_number>",
+        "session_id": <uuid>,
+        "assignment_id": <uuid>,
+    }
+    
+    Returns:
+    {
+        "valid": true/false,
+        "message": "<error_message_if_invalid>",
+        "redirect_url": "<exam_interface_url_if_valid>"
+    }
+    """
+    data, error_response = _parse_json_body(request)
+    if error_response:
+        return error_response
+    
+    student_id = data.get('student_id')
+    student_number = data.get('student_number', '').strip()
+    session_id = data.get('session_id')
+    assignment_id = data.get('assignment_id')
+    
+    if not all([student_id, student_number, session_id, assignment_id]):
+        return JsonResponse({'error': 'Missing required fields'}, status=400)
+    
+    # Verify examiner is assigned to this session/station
+    assignment = get_object_or_404(ExaminerAssignment, id=assignment_id, examiner=request.user)
+    
+    # Get the student
+    student = get_object_or_404(SessionStudent, id=student_id, session_id=session_id)
+    
+    # Check if the provided student_number matches
+    if student.student.student_number.upper() != student_number.upper():
+        return JsonResponse({
+            'valid': False,
+            'message': 'Registration number does not match.',
+        })
+    
+    # Verification successful — generate redirect URL to marking interface
+    redirect_url = reverse('examiner:marking_interface', args=[assignment_id, student_id])
+    
+    return JsonResponse({
+        'valid': True,
+        'redirect_url': redirect_url,
+    })
+
+
+@login_required
+@require_POST
+def verify_master_key(request):
+    """
+    Verify master key (exam administrator password) for dry exam start.
+    
+    Expected JSON body:
+    {
+        "password": "<master_password>",
+        "student_id": <uuid>,
+        "session_id": <uuid>,
+        "assignment_id": <uuid>,
+    }
+    
+    Returns:
+    {
+        "valid": true/false,
+        "message": "<error_message_if_invalid>",
+        "redirect_url": "<exam_interface_url_if_valid>"
+    }
+    """
+    data, error_response = _parse_json_body(request)
+    if error_response:
+        return error_response
+    
+    password = data.get('password', '')
+    student_id = data.get('student_id')
+    session_id = data.get('session_id')
+    assignment_id = data.get('assignment_id')
+    
+    if not all([password, student_id, session_id, assignment_id]):
+        return JsonResponse({'error': 'Missing required fields'}, status=400)
+    
+    # Verify examiner is assigned to this session/station
+    assignment = get_object_or_404(ExaminerAssignment, id=assignment_id, examiner=request.user)
+    
+    # Get the student
+    student = get_object_or_404(SessionStudent, id=student_id, session_id=session_id)
+    
+    # Check master key (configured in settings or hardcoded for now)
+    from django.conf import settings
+    master_key = getattr(settings, 'DRY_EXAM_MASTER_KEY', '1234')  # Default for development
+    
+    if password != master_key:
+        return JsonResponse({
+            'valid': False,
+            'message': 'Master key is incorrect.',
+        })
+    
+    # Verification successful — generate redirect URL to marking interface
+    redirect_url = reverse('examiner:marking_interface', args=[assignment_id, student_id])
+    
+    return JsonResponse({
+        'valid': True,
+        'redirect_url': redirect_url,
+    })
+
+@login_required
+@require_POST
+def verify_student_registration(request):
     """Verify student registration number before starting dry exam."""
     data, err = _parse_json_body(request)
     if err:

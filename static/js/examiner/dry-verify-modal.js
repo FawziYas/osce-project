@@ -144,7 +144,7 @@
         state.sessionId    = btn.dataset.sessionId;
         state.assignmentId = btn.dataset.assignmentId;
         state.verifyUrl    = btn.dataset.verifyUrl;
-        state.masterKeyUrl = btn.dataset.masterkeyUrl;
+        state.masterKeyUrl = btn.dataset.masterkeyUrl;  // data-masterkey-url → masterkeyUrl
 
         // Populate student info block
         studentNameEl.textContent = state.studentName;
