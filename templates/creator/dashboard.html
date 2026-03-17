@@ -234,16 +234,29 @@
 <script>
 let selectedExamId = null;
 
+// Get trigger button from modal instance (more reliable than relatedTarget)
+function getModalTriggerData(modalEl) {
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    const backdrop = document.querySelector('.modal.show');
+    if (backdrop) {
+        const buttons = document.querySelectorAll('[data-bs-target="#' + modalEl.id + '"]');
+        return buttons[buttons.length - 1]; // Get last (most recent) trigger
+    }
+    return null;
+}
+
 document.getElementById('deleteExamModal')?.addEventListener('show.bs.modal', function(e) {
-    const button = e.relatedTarget;
-    selectedExamId = button.dataset.examId;
-    document.getElementById('deleteExamName').textContent = button.dataset.examName;
+    const trigger = e.relatedTarget || getModalTriggerData(this);
+    if (trigger?.dataset) {
+        selectedExamId = trigger.dataset.examId;
+        document.getElementById('deleteExamName').textContent = trigger.dataset.examName;
+    }
 });
 
 document.getElementById('deleteExamBtn')?.addEventListener('click', function() {
-    if (!selectedExamId) return;
-    fetch(`/creator/exams/${selectedExamId}/delete`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}
+    if (!selectedExamId) { alert('Error: No exam selected'); return; }
+    fetch(`/creator/exams/${selectedExamId}/delete/`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()}
     })
     .then(response => response.json())
     .then(data => { if (data.success) { alert(data.message); location.reload(); } else { alert('Error: ' + (data.message || 'Unknown error')); } })
@@ -251,15 +264,17 @@ document.getElementById('deleteExamBtn')?.addEventListener('click', function() {
 });
 
 document.getElementById('archiveExamModal')?.addEventListener('show.bs.modal', function(e) {
-    const button = e.relatedTarget;
-    selectedExamId = button.dataset.examId;
-    document.getElementById('archiveExamName').textContent = button.dataset.examName;
+    const trigger = e.relatedTarget || getModalTriggerData(this);
+    if (trigger?.dataset) {
+        selectedExamId = trigger.dataset.examId;
+        document.getElementById('archiveExamName').textContent = trigger.dataset.examName;
+    }
 });
 
 document.getElementById('archiveExamBtn')?.addEventListener('click', function() {
-    if (!selectedExamId) return;
-    fetch(`/creator/exams/${selectedExamId}/archive`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}
+    if (!selectedExamId) { alert('Error: No exam selected'); return; }
+    fetch(`/creator/exams/${selectedExamId}/archive/`, {
+        method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken()}
     })
     .then(response => response.json())
     .then(data => { if (data.success) { alert(data.message); location.reload(); } else { alert('Error: ' + (data.message || 'Unknown error')); } })
