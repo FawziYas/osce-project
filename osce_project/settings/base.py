@@ -120,7 +120,7 @@ LOGIN_REDIRECT_URL = '/examiner/home/'
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Asia/Riyadh'
+TIME_ZONE = 'Asia/Jerusalem'
 USE_I18N = True
 USE_TZ = True
 
