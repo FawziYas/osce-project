@@ -496,6 +496,7 @@
     .img-zone-placeholder .zone-icon { font-size: 1.5rem; opacity: 0.45; }
     .img-zone-placeholder .zone-text { font-size: 0.8rem; font-weight: 600; color: #495057; }
     .img-zone-placeholder .zone-hint { font-size: 0.7rem; color: #adb5bd; margin-top: 1px; }
+    .img-zone-placeholder .btn { pointer-events: auto; }
     .has-image .img-zone-placeholder { display: none; }
     /* Preview (filled state) */
     .img-preview-main {
@@ -544,6 +545,8 @@
     }
     .replace-img-btn { border-color: #0d6efd; color: #0d6efd; }
     .replace-img-btn:hover { background: #0d6efd; color: white; }
+    .browse-img-btn { border-color: #6c757d; color: #6c757d; }
+    .browse-img-btn:hover { background: #6c757d; color: white; }
     .remove-img-btn { border-color: #dc3545; color: #dc3545; }
     .remove-img-btn:hover { background: #dc3545; color: white; }
     .img-upload-error {

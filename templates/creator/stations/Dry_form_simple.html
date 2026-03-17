@@ -236,11 +236,10 @@
                             <div class="img-preview-actions">
                                 <button type="button" class="replace-img-btn"
                                         onclick="event.stopPropagation();replaceImage(this)">
-                                    <i class="bi bi-arrow-repeat me-1"></i>Replace
+                                    <i class="bi bi-arrow-repeat me-1"></i>Upload
                                 </button>
-                                <button type="button"
-                                        onclick="event.stopPropagation();openImageBrowser(this.closest('.img-upload-zone'))"
-                                        style="background:none;border:none;font-size:.75rem;color:#6c757d;cursor:pointer;padding:0 4px">
+                                <button type="button" class="browse-img-btn"
+                                        onclick="event.stopPropagation();openImageBrowser(this.closest('.img-upload-zone'))">
                                     <i class="bi bi-folder2-open me-1"></i>Browse
                                 </button>
                                 <button type="button" class="remove-img-btn"
