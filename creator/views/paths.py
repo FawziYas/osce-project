@@ -265,12 +265,18 @@ def _copy_stations_list(source_stations, target_path):
             is_dry=src.is_dry,
         )
         for item in ChecklistItem.objects.filter(station=src).order_by('item_number'):
-            ChecklistItem.objects.create(
+            new_item = ChecklistItem.objects.create(
                 station=new_station,
                 item_number=item.item_number,
                 description=item.description,
                 points=item.points,
                 rubric_type=item.rubric_type,
+                rubric_levels=item.rubric_levels,
+                expected_response=item.expected_response or '',
                 category=item.category,
                 ilo_id=item.ilo_id,
             )
+            # Share the same image blob — no file copy needed, just reference the path
+            if item.image and item.image.name:
+                new_item.image.name = item.image.name
+                new_item.save(update_fields=['image'])
