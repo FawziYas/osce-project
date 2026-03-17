@@ -10,6 +10,7 @@ from django.http import HttpResponseForbidden
 
 from core.models import Course, ILO, Theme
 from core.models.department import Department
+from core.utils.sanitize import strip_html
 from core.utils.roles import (
     scope_queryset, check_course_department, is_global, is_coordinator,
     get_user_department, is_head_coordinator, admin_or_superuser_required,
@@ -67,9 +68,9 @@ def course_create(request):
         course = Course.objects.create(
             code=request.POST['code'],
             short_code=request.POST['short_code'],
-            name=request.POST['name'],
+            name=strip_html(request.POST['name']),
             year_level=int(request.POST.get('year_level', 1)),
-            description=request.POST.get('description', ''),
+            description=strip_html(request.POST.get('description', '')),
             osce_mark=int(osce_mark_raw) if osce_mark_raw else None,
             department_id=int(dept_id) if dept_id else None,
         )
@@ -119,9 +120,9 @@ def course_edit(request, course_id):
     if request.method == 'POST':
         course.code = request.POST['code']
         course.short_code = request.POST['short_code']
-        course.name = request.POST['name']
+        course.name = strip_html(request.POST['name'])
         course.year_level = int(request.POST.get('year_level', course.year_level))
-        course.description = request.POST.get('description', '')
+        course.description = strip_html(request.POST.get('description', ''))
         osce_mark_raw = request.POST.get('osce_mark', '').strip()
         course.osce_mark = int(osce_mark_raw) if osce_mark_raw else None
         dept_id = request.POST.get('department', '').strip()
@@ -158,7 +159,7 @@ def ilo_create(request, course_id):
         ILO.objects.create(
             course_id=course_id,
             number=max_num + 1,
-            description=request.POST['description'],
+            description=strip_html(request.POST['description']),
             theme_id=int(request.POST.get('theme_id', 1)) if request.POST.get('theme_id') else None,
             osce_marks=int(request.POST.get('osce_marks', 0)),
         )
@@ -182,7 +183,7 @@ def ilo_edit(request, ilo_id):
         return HttpResponseForbidden('You do not have access to this ILO.')
 
     if request.method == 'POST':
-        ilo.description = request.POST['description']
+        ilo.description = strip_html(request.POST['description'])
         ilo.theme_id = int(request.POST.get('theme_id')) if request.POST.get('theme_id') else None
         ilo.osce_marks = int(request.POST.get('osce_marks', 0))
         ilo.save()

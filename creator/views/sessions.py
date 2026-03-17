@@ -27,6 +27,7 @@ from core.utils.cache_utils import (
     invalidate_exam_detail,
 )
 from core.utils.roles import check_exam_department, check_session_department
+from core.utils.sanitize import strip_html
 
 
 def _can_open_dry_grading(user):
@@ -117,7 +118,7 @@ def session_create(request, exam_id):
         return redirect('creator:exam_edit', exam_id=str(exam_id))
 
     if request.method == 'POST':
-        session_name = request.POST.get('name', '').strip()
+        session_name = strip_html(request.POST.get('name', '').strip())
         if not session_name:
             messages.error(request, 'Session name is required')
             return render(request, 'creator/sessions/form.html', {'exam': exam, 'session': None})
@@ -151,7 +152,7 @@ def session_create(request, exam_id):
         )
         session.save()
 
-        _sync_exam_status(exam)  # exam becomes 'ready' once it has a scheduled session
+        _sync_exam_status(exam, session.id)  # exam becomes 'ready' once it has a scheduled session
 
         if not Path.objects.filter(session=session, is_deleted=False).exists():
             for path_num in range(number_of_paths):
@@ -184,7 +185,7 @@ def session_edit(request, session_id):
         return redirect('creator:exam_edit', exam_id=str(exam.id))
 
     if request.method == 'POST':
-        new_name = request.POST.get('name', '').strip()
+        new_name = strip_html(request.POST.get('name', '').strip())
         if not new_name:
             messages.error(request, 'Session name is required')
             return render(request, 'creator/sessions/form.html', {'exam': exam, 'session': session})
@@ -203,7 +204,7 @@ def session_edit(request, session_id):
             except ValueError:
                 pass
 
-        session.notes = request.POST.get('notes', '')
+        session.notes = strip_html(request.POST.get('notes', ''))
         session.save()
         invalidate_session_detail(session_id)
         invalidate_exam_detail(str(exam.id))
@@ -233,7 +234,7 @@ def session_delete(request, session_id):
     session.save()
     invalidate_session_detail(session_id)
     invalidate_exam_detail(exam_id)
-    _sync_exam_status(session.exam)  # recalculate exam status after session cancelled
+    _sync_exam_status(session.exam, session.id)  # recalculate exam status after session cancelled
 
     messages.success(request, f"Session '{session_name}' has been cancelled.")
     return redirect('creator:exam_detail', exam_id=exam_id)

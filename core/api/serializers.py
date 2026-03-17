@@ -255,6 +255,10 @@ class ItemScoreWriteSerializer(serializers.Serializer):
     score = serializers.FloatField(min_value=0)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
 
+    def validate_notes(self, value):
+        from core.utils.sanitize import strip_html
+        return strip_html(value)
+
 
 class StationScoreCreateSerializer(serializers.Serializer):
     """
@@ -267,6 +271,10 @@ class StationScoreCreateSerializer(serializers.Serializer):
     global_rating = serializers.IntegerField(required=False, allow_null=True)
     comments = serializers.CharField(required=False, allow_blank=True, default='')
     item_scores = ItemScoreWriteSerializer(many=True)
+
+    def validate_comments(self, value):
+        from core.utils.sanitize import strip_html
+        return strip_html(value)
 
     def validate_item_scores(self, value):
         if not value:
@@ -287,6 +295,10 @@ class StationScoreUpdateSerializer(serializers.Serializer):
         choices=['in_progress', 'submitted'],
         required=False,
     )
+
+    def validate_comments(self, value):
+        from core.utils.sanitize import strip_html
+        return strip_html(value)
 
 
 # ── Session Student (for reports) ────────────────────────────────────

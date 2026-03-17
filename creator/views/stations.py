@@ -17,6 +17,7 @@ from django.http import HttpResponseForbidden, JsonResponse
 from core.models import ILO, Station, ChecklistItem, Path, Exam
 from core.utils.roles import check_path_department, check_station_department
 from core.utils.image_validators import validate_question_image, sanitize_image_filename
+from core.utils.sanitize import strip_html, html_safe_json
 
 
 def _get_dept_folder(exam):
@@ -45,9 +46,9 @@ def station_create(request, path_id):
                 path=path,
                 exam_id=exam.id,
                 station_number=max_num + 1,
-                name=request.POST['name'],
-                scenario=request.POST.get('scenario', ''),
-                instructions=request.POST.get('instructions', ''),
+                name=strip_html(request.POST['name']),
+                scenario=strip_html(request.POST.get('scenario', '')),
+                instructions=strip_html(request.POST.get('instructions', '')),
                 duration_minutes=duration,
                 active=True,
             )
@@ -99,7 +100,7 @@ def station_create(request, path_id):
                 ChecklistItem.objects.create(
                     station=station,
                     item_number=item_data.get('item_number', item_count + 1),
-                    description=item_data.get('description', ''),
+                    description=strip_html(item_data.get('description', '')),
                     points=float(item_data.get('points', 1)),
                     rubric_type=item_data.get('scoring_type', 'binary'),
                     category=section or '',
@@ -143,9 +144,9 @@ def station_create_dry(request, path_id):
                 path=path,
                 exam_id=exam.id,
                 station_number=max_num + 1,
-                name=request.POST['name'],
-                scenario=request.POST.get('scenario', ''),
-                instructions=request.POST.get('instructions', ''),
+                name=strip_html(request.POST['name']),
+                scenario=strip_html(request.POST.get('scenario', '')),
+                instructions=strip_html(request.POST.get('instructions', '')),
                 duration_minutes=duration,
                 active=True,
                 is_dry=True,
@@ -206,11 +207,11 @@ def station_create_dry(request, path_id):
                 new_item = ChecklistItem.objects.create(
                     station=station,
                     item_number=item_data.get('item_number', item_count + 1),
-                    description=item_data.get('description', ''),
+                    description=strip_html(item_data.get('description', '')),
                     points=float(item_data.get('points', 1)),
                     rubric_type=scoring_type,
                     rubric_levels=rubric_levels,
-                    expected_response=expected_response,
+                    expected_response=strip_html(expected_response),
                     category=section or '',
                     ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
                 )
@@ -311,9 +312,9 @@ def station_edit(request, station_id):
 
     if request.method == 'POST':
         try:
-            station.name = request.POST['name']
-            station.scenario = request.POST.get('scenario', '')
-            station.instructions = request.POST.get('instructions', '')
+            station.name = strip_html(request.POST['name'])
+            station.scenario = strip_html(request.POST.get('scenario', ''))
+            station.instructions = strip_html(request.POST.get('instructions', ''))
 
             checklist_json_str = request.POST.get('checklist_data', '[]')
             try:
@@ -340,7 +341,7 @@ def station_edit(request, station_id):
                     'station': station,
                     'ilos': ilos,
                     'existing_items': existing_items,
-                    'existing_items_json': json.dumps(existing_items_dicts),
+                    'existing_items_json': html_safe_json(existing_items_dicts),
                     'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                 })
 
@@ -366,7 +367,7 @@ def station_edit(request, station_id):
                         'station': station,
                         'ilos': ilos,
                         'existing_items': existing_items,
-                        'existing_items_json': json.dumps(existing_items_dicts),
+                        'existing_items_json': html_safe_json(existing_items_dicts),
                         'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                     })
 
@@ -385,7 +386,7 @@ def station_edit(request, station_id):
                         # Update in-place so ItemScore FKs remain intact
                         item = existing_by_id[db_id]
                         item.item_number = item_data.get('item_number', item_count + 1)
-                        item.description = item_data.get('description', '')
+                        item.description = strip_html(item_data.get('description', ''))
                         item.points = float(item_data.get('points', 1))
                         item.rubric_type = item_data.get('scoring_type', 'binary')
                         item.category = section or ''
@@ -397,7 +398,7 @@ def station_edit(request, station_id):
                         ChecklistItem.objects.create(
                             station=station,
                             item_number=item_data.get('item_number', item_count + 1),
-                            description=item_data.get('description', ''),
+                            description=strip_html(item_data.get('description', '')),
                             points=float(item_data.get('points', 1)),
                             rubric_type=item_data.get('scoring_type', 'binary'),
                             category=section or '',
@@ -420,7 +421,7 @@ def station_edit(request, station_id):
         'station': station,
         'ilos': ilos,
         'existing_items': existing_items,
-        'existing_items_json': json.dumps(existing_items_dicts),
+        'existing_items_json': html_safe_json(existing_items_dicts),
         'next_station_number': station.station_number,
         'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
     })
@@ -466,9 +467,9 @@ def station_edit_dry(request, station_id):
 
     if request.method == 'POST':
         try:
-            station.name = request.POST['name']
-            station.scenario = request.POST.get('scenario', '')
-            station.instructions = request.POST.get('instructions', '')
+            station.name = strip_html(request.POST['name'])
+            station.scenario = strip_html(request.POST.get('scenario', ''))
+            station.instructions = strip_html(request.POST.get('instructions', ''))
 
             duration = int(request.POST.get('duration_minutes', station.duration_minutes or 8))
             station.duration_minutes = duration
@@ -495,7 +496,7 @@ def station_edit_dry(request, station_id):
                     'station': station,
                     'ilos': ilos,
                     'existing_items': existing_items,
-                    'existing_items_json': json.dumps(existing_items_dicts),
+                    'existing_items_json': html_safe_json(existing_items_dicts),
                     'session_started': session_started,
                     'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                 })
@@ -518,7 +519,7 @@ def station_edit_dry(request, station_id):
                     'station': station,
                     'ilos': ilos,
                     'existing_items': existing_items,
-                    'existing_items_json': json.dumps(existing_items_dicts),
+                    'existing_items_json': html_safe_json(existing_items_dicts),
                     'session_started': session_started,
                     'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                 })
@@ -538,7 +539,7 @@ def station_edit_dry(request, station_id):
                         'station': station,
                         'ilos': ilos,
                         'existing_items': existing_items,
-                        'existing_items_json': json.dumps(existing_items_dicts),
+                        'existing_items_json': html_safe_json(existing_items_dicts),
                         'session_started': session_started,
                         'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                     })
@@ -572,7 +573,7 @@ def station_edit_dry(request, station_id):
                         # Update the existing ChecklistItem in-place so ItemScore FKs stay intact
                         item = existing_by_id[db_id]
                         item.item_number = item_data.get('item_number', item_count + 1)
-                        item.description = item_data.get('description', '')
+                        item.description = strip_html(item_data.get('description', ''))
                         item.points = float(item_data.get('points', 1))
                         if session_started:
                             # Cannot change rubric type once session has started
@@ -587,7 +588,7 @@ def station_edit_dry(request, station_id):
                                     return render(request, 'creator/stations/Dry_form_simple.html', {
                                         'path': path, 'exam': exam, 'station': station,
                                         'ilos': ilos, 'existing_items': existing_items,
-                                        'existing_items_json': json.dumps(existing_items_dicts),
+                                        'existing_items_json': html_safe_json(existing_items_dicts),
                                         'session_started': session_started,
                                         'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),
                                     })
@@ -598,7 +599,7 @@ def station_edit_dry(request, station_id):
                                 item.expected_response = ''
                             else:
                                 item.rubric_levels = None
-                                item.expected_response = item_data.get('key_answer', '')
+                                item.expected_response = strip_html(item_data.get('key_answer', ''))
                         else:
                             item.rubric_type = scoring_type
                             item.rubric_levels = rubric_levels
@@ -632,11 +633,11 @@ def station_edit_dry(request, station_id):
                         new_item = ChecklistItem.objects.create(
                             station=station,
                             item_number=item_data.get('item_number', item_count + 1),
-                            description=item_data.get('description', ''),
+                            description=strip_html(item_data.get('description', '')),
                             points=float(item_data.get('points', 1)),
                             rubric_type=scoring_type,
                             rubric_levels=rubric_levels,
-                            expected_response=expected_response,
+                            expected_response=strip_html(expected_response),
                             category=section or '',
                             ilo_id=int(item_data['ilo_id']) if item_data.get('ilo_id') else None,
                         )
@@ -672,7 +673,7 @@ def station_edit_dry(request, station_id):
         'station': station,
         'ilos': ilos,
         'existing_items': existing_items,
-        'existing_items_json': json.dumps(existing_items_dicts),
+        'existing_items_json': html_safe_json(existing_items_dicts),
         'session_started': session_started,
         'next_station_number': station.station_number,
         'cancel_url': reverse('creator:path_detail', kwargs={'path_id': str(path.id)}),

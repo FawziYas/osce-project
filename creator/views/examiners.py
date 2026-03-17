@@ -13,6 +13,7 @@ from django.http import HttpResponse
 
 from core.models import Examiner, ExaminerAssignment, ExamSession, Department
 from core.utils.roles import scope_queryset
+from core.utils.sanitize import strip_html
 from core.utils.cache_utils import (
     get_departments, invalidate_examiner_list, invalidate_departments,
     EXAMINER_LIST_KEY, EXAMINER_LIST_TTL,
@@ -101,8 +102,8 @@ def examiner_create(request):
         examiner = Examiner(
             username=username,
             email=email,
-            full_name=request.POST['full_name'].strip(),
-            title=request.POST.get('title', '').strip() or '',
+            full_name=strip_html(request.POST['full_name'].strip()),
+            title=strip_html(request.POST.get('title', '').strip()) or '',
             is_active='is_active' in request.POST,
         )
         # Set department FK by looking up the Department by name
@@ -165,8 +166,8 @@ def examiner_edit(request, examiner_id):
             })
 
         examiner.email = email
-        examiner.full_name = request.POST['full_name'].strip()
-        examiner.title = request.POST.get('title', '').strip() or ''
+        examiner.full_name = strip_html(request.POST['full_name'].strip())
+        examiner.title = strip_html(request.POST.get('title', '').strip()) or ''
         # Set department FK by looking up the Department by name
         dept_name = request.POST.get('department', '').strip()
         if dept_name:
@@ -728,7 +729,7 @@ def department_create(request):
         return redirect('creator:dashboard')
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
+        name = strip_html(request.POST.get('name', '').strip())
 
         if not name:
             messages.error(request, 'Department name is required.')
@@ -774,7 +775,7 @@ def department_edit(request, department_id):
     dept = get_object_or_404(Department, pk=department_id)
 
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
+        name = strip_html(request.POST.get('name', '').strip())
 
         if not name:
             messages.error(request, 'Department name is required.')

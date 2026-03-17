@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 
 from core.models import Course, ILO, ChecklistLibrary
+from core.utils.sanitize import strip_html
 
 
 @login_required
@@ -32,8 +33,8 @@ def library_item_create(request):
     if request.method == 'POST':
         ChecklistLibrary.objects.create(
             ilo_id=int(request.POST['ilo_id']),
-            description=request.POST['description'],
-            expected_response=request.POST.get('expected_response', ''),
+            description=strip_html(request.POST['description']),
+            expected_response=strip_html(request.POST.get('expected_response', '')),
             suggested_points=float(request.POST.get('points', 1)),
             usage_count=0,
         )
@@ -51,8 +52,8 @@ def library_item_edit(request, item_id):
 
     if request.method == 'POST':
         item.ilo_id = int(request.POST['ilo_id'])
-        item.description = request.POST['description']
-        item.expected_response = request.POST.get('expected_response', '')
+        item.description = strip_html(request.POST['description'])
+        item.expected_response = strip_html(request.POST.get('expected_response', ''))
         item.suggested_points = float(request.POST.get('points', 1))
         item.save()
         messages.success(request, 'Library item updated.')

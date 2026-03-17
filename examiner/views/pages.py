@@ -17,6 +17,7 @@ from core.models import (
 )
 from core.models.mixins import TimestampMixin
 from core.utils.audit import log_action
+from core.utils.sanitize import html_safe_json
 
 
 def index(request):
@@ -372,7 +373,7 @@ def marking_interface(request, assignment_id, student_id):
         'assignment': assignment,
         'student': student,
         'score': score,
-        'saved_item_scores_json': json.dumps(saved_item_scores),
+        'saved_item_scores_json': html_safe_json(saved_item_scores),
         'max_score': max_score,
         'duration': duration,
         'review_mode': review_mode,
@@ -473,7 +474,7 @@ def dry_marking(request, assignment_id, student_id):
         'assignment': assignment,
         'student': student,
         'score': score,
-        'saved_item_scores_json': json.dumps(saved_item_scores),
+        'saved_item_scores_json': html_safe_json(saved_item_scores),
         'max_score': assignment.station.get_max_score() if assignment.station else 0,
         'duration': duration,
         'review_mode': review_mode,

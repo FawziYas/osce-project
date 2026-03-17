@@ -18,6 +18,7 @@ from core.models import (
     Exam, ExamSession, Path, ILO, StationTemplate, TemplateLibrary,
 )
 from core.utils.image_validators import validate_question_image, sanitize_image_filename
+from core.utils.sanitize import strip_html, html_safe_json
 
 def _get_dept_folder(exam):
     """Return a filesystem-safe department folder name for image uploads."""
@@ -143,8 +144,8 @@ def template_library_create(request, exam_id):
     if request.method == 'POST':
         TemplateLibrary.objects.create(
             exam=exam,
-            name=request.POST['name'],
-            description=request.POST.get('description', ''),
+            name=strip_html(request.POST['name']),
+            description=strip_html(request.POST.get('description', '')),
             color=request.POST.get('color', '#0d6efd'),
             display_order=max_order + 1,
             is_active=True,
@@ -167,8 +168,8 @@ def template_library_edit(request, library_id):
     exam = library.exam
 
     if request.method == 'POST':
-        library.name = request.POST['name']
-        library.description = request.POST.get('description', '')
+        library.name = strip_html(request.POST['name'])
+        library.description = strip_html(request.POST.get('description', ''))
         library.color = request.POST.get('color', '#0d6efd')
         library.save()
         messages.success(request, f'Template library "{library.name}" updated.')
@@ -221,10 +222,10 @@ def station_template_create(request, exam_id):
             template = StationTemplate(
                 exam=exam,
                 library_id=int(request.POST['library_id']) if request.POST.get('library_id') else None,
-                name=request.POST['name'],
-                description=request.POST.get('description', ''),
-                scenario=request.POST.get('scenario', ''),
-                instructions=request.POST.get('instructions', ''),
+                name=strip_html(request.POST['name']),
+                description=strip_html(request.POST.get('description', '')),
+                scenario=strip_html(request.POST.get('scenario', '')),
+                instructions=strip_html(request.POST.get('instructions', '')),
                 display_order=max_order + 1,
                 is_active=True,
             )
@@ -284,10 +285,10 @@ def station_template_create_dry(request, exam_id):
             template = StationTemplate(
                 exam=exam,
                 library_id=int(request.POST['library_id']) if request.POST.get('library_id') else None,
-                name=request.POST['name'],
-                description=request.POST.get('description', ''),
-                scenario=request.POST.get('scenario', ''),
-                instructions=request.POST.get('instructions', ''),
+                name=strip_html(request.POST['name']),
+                description=strip_html(request.POST.get('description', '')),
+                scenario=strip_html(request.POST.get('scenario', '')),
+                instructions=strip_html(request.POST.get('instructions', '')),
                 display_order=max_order + 1,
                 is_dry=True,
                 is_active=True,
@@ -336,9 +337,9 @@ def station_template_edit(request, template_id):
 
     if request.method == 'POST':
         try:
-            template.name = request.POST['name']
-            template.scenario = request.POST.get('scenario', '')
-            template.instructions = request.POST.get('instructions', '')
+            template.name = strip_html(request.POST['name'])
+            template.scenario = strip_html(request.POST.get('scenario', ''))
+            template.instructions = strip_html(request.POST.get('instructions', ''))
             template.library_id = int(request.POST['library_id']) if request.POST.get('library_id') else None
 
             checklist_json_str = _get_checklist_json_from_request(request)
@@ -363,7 +364,7 @@ def station_template_edit(request, template_id):
         'libraries': libraries,
         'selected_library_id': template.library_id,
         'existing_items': existing_items,
-        'existing_items_json': json.dumps(existing_items),
+        'existing_items_json': html_safe_json(existing_items),
         'next_order': template.display_order,
         'cancel_url': reverse('creator:station_library', kwargs={'exam_id': str(exam.id)}),
     })
@@ -380,9 +381,9 @@ def station_template_edit_dry(request, template_id):
 
     if request.method == 'POST':
         try:
-            template.name = request.POST['name']
-            template.scenario = request.POST.get('scenario', '')
-            template.instructions = request.POST.get('instructions', '')
+            template.name = strip_html(request.POST['name'])
+            template.scenario = strip_html(request.POST.get('scenario', ''))
+            template.instructions = strip_html(request.POST.get('instructions', ''))
             template.library_id = int(request.POST['library_id']) if request.POST.get('library_id') else None
 
             checklist_json_str = _get_checklist_json_from_request(request)
@@ -413,7 +414,7 @@ def station_template_edit_dry(request, template_id):
         'libraries': libraries,
         'selected_library_id': template.library_id,
         'existing_items': existing_items,
-        'existing_items_json': json.dumps(existing_items_for_display),
+        'existing_items_json': html_safe_json(existing_items_for_display),
         'next_order': template.display_order,
         'cancel_url': reverse('creator:station_library', kwargs={'exam_id': str(exam.id)}),
     })

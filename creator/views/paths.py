@@ -10,6 +10,7 @@ from django.http import JsonResponse, HttpResponseForbidden
 
 from core.models import Exam, ExamSession, Path, Station, ChecklistItem, ExaminerAssignment
 from core.utils.roles import check_path_department, check_session_department
+from core.utils.sanitize import strip_html
 
 
 @login_required
@@ -65,7 +66,7 @@ def create_path(request, session_id):
     other_paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
 
     if request.method == 'POST':
-        path_name = request.POST.get('name', '').strip()
+        path_name = strip_html(request.POST.get('name', '').strip())
 
         if not path_name:
             messages.error(request, 'Path name is required')
@@ -123,7 +124,7 @@ def edit_path(request, path_id):
     other_paths = Path.objects.filter(session=session, is_deleted=False).order_by('name')
 
     if request.method == 'POST':
-        path.name = request.POST.get('name', path.name).strip()
+        path.name = strip_html(request.POST.get('name', path.name).strip())
         new_rot = int(request.POST.get('rotation_minutes') or path.rotation_minutes)
         path.rotation_minutes = new_rot
         path.save()

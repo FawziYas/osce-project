@@ -21,6 +21,7 @@ from core.utils.roles import (
     scope_queryset, check_exam_department, is_global, is_coordinator,
     get_user_department,
 )
+from core.utils.sanitize import strip_html
 
 
 def _can_delete_exam(user):
@@ -95,9 +96,9 @@ def exam_wizard(request):
         # ---------- Exam ----------
         exam = Exam(
             course_id=int(request.POST['course_id']),
-            name=request.POST['exam_name'],
-            description=request.POST.get('description', ''),
-            department=request.POST.get('department', ''),
+            name=strip_html(request.POST['exam_name']),
+            description=strip_html(request.POST.get('description', '')),
+            department=strip_html(request.POST.get('department', '')),
             status='draft',
         )
 
@@ -272,9 +273,9 @@ def exam_edit(request, exam_id):
 
     if request.method == 'POST':
         exam.course_id = int(request.POST['course_id'])
-        exam.name = request.POST['name']
-        exam.description = request.POST.get('description', exam.description)
-        exam.department = request.POST.get('department', exam.department)
+        exam.name = strip_html(request.POST['name'])
+        exam.description = strip_html(request.POST.get('description', exam.description))
+        exam.department = strip_html(request.POST.get('department', exam.department))
         # Status is auto-derived from sessions — do NOT accept manual override from the form
 
         if request.POST.get('exam_date'):
