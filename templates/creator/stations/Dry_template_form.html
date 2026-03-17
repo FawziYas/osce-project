@@ -5,6 +5,40 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/stations/dry-builder.css' %}">
+<style>
+.image-browser-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+.image-browser-item {
+    cursor: pointer;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color .15s, box-shadow .15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #f8f9fa;
+}
+.image-browser-item:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13,110,253,.2);
+}
+.image-browser-item img {
+    width: 100%; height: 110px;
+    object-fit: cover;
+    display: block;
+}
+.image-browser-name {
+    font-size: .7rem;
+    padding: 4px 6px;
+    text-align: center;
+    word-break: break-all;
+    color: #495057;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -186,6 +220,10 @@
                         <i class="bi bi-image zone-icon"></i>
                         <span class="zone-text">Supporting image <span class="text-muted fw-normal">(optional)</span></span>
                         <span class="zone-hint">Click or drag &amp; drop · JPEG, PNG, WebP · max 2 MB</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2"
+                                onclick="event.stopPropagation();openImageBrowser(this.closest('.img-upload-zone'))">
+                            <i class="bi bi-folder2-open me-1"></i>Browse Department Images
+                        </button>
                     </span>
                     <div class="img-preview-main">
                         <img class="img-preview-thumb" src="" alt="Preview">
@@ -196,6 +234,11 @@
                                 <button type="button" class="replace-img-btn"
                                         onclick="event.stopPropagation();replaceImage(this)">
                                     <i class="bi bi-arrow-repeat me-1"></i>Replace
+                                </button>
+                                <button type="button"
+                                        onclick="event.stopPropagation();openImageBrowser(this.closest('.img-upload-zone'))"
+                                        style="background:none;border:none;font-size:.75rem;color:#6c757d;cursor:pointer;padding:0 4px">
+                                    <i class="bi bi-folder2-open me-1"></i>Browse
                                 </button>
                                 <button type="button" class="remove-img-btn"
                                         onclick="event.stopPropagation();removeImage(this)">
@@ -319,6 +362,34 @@
 </template>
 
 <script src="{% static 'js/stations/dry-builder.js' %}"></script>
+
+<!-- Image Browser Modal -->
+<div class="modal fade" id="imageBrowserModal" tabindex="-1" aria-labelledby="imageBrowserModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageBrowserModalLabel"><i class="bi bi-folder2-open me-2"></i>Department Image Library</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="form-control mb-3" id="imageBrowserFilter"
+               placeholder="Filter by filename…" oninput="filterBrowserImages(this.value)">
+        <div id="imageBrowserLoading" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="mt-2 text-muted">Loading images…</p>
+        </div>
+        <div id="imageBrowserEmpty" class="text-center text-muted py-4" style="display:none">
+          <i class="bi bi-folder2 fs-1 d-block mb-2"></i>No images found in this department folder.
+        </div>
+        <div id="imageBrowserGrid" class="image-browser-grid" style="display:none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -525,6 +596,80 @@ if (existingItems && existingItems.length > 0) {
             );
         });
     });
+}
+</script>
+
+<script>
+// ── Image Browser ────────────────────────────────────────────────────────────
+const BROWSE_IMAGES_URL = "{% url 'creator:browse_images' exam.id %}";
+let _activeBrowseZone = null;
+let _allBrowserImages = [];
+
+function openImageBrowser(zone) {
+    _activeBrowseZone = zone;
+    const grid = document.getElementById('imageBrowserGrid');
+    const loading = document.getElementById('imageBrowserLoading');
+    const empty = document.getElementById('imageBrowserEmpty');
+    grid.innerHTML = '';
+    grid.style.display = 'none';
+    loading.style.display = 'block';
+    empty.style.display = 'none';
+    document.getElementById('imageBrowserFilter').value = '';
+    new bootstrap.Modal(document.getElementById('imageBrowserModal')).show();
+    fetch(BROWSE_IMAGES_URL)
+        .then(r => r.json())
+        .then(data => {
+            loading.style.display = 'none';
+            _allBrowserImages = data.images || [];
+            if (_allBrowserImages.length === 0) {
+                empty.style.display = 'block';
+            } else {
+                renderBrowserImages(_allBrowserImages);
+                grid.style.display = '';
+            }
+        })
+        .catch(() => {
+            loading.style.display = 'none';
+            empty.innerHTML = '<i class="bi bi-exclamation-circle fs-1 d-block mb-2 text-warning"></i>Failed to load images. Please try again.';
+            empty.style.display = 'block';
+        });
+}
+
+function renderBrowserImages(images) {
+    const grid = document.getElementById('imageBrowserGrid');
+    grid.innerHTML = '';
+    images.forEach(img => {
+        const item = document.createElement('div');
+        item.className = 'image-browser-item';
+        item.title = img.name;
+        item.innerHTML = `<img src="${img.url}" alt="${img.name}" loading="lazy"
+            onerror="this.closest('.image-browser-item').style.display='none'">
+            <span class="image-browser-name">${img.name}</span>`;
+        item.addEventListener('click', () => selectBrowserImage(img));
+        grid.appendChild(item);
+    });
+}
+
+function filterBrowserImages(query) {
+    const q = query.toLowerCase();
+    const filtered = q ? _allBrowserImages.filter(img => img.name.toLowerCase().includes(q)) : _allBrowserImages;
+    document.getElementById('imageBrowserGrid').style.display = filtered.length ? '' : 'none';
+    document.getElementById('imageBrowserEmpty').style.display = filtered.length ? 'none' : 'block';
+    renderBrowserImages(filtered);
+}
+
+function selectBrowserImage(img) {
+    if (!_activeBrowseZone) return;
+    const card = _activeBrowseZone.closest('.checklist-item-card');
+    if (!card) return;
+    const fileInput = card.querySelector('.img-file-input');
+    if (fileInput) fileInput.value = '';
+    card.dataset.imagePath = img.path;
+    delete card.dataset.imageRemoved;
+    showImagePreview(card, img.url, img.name, null, null);
+    const modalEl = document.getElementById('imageBrowserModal');
+    const inst = bootstrap.Modal.getInstance(modalEl);
+    if (inst) inst.hide();
 }
 </script>
 {% endblock %}

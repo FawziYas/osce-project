@@ -72,6 +72,7 @@ urlpatterns = [
     path('stations/<uuid:station_id>/edit/', stations.station_edit, name='station_edit'),
     path('stations/<uuid:station_id>/edit-dry/', stations.station_edit_dry, name='station_edit_dry'),
     path('stations/<uuid:station_id>/delete/', stations.station_delete, name='station_delete'),
+    path('exams/<uuid:exam_id>/browse-images/', stations.browse_department_images, name='browse_images'),
 
     # ── Checklist Library ──────────────────────────────────────────────────
     path('library/', library.library_list, name='library_list'),

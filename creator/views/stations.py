@@ -12,9 +12,9 @@ from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Max
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 
-from core.models import ILO, Station, ChecklistItem, Path
+from core.models import ILO, Station, ChecklistItem, Path, Exam
 from core.utils.roles import check_path_department, check_station_department
 from core.utils.image_validators import validate_question_image, sanitize_image_filename
 
@@ -715,3 +715,26 @@ def station_delete(request, station_id):
     if path_id:
         return redirect('creator:path_detail', path_id=path_id)
     return redirect('creator:exam_list')
+
+
+@login_required
+def browse_department_images(request, exam_id):
+    """Return JSON list of images already uploaded to question_images/<dept>/ for this exam."""
+    exam = get_object_or_404(Exam, pk=exam_id)
+    dept_folder = _get_dept_folder(exam)
+    prefix = f'question_images/{dept_folder}'
+    images = []
+    try:
+        _, files = default_storage.listdir(prefix)
+        for fname in sorted(files):
+            if not fname:
+                continue
+            path = f'{prefix}/{fname}'
+            try:
+                url = default_storage.url(path)
+            except Exception:
+                continue
+            images.append({'name': fname, 'url': url, 'path': path})
+    except Exception:
+        pass
+    return JsonResponse({'images': images})
