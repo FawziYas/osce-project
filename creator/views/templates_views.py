@@ -66,9 +66,14 @@ def _existing_items_with_urls(request, items):
     for item in items:
         item = dict(item)
         image_path = item.get('image_path')
-        if image_path and default_storage.exists(image_path):
+        if image_path:
             try:
-                item['image_url'] = request.build_absolute_uri(default_storage.url(image_path))
+                url = default_storage.url(image_path)
+                # Azure Storage returns an absolute URL already; local storage returns a relative path
+                if url.startswith(('http://', 'https://')):
+                    item['image_url'] = url
+                else:
+                    item['image_url'] = request.build_absolute_uri(url)
             except Exception:
                 pass
         result.append(item)
@@ -386,6 +391,8 @@ def station_template_edit_dry(request, template_id):
             return redirect('creator:station_library', exam_id=str(exam.id))
         except Exception as e:
             messages.error(request, f'Error updating dry template: {str(e)}')
+            # Reload from DB so existing_items reflects current saved state
+            existing_items = template.get_checklist_items()
 
     existing_items_for_display = _existing_items_with_urls(request, existing_items)
     return render(request, 'creator/stations/Dry_template_form.html', {
