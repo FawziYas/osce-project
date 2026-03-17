@@ -136,6 +136,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # ──────────────────────────────────────────────────────────────
 # Logging — rotating file handlers for production
 # ──────────────────────────────────────────────────────────────
+# Ensure logs/ directory exists before logging config is applied
+import os as _os
+_os.makedirs(BASE_DIR / 'logs', exist_ok=True)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
