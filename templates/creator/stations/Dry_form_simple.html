@@ -408,7 +408,8 @@ document.getElementById('stationForm').addEventListener('submit', function(e) {
                     points: getItemPoints(card),
                     scoring_type: qtype,
                     ilo_id: iloId,
-                    section: currentSection
+                    section: currentSection,
+                    image_removed: card.dataset.imageRemoved === 'true' ? true : undefined
                 };
                 if (qtype === 'mcq') {
                     const mcq = getMcqData(card);

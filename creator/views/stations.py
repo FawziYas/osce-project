@@ -427,7 +427,9 @@ def station_edit_dry(request, station_id):
     existing_items = list(ChecklistItem.objects.filter(station=station).order_by('item_number'))
     def _safe_image_url(item):
         try:
-            return request.build_absolute_uri(item.image.url) if item.image else None
+            if not item.image or not item.image.name:
+                return None
+            return request.build_absolute_uri(item.image.url)
         except Exception:
             return None
 

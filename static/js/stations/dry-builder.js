@@ -391,7 +391,14 @@ function showImagePreview(card, src, name, w, h) {
         } catch(e) {}
     }
     const zone = card.querySelector('.img-upload-zone');
-    zone.querySelector('.img-preview-thumb').src = src;
+    const thumb = zone.querySelector('.img-preview-thumb');
+    thumb.onerror = function() {
+        // Image failed to load — reset preview to upload state
+        zone.classList.remove('has-image');
+        zone.style.cursor = '';
+        thumb.src = '';
+    };
+    thumb.src = src;
     zone.querySelector('.img-preview-name').textContent = name;
     zone.querySelector('.img-preview-dims').textContent = (w && h) ? `${w} × ${h} px` : '';
     zone.classList.add('has-image');
@@ -435,7 +442,6 @@ function removeImage(btn) {
     card.querySelector('.img-file-input').value = '';
     card.dataset.imageRemoved = 'true';
     delete card.dataset.imagePath; // Clear stored image path
-    delete card.dataset.dbId; // Don't restore old image
 }
 
 // ── Drag and Drop ─────────────────────────────────────────────────────────────

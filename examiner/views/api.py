@@ -88,7 +88,7 @@ def get_station_checklist(request, station_id):
 
     def build_item_response(item):
         try:
-            image_url = request.build_absolute_uri(item.image.url) if item.image else None
+            image_url = request.build_absolute_uri(item.image.url) if item.image and item.image.name else None
         except Exception:
             image_url = None
         response = {
