@@ -115,15 +115,29 @@ def login_view(request):
                         )
                         return render(request, 'login.html')
                     else:
-                        # Stale record (session expired/deleted) — clean it up
-                        existing.delete()
+                        # Stale record — kill the old Django session AND the
+                        # UserSession row so the old browser is truly logged out
+                        existing.kill_session()
                 except UserSession.DoesNotExist:
                     pass  # No prior session — proceed normally
             # ─────────────────────────────────────────────────────────────
 
             login(request, user)
 
-            # Record the new active session
+            # Stamp idle-timeout tracker immediately so the very first
+            # request after login doesn't see last_activity=None
+            import time as _time
+            request.session['_last_activity'] = _time.time()
+
+            # Record the new active session — if a record already exists
+            # (e.g. allow_multi_login user) update it; kill the old Django
+            # session first so the previous browser is logged out.
+            try:
+                old = UserSession.objects.get(user=user)
+                if old.session_key != request.session.session_key:
+                    old.kill_session()
+            except UserSession.DoesNotExist:
+                pass
             UserSession.objects.update_or_create(
                 user=user,
                 defaults={'session_key': request.session.session_key}

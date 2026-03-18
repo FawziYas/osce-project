@@ -5,6 +5,8 @@ Used to enforce the single-active-login policy:
 a new login is blocked if a valid session already exists for that user.
 Superusers can delete records via Django Admin to free stuck sessions.
 """
+from importlib import import_module
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -33,34 +35,47 @@ class UserSession(models.Model):
     def __str__(self):
         return f'{self.user.username} — {self.session_key}'
 
+    # ── helpers ────────────────────────────────────────────────────
+
     def is_session_alive(self):
         """
-        Check that the session key still exists and has not expired.
+        Return True if the stored session_key still points to a valid,
+        non-expired session — regardless of which session backend is in use.
 
-        store.exists() on Django's DB backend only checks row presence — it does
-        NOT filter by expire_date.  Expired rows linger until clearsessions runs,
-        which caused the single-session block to never lift on its own locally.
-
-        Fix: for DB-backed sessions query the expire_date explicitly; for cache
-        backends (which auto-evict) fall back to exists() which is reliable there.
+        Strategy per backend:
+        • DB backend   → store.exists() only checks row presence (ignores
+                         expire_date), so we query Session.expire_date explicitly.
+        • Cache backend → the cache auto-evicts expired entries, so
+                         store.exists() is reliable on its own.
+        • cached_db    → same as cache (primary lookup is cache).
         """
-        from importlib import import_module
-        from django.utils import timezone
-
         engine = import_module(settings.SESSION_ENGINE)
         store = engine.SessionStore()
 
-        # Fast path: row/key doesn't exist at all
         if not store.exists(self.session_key):
             return False
 
-        # For DB backends the row may exist but be logically expired — check that
-        try:
+        # DB backend: exists() doesn't check expire_date — verify explicitly
+        if settings.SESSION_ENGINE == 'django.contrib.sessions.backends.db':
             from django.contrib.sessions.models import Session as DjSession
             return DjSession.objects.filter(
                 session_key=self.session_key,
                 expire_date__gt=timezone.now(),
             ).exists()
+
+        # Cache / cached_db / file → exists() already excludes expired entries
+        return True
+
+    def kill_session(self):
+        """
+        Delete both the Django session in the session store AND this
+        UserSession record.  Safe to call even if the session has
+        already expired or been deleted from the store.
+        """
+        try:
+            engine = import_module(settings.SESSION_ENGINE)
+            store = engine.SessionStore(session_key=self.session_key)
+            store.delete()
         except Exception:
-            # Cache / cached_db backends don't use Session model; exists() is enough
-            return True
+            pass
+        self.delete()

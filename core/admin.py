@@ -77,13 +77,15 @@ class UserProfileInline(admin.StackedInline):
 @admin.action(description='End selected sessions')
 def end_sessions(modeladmin, request, queryset):
     """Delete Django session records and UserSession rows for selected entries."""
-    from django.contrib.sessions.models import Session
-    keys = list(queryset.values_list('session_key', flat=True))
-    Session.objects.filter(session_key__in=keys).delete()
-    queryset.delete()
+    count = 0
+    keys = []
+    for us in queryset:
+        keys.append(us.session_key[:8])
+        us.kill_session()  # deletes both Django session + UserSession row
+        count += 1
     audit_logger.warning(
         'ADMIN: ended %d session(s) for [%s] by %s',
-        len(keys), ', '.join(keys), request.user.username
+        count, ', '.join(keys), request.user.username
     )
 
 
@@ -104,10 +106,8 @@ class UserSessionAdmin(admin.ModelAdmin):
         return False  # Sessions are created by the login flow only
 
     def delete_model(self, request, obj):
-        """Ensure Django Session row is also purged."""
-        from django.contrib.sessions.models import Session
-        Session.objects.filter(session_key=obj.session_key).delete()
-        super().delete_model(request, obj)
+        """Ensure Django Session in the store is also purged."""
+        obj.kill_session()
 
 
 # ── Custom User Admin ─────────────────────────────────────────────

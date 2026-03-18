@@ -137,7 +137,8 @@ def cleanup_user_session(sender, request, user, **kwargs):
 
     try:
         from core.models.user_session import UserSession
-        UserSession.objects.filter(user=user).delete()
+        for us in UserSession.objects.filter(user=user):
+            us.kill_session()
         logger.info(
             'LOGOUT | user=%s | ip=%s',
             getattr(user, 'username', str(user)),
