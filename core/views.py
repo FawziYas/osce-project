@@ -129,19 +129,27 @@ def login_view(request):
             import time as _time
             request.session['_last_activity'] = _time.time()
 
-            # Record the new active session — if a record already exists
-            # (e.g. allow_multi_login user) update it; kill the old Django
-            # session first so the previous browser is logged out.
-            try:
-                old = UserSession.objects.get(user=user)
-                if old.session_key != request.session.session_key:
-                    old.kill_session()
-            except UserSession.DoesNotExist:
-                pass
-            UserSession.objects.update_or_create(
-                user=user,
-                defaults={'session_key': request.session.session_key}
-            )
+            # Record the new active session.
+            if getattr(user, 'allow_multi_login', False):
+                # Multi-login: keep old Django session alive so other
+                # browsers stay authenticated; just track the latest key.
+                UserSession.objects.update_or_create(
+                    user=user,
+                    defaults={'session_key': request.session.session_key},
+                )
+            else:
+                # Single-session: kill old Django session so the previous
+                # browser is truly logged out, then track the new one.
+                try:
+                    old = UserSession.objects.get(user=user)
+                    if old.session_key != request.session.session_key:
+                        old.kill_session()
+                except UserSession.DoesNotExist:
+                    pass
+                UserSession.objects.update_or_create(
+                    user=user,
+                    defaults={'session_key': request.session.session_key},
+                )
 
             logger.info(
                 "User '%s' logged in successfully from IP %s. Session key: %s.",

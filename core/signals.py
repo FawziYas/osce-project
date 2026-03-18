@@ -137,8 +137,17 @@ def cleanup_user_session(sender, request, user, **kwargs):
 
     try:
         from core.models.user_session import UserSession
-        for us in UserSession.objects.filter(user=user):
-            us.kill_session()
+        if getattr(user, 'allow_multi_login', False):
+            # Only remove the UserSession record if it matches the
+            # session being logged out — leave other sessions alive.
+            current_key = request.session.session_key if request else None
+            for us in UserSession.objects.filter(user=user):
+                if current_key and us.session_key == current_key:
+                    us.delete()  # Django already flushes the session
+                # Other sessions stay alive for multi-login users
+        else:
+            for us in UserSession.objects.filter(user=user):
+                us.kill_session()
         logger.info(
             'LOGOUT | user=%s | ip=%s',
             getattr(user, 'username', str(user)),
