@@ -1,8 +1,8 @@
 """
-UserSession model — tracks one active session per user.
+UserSession model — tracks active sessions per user.
 
-Used to enforce the single-active-login policy:
-a new login is blocked if a valid session already exists for that user.
+Used to enforce the single-active-login policy for normal users
+and to track multiple concurrent sessions for allow_multi_login users.
 Superusers can delete records via Django Admin to free stuck sessions.
 """
 from importlib import import_module
@@ -16,15 +16,16 @@ class UserSession(models.Model):
     """
     Bridges Django's opaque session store to a specific user.
 
-    OneToOne on user ensures the database itself enforces one record
-    per user — no race-condition duplicates possible.
+    ForeignKey allows multiple records for multi-login users.
+    For single-login users the login view ensures only one record exists.
+    session_key is unique — one tracking row per Django session.
     """
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='active_session',
+        related_name='active_sessions',
     )
-    session_key = models.CharField(max_length=40, db_index=True)
+    session_key = models.CharField(max_length=40, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

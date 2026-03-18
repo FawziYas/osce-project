@@ -83,9 +83,8 @@ def login_view(request):
                     user.username,
                 )
             else:
-                try:
-                    existing = UserSession.objects.get(user=user)
-
+                existing_sessions = list(UserSession.objects.filter(user=user))
+                for existing in existing_sessions:
                     # Same session reconnecting (same browser/PC) — allow through
                     current_session_key = request.session.session_key
                     if current_session_key and current_session_key == existing.session_key:
@@ -118,8 +117,6 @@ def login_view(request):
                         # Stale record — kill the old Django session AND the
                         # UserSession row so the old browser is truly logged out
                         existing.kill_session()
-                except UserSession.DoesNotExist:
-                    pass  # No prior session — proceed normally
             # ─────────────────────────────────────────────────────────────
 
             login(request, user)
@@ -131,24 +128,27 @@ def login_view(request):
 
             # Record the new active session.
             if getattr(user, 'allow_multi_login', False):
-                # Multi-login: keep old Django session alive so other
-                # browsers stay authenticated; just track the latest key.
+                # Multi-login: create a separate tracking record for each
+                # session so every browser appears in the admin list.
+                # Clean up any stale record that had the same session_key.
+                UserSession.objects.filter(
+                    session_key=request.session.session_key,
+                ).exclude(user=user).delete()
                 UserSession.objects.update_or_create(
                     user=user,
-                    defaults={'session_key': request.session.session_key},
+                    session_key=request.session.session_key,
+                    defaults={},
                 )
             else:
-                # Single-session: kill old Django session so the previous
-                # browser is truly logged out, then track the new one.
-                try:
-                    old = UserSession.objects.get(user=user)
+                # Single-session: kill any old Django sessions so the
+                # previous browser is truly logged out, then track the new one.
+                for old in UserSession.objects.filter(user=user):
                     if old.session_key != request.session.session_key:
                         old.kill_session()
-                except UserSession.DoesNotExist:
-                    pass
                 UserSession.objects.update_or_create(
                     user=user,
-                    defaults={'session_key': request.session.session_key},
+                    session_key=request.session.session_key,
+                    defaults={},
                 )
 
             logger.info(

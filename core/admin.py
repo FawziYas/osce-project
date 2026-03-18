@@ -92,7 +92,7 @@ def end_sessions(modeladmin, request, queryset):
 @admin.register(UserSession)
 class UserSessionAdmin(admin.ModelAdmin):
     list_display = ('user', 'session_key', 'created_at', 'last_activity_display', 'idle_minutes_display', 'session_status')
-    list_filter = ('created_at',)
+    list_filter = ('user', 'created_at')
     search_fields = ('user__username', 'session_key')
     readonly_fields = ('user', 'session_key', 'created_at')
     actions = [end_sessions]
