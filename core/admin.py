@@ -91,14 +91,53 @@ def end_sessions(modeladmin, request, queryset):
 
 @admin.register(UserSession)
 class UserSessionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'session_key', 'created_at', 'session_status')
+    list_display = ('user', 'session_key', 'created_at', 'last_activity_display', 'idle_minutes_display', 'session_status')
     list_filter = ('created_at',)
     search_fields = ('user__username', 'session_key')
     readonly_fields = ('user', 'session_key', 'created_at')
     actions = [end_sessions]
     ordering = ('-created_at',)
 
-    @admin.display(description='Session alive?')
+    def _get_last_activity(self, obj):
+        """Fetch _last_activity timestamp from the session store. Returns None if unavailable."""
+        import time
+        from importlib import import_module
+        from django.conf import settings as _s
+        try:
+            engine = import_module(_s.SESSION_ENGINE)
+            store = engine.SessionStore(session_key=obj.session_key)
+            data = store.load()
+            ts = data.get('_last_activity')
+            return float(ts) if ts else None
+        except Exception:
+            return None
+
+    @admin.display(description='Last Activity')
+    def last_activity_display(self, obj):
+        import datetime, time
+        ts = self._get_last_activity(obj)
+        if ts is None:
+            return '—'
+        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        from django.utils.timezone import localtime
+        from django.utils import timezone
+        local_dt = localtime(dt)
+        return local_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    @admin.display(description='Idle (min)')
+    def idle_minutes_display(self, obj):
+        import time
+        ts = self._get_last_activity(obj)
+        if ts is None:
+            return '—'
+        idle_seconds = time.time() - ts
+        minutes = int(idle_seconds / 60)
+        seconds = int(idle_seconds % 60)
+        if minutes == 0:
+            return f'{seconds}s'
+        return f'{minutes}m {seconds}s'
+
+    @admin.display(description='Status')
     def session_status(self, obj):
         return '✅ Active' if obj.is_session_alive() else '❌ Expired'
 
