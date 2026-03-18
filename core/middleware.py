@@ -1,8 +1,10 @@
 """
 Security middleware for the OSCE project.
 """
+import time
+
 from django.conf import settings
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
@@ -217,32 +219,85 @@ class PermissionsPolicyMiddleware:
 
 class SessionTimeoutMiddleware:
     """
-    Sets different session timeouts based on interface:
-    - Creator interface (admin/coordinator/superuser): 10 minutes from last activity
-    - Examiner interface: 20 minutes from last activity
+    Enforces idle-based session timeouts per user role:
+    - Creator roles (superuser / admin / coordinator): 10 minutes of inactivity
+    - Examiner role: 20 minutes of inactivity
+
+    On every authenticated request the middleware:
+    1. Checks how long ago the user last made ANY request (page load OR API call).
+    2. If idle longer than the allowed timeout → forces logout and redirects to login
+       (or returns 401 JSON for AJAX/API callers).
+    3. Otherwise → stamps the session with the current timestamp so the clock
+       resets from THIS request, not from login time.
+
+    Covering ALL paths (not just /creator/ and /examiner/) is what makes
+    API / AJAX calls count as real user activity.
     """
-    
-    # Session timeout in seconds
-    CREATOR_TIMEOUT = 600   # 10 minutes (admin, coordinator, superuser)
-    EXAMINER_TIMEOUT = 1200  # 20 minutes (examiner)
-    
+
+    CREATOR_TIMEOUT = 600    # 10 minutes — superuser, admin, coordinator
+    EXAMINER_TIMEOUT = 1200  # 20 minutes — examiner
+
+    # Paths that must never trigger a timeout redirect (avoid loops)
+    EXEMPT_PATHS = (
+        '/login/',
+        '/logout/',
+        '/examiner/login/',
+        '/examiner/logout/',
+        '/static/',
+        '/media/',
+        '/favicon.ico',
+    )
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
+    def _timeout_for(self, user):
+        """Return idle timeout seconds based on the user's role."""
+        role = getattr(user, 'role', None)
+        if user.is_superuser or role in ('admin', 'coordinator'):
+            return self.CREATOR_TIMEOUT
+        return self.EXAMINER_TIMEOUT
+
     def __call__(self, request):
-        # Only process for authenticated users
         if request.user.is_authenticated:
-            # Determine timeout based on URL path
-            if request.path.startswith('/creator/'):
-                # Creator interface (admin/coordinator/superuser) - 10 minute timeout
-                request.session.set_expiry(self.CREATOR_TIMEOUT)
-            elif request.path.startswith('/examiner/'):
-                # Examiner interface - 20 minute timeout
-                request.session.set_expiry(self.EXAMINER_TIMEOUT)
-            # For other paths (admin, etc.), use Django's default
-        
-        response = self.get_response(request)
-        return response
+            if not any(request.path.startswith(p) for p in self.EXEMPT_PATHS):
+                timeout = self._timeout_for(request.user)
+                now = time.time()
+                last_activity = request.session.get('_last_activity')
+
+                if last_activity is not None and (now - last_activity) > timeout:
+                    # User has been idle too long — force a clean logout
+                    from django.contrib.auth import logout as _logout
+                    from django.contrib import messages as _messages
+                    _logout(request)
+
+                    # AJAX / API callers get a JSON 401 so the front-end can
+                    # redirect gracefully instead of receiving an HTML page
+                    is_ajax = (
+                        request.path.startswith('/api/')
+                        or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+                        or 'application/json' in request.headers.get('Accept', '')
+                    )
+                    if is_ajax:
+                        return JsonResponse(
+                            {'error': 'Session expired due to inactivity.',
+                             'redirect': '/login/'},
+                            status=401,
+                        )
+
+                    _messages.warning(
+                        request,
+                        'Your session has expired due to inactivity. Please log in again.',
+                    )
+                    return redirect('/login/')
+
+                # Still active — stamp the session so the idle clock resets
+                # from THIS request.  set_expiry() also refreshes the browser
+                # cookie Max-Age so the client-side cookie stays in sync.
+                request.session['_last_activity'] = now
+                request.session.set_expiry(timeout)
+
+        return self.get_response(request)
 
 
 class UnauthorizedAccessMiddleware:
