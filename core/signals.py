@@ -186,7 +186,7 @@ def provision_new_user(sender, instance, created, **kwargs):
     else:
         if getattr(instance, 'is_dry_user', False):
             # Dry users need to log in but should not be forced to change their password.
-            if not instance.has_usable_password():
+            if not instance.password or not instance.has_usable_password():
                 default_pw = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')
                 instance.set_password(default_pw)
                 instance.save(update_fields=['password'])
@@ -199,7 +199,7 @@ def provision_new_user(sender, instance, created, **kwargs):
                 instance.username,
             )
         else:
-            if not instance.has_usable_password():
+            if not instance.password or not instance.has_usable_password():
                 # Only assign default password when none was explicitly provided
                 # (e.g. programmatic creation). Admin form always sets a real password.
                 default_pw = getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F')

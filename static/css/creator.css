@@ -454,15 +454,7 @@ body {
     }
 }
 
-/* ── Sticky Sidebar Panel (Session detail right column) ─────────────── */
-@media (min-width: 768px) {
-    .sidebar-sticky-panel {
-        position: sticky;
-        top: 1rem;
-        max-height: calc(100vh - 2rem);
-        overflow-y: auto;
-    }
-}
+/* ── Session detail right column (non-sticky) ───────────────────────── */
 
 /* ── Print Styles ───────────────────────────────────────────────────── */
 @media print {

@@ -14,12 +14,7 @@
         </nav>
         <h1>{{ exam.name }}</h1>
         <p class="text-muted mb-0">
-            {% if exam.course %}
-                <span class="badge bg-secondary">{{ exam.course.code }}</span>
-            {% endif %}
-            <span class="badge badge-{{ exam.status }}">{{ exam.status|status_label }}</span>
-            {% if exam.exam_date %}
-                <span class="mx-2">&bull;</span>
+            {% if exam.exam_date %}                <span /span>
                 <i class="bi bi-calendar me-1"></i>{{ exam.exam_date|date:"Y-m-d" }}
             {% endif %}
             {% if exam.session_time %}

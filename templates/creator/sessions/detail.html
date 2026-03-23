@@ -8,6 +8,54 @@
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
 <style>
+/* ── UI/UX Elevated Cards ─────────────────────────────────────────── */
+.card-elevated {
+    border: 1px solid rgba(0,0,0,0.125) !important;
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04) !important;
+    transition: all 0.2s ease;
+    background: #fff;
+    overflow: hidden;
+}
+.card-elevated-hover:hover {
+    box-shadow: 0 12px 28px rgba(0,0,0,0.12), 0 6px 12px rgba(0,0,0,0.06) !important;
+    transform: translateY(-2px);
+    border-color: rgba(13,110,253,0.3) !important;
+}
+.card-elevated .card-header {
+    background: #f8f9fa;
+    border-bottom: 2px solid rgba(0,0,0,0.08) !important;
+    padding: 0.85rem 1.25rem;
+    font-weight: 600;
+    color: #343a40;
+}
+
+/* ── Modern Table UI ──────────────────────────────────────────────────── */
+.table-modern {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.table-modern tbody tr {
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.table-modern tbody tr:hover {
+    background-color: #f8f9fa;
+    box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.02);
+}
+.table-modern td, .table-modern th {
+    border-bottom: 1px solid #f1f3f5;
+    padding: 0.6rem 0.75rem;
+}
+.table-modern thead th {
+    background: #fbfbfc;
+    border-bottom: 2px solid #e9ecef;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
 /* ── Select2 inside modal fixes ───────────────────────────────────────── */
 .select2-container--bootstrap-5 .select2-selection--single {
     height: calc(1.5em + 0.5rem + 2px) !important;
@@ -70,6 +118,26 @@
 .path-details-toggle.show {
     display: block;
 }
+
+/* ── Paths scrollable area (max ~3 rows) ──────────────────────────────── */
+.paths-scroll-area {
+    max-height: 420px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ── Add Students collapsible header ─────────────────────────────────── */
+.add-students-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+.add-students-toggle .toggle-caret {
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+.add-students-toggle.collapsed .toggle-caret {
+    transform: rotate(-90deg);
+}
 </style>
 {% endblock %}
 
@@ -87,9 +155,6 @@
         </nav>
         <h1>{{ session.name|default:"Exam Session" }}</h1>
         <p class="text-muted mb-0">
-            <i class="bi bi-calendar me-1"></i>
-            {% if session.session_date %}{{ session.session_date|date:"Y-m-d" }}{% else %}Date not set{% endif %}
-            <span class="mx-2">&bull;</span>
             <span class="badge badge-{{ session.status }}">{{ session.status|status_label }}</span>
         </p>
     </div>
@@ -130,10 +195,11 @@
     </div>
 </div>
 
-<div class="row g-4">
-    <!-- Paths Panel -->
-    <div class="col-12">
-        <div class="card shadow-sm mb-4">
+<div class="row gy-4 gx-4">
+    <!-- ═══ Left: Rotation Paths + Students ═══ -->
+    <div class="col-lg-9">
+
+        <div class="card card-elevated mb-4">
             <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h5 class="mb-0"><i class="bi bi-signpost-split me-2"></i>Rotation Paths ({{ paths|length }})</h5>
                 <div class="d-flex gap-2 flex-wrap" role="group">
@@ -150,10 +216,11 @@
             </div>
             <div class="card-body">
                 {% if paths %}
+                <div class="paths-scroll-area p-1">
                 <div class="row g-3">
                     {% for path in paths %}
-                    <div class="col-md-4 col-lg-3">
-                        <div class="card h-100 border-0 shadow-sm" style="border: 1px solid #e9ecef !important;">
+                    <div class="col-6 col-md-4 col-lg-3" style="max-width:220px;">
+                        <div class="card h-100 card-elevated card-elevated-hover">
                             <div class="card-body py-2">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h6 class="mb-0">
@@ -164,8 +231,8 @@
                                     <a href="{% url 'creator:edit_path' path.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
                                 </div>
                                 <div class="small mb-2">
-                                    <span class="badge bg-info me-1">{{ path.station_count }} stations</span>
-                                    <span class="badge bg-success me-1">{{ path.total_marks }} marks</span>
+                                    <span class="badge bg-info-subtle text-info-emphasis me-1 border border-info-subtle">{{ path.station_count }} stations</span>
+                                    <span class="badge bg-success-subtle text-success-emphasis me-1 border border-success-subtle">{{ path.total_marks }} marks</span>
                                 </div>
                                 {% if path.unassigned_count > 0 %}
                                 <div class="path-details-toggle small" style="border-top: 1px solid #e9ecef; padding-top: 0.75rem;">
@@ -202,6 +269,7 @@
                     </div>
                     {% endfor %}
                 </div>
+                </div>{# /paths-scroll-area #}
                 {% else %}
                 <div class="text-center text-muted p-5 bg-light rounded border my-3" style="border-style: dashed !important;">
                     <i class="bi bi-signpost-split fs-1 d-block mb-3 text-secondary"></i>
@@ -213,12 +281,9 @@
                 {% endif %}
             </div>
         </div>
-    </div>
-    
     <!-- Students Panel -->
-    <div class="col-md-8">
-        <div class="card shadow-sm border-0 mb-4" style="border: 1px solid #e9ecef !important;">
-            <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+        <div class="card card-elevated mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center bg-light">
                 <h5 class="mb-0"><i class="bi bi-people me-2"></i>Students ({{ total_students }})</h5>
                 {% if students %}
                 <div class="btn-group btn-group-sm">
@@ -242,8 +307,16 @@
             
             {# Search moved below add-students form to sit above the students list #}
             
-            <!-- Add Students Form -->
-            <div class="p-3 border-bottom">
+            <!-- Add Students Form (collapsible, folded by default) -->
+            <div class="border-bottom">
+                <div class="px-3 py-2 d-flex justify-content-between align-items-center add-students-toggle collapsed"
+                     data-bs-toggle="collapse" data-bs-target="#addStudentsCollapse" aria-expanded="false" aria-controls="addStudentsCollapse"
+                     style="background:rgba(13,110,253,0.07); border-left:4px solid var(--bs-primary);">
+                    <span class="fw-bold text-primary"><i class="bi bi-person-plus-fill me-2"></i>Add Students to Session</span>
+                    <i class="bi bi-chevron-down toggle-caret text-primary"></i>
+                </div>
+                <div class="collapse" id="addStudentsCollapse">
+                <div class="p-3">
                 <ul class="nav nav-tabs mb-3" role="tablist">
                     <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#textInput"><i class="bi bi-textarea-t me-1"></i>Text Input</button></li>
                     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#excelUpload"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel Upload (.xlsx)</button></li>
@@ -303,7 +376,9 @@
                         </form>
                     </div>
                 </div>
-            </div>
+                </div>{# /collapse inner #}
+                </div>{# /collapse #}
+            </div>{# /collapsible wrapper #}
             
             {% if students %}
             <!-- Live Search Bar for Students -->
@@ -328,8 +403,8 @@
             {% endif %}
             <!-- Students Table with improved styling for large datasets -->
             <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
-                <table class="table table-hover align-middle mb-0 table-sm">
-                    <thead class="sticky-top shadow-sm" style="background: white; z-index: 10;">
+                <table class="table table-modern align-middle mb-0 table-sm">
+                    <thead class="sticky-top" style="background: white; z-index: 10;">
                         <tr>
                             <th>Student #</th>
                             <th>Name</th>
@@ -354,12 +429,12 @@
                                 </select>
                             </td>
                             <td>
-                                {% if student.status == 'registered' %}<span class="badge bg-primary">Registered</span>
-                                {% elif student.status == 'checked_in' %}<span class="badge bg-info">Checked In</span>
-                                {% elif student.status == 'in_progress' %}<span class="badge bg-warning">In Progress</span>
-                                {% elif student.status == 'completed' %}<span class="badge bg-success">Completed</span>
-                                {% elif student.status == 'absent' %}<span class="badge bg-danger">Absent</span>
-                                {% else %}<span class="badge bg-secondary">{{ student.status|title }}</span>{% endif %}
+                                {% if student.status == 'registered' %}<span class="badge bg-secondary-subtle text-secondary-emphasis">Registered</span>
+                                {% elif student.status == 'checked_in' %}<span class="badge bg-info-subtle text-info-emphasis">Checked In</span>
+                                {% elif student.status == 'in_progress' %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">In Progress</span>
+                                {% elif student.status == 'completed' %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Completed</span>
+                                {% elif student.status == 'absent' %}<span class="badge bg-danger-subtle text-danger-emphasis">Absent</span>
+                                {% else %}<span class="badge bg-light text-dark">{{ student.status|title }}</span>{% endif %}
                             </td>
                             <td class="text-center">
                                 <button type="button" class="btn btn-sm btn-outline-danger" 
@@ -409,12 +484,11 @@
             </div>
             {% endif %}
         </div>
-    </div>
-    
-    <!-- Session Info & Examiner Sidebar -->
-    <div class="col-md-4">
-        <div class="sidebar-sticky-panel">
-        <div class="card shadow-sm border-0 mb-4" style="border: 1px solid #e9ecef !important;">
+    </div><!-- /col-lg-9 -->
+
+    <!-- ═══ Right: Session Info + Examiners + Scores ═══ -->
+    <div class="col-lg-3">
+        <div class="card card-elevated mb-4">
             <div class="card-header bg-light py-2 px-3">
                 <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>Session Info</h6>
             </div>
@@ -468,7 +542,7 @@
         </div>
         
         <!-- Examiner Assignments -->
-        <div class="card shadow-sm border-0 mt-4" style="border: 1px solid #e9ecef !important;">
+        <div class="card card-elevated mb-4">
             <div class="card-header bg-light d-flex justify-content-between align-items-center py-2 px-3">
                 <div class="d-flex align-items-center gap-2">
                     <h6 class="mb-0"><i class="bi bi-person-badge me-2"></i>Examiner Assignments</h6>
@@ -507,7 +581,7 @@
 
         {% if submitted_scores %}
         <!-- Score Management side card -->
-        <div class="mt-3 card border shadow-sm" style="border-radius:12px; overflow:hidden;">
+        <div class="card card-elevated mb-4">
             <div class="card-header d-flex justify-content-between align-items-center py-2 px-3 text-bg-dark"
                  style="cursor:pointer; user-select:none; border-bottom: none;"
                  onclick="toggleScorePanel()">
@@ -534,8 +608,8 @@
                 </div>
                 <!-- Scrollable list -->
                 <div style="max-height:340px; overflow-y:auto;">
-                    <table class="table table-sm mb-0" id="score-mgmt-table" style="font-size:0.78rem;">
-                        <thead style="position:sticky; top:0; z-index:1; background:#f8fafc;" class="shadow-sm">
+                    <table class="table table-modern table-sm mb-0" id="score-mgmt-table" style="font-size:0.78rem;">
+                        <thead style="position:sticky; top:0; z-index:1;">
                             <tr>
                                 <th style="font-size:0.75rem; padding:6px 12px; font-weight:600; color:#475569;">Student</th>
                                 <th style="font-size:0.75rem; padding:6px 12px; font-weight:600; color:#475569;">Station / Examiner</th>
@@ -562,7 +636,7 @@
                                     <button type="button"
                                             class="btn btn-sm btn-outline-warning text-dark py-0 px-2 rounded-pill shadow-sm"
                                             style="font-size:0.75rem"
-                                            onclick="unlockScore('{{ sc.id }}', '{{ sc.session_student.full_name|escapejs }}', '{{ sc.examiner.display_name|default:"Deleted Examiner"|escapejs }}', '{{ sc.station.name|default:"Station"|escapejs }}')"
+                                            onclick="unlockScore('{{ sc.id }}', '{{ sc.session_student.full_name|escapejs }}', '{{ sc.examiner.display_name|default:'Deleted Examiner'|escapejs }}', '{{ sc.station.name|default:'Station'|escapejs }}')"
                                             title="Unlock for correction">
                                         <i class="bi bi-unlock"></i>
                                     </button>
@@ -581,9 +655,9 @@
             </div>
         </div>
         {% endif %}
-        </div><!-- /sidebar-sticky-panel -->
-    </div>
-</div>
+    </div><!-- /col-lg-3 -->
+
+</div>{# /row g-4 #}
 
 <!-- Bulk Assign Examiner Modal -->
 <div class="modal fade" id="assignExaminerModal" tabindex="-1">

@@ -151,8 +151,10 @@ def examiner_create(request):
                 examiner.department = Department.objects.get(name=dept_name)
             except Department.DoesNotExist:
                 pass
-        # Password is set automatically to DEFAULT_USER_PASSWORD by the
-        # post_save signal.  User will be forced to change it on first login.
+        # Set the default password explicitly so the user can log in immediately.
+        # The signal also sets it, but only if the password field isn't already
+        # a non-empty string — setting it here is the reliable defence-in-depth.
+        examiner.set_password(getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F'))
         examiner.save()
         invalidate_examiner_list()
 
@@ -639,6 +641,7 @@ def coordinator_create(request):
             coordinator_position=position,
             is_active=True,
         )
+        coordinator.set_password(default_password)
         coordinator.save()
 
         messages.success(request, f'Coordinator "{full_name}" created successfully.')
