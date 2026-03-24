@@ -130,11 +130,21 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             var dest = this.href;
             document.getElementById('leaveConfirmBtn').onclick = function () { allowLeave = true; window.location.href = dest; };
-            new bootstrap.Modal(document.getElementById('unsavedChangesModal')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('unsavedChangesModal')).show();
         });
     }
     window.addEventListener('beforeunload', function (e) {
         if (isDirty && !allowLeave) { e.preventDefault(); e.returnValue = ''; }
+    });
+    // Prevent Backspace from navigating back when a non-text element is focused
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace') {
+            var el = document.activeElement;
+            var tag = el ? el.tagName.toLowerCase() : '';
+            if (tag !== 'input' && tag !== 'textarea' && !el.isContentEditable) {
+                e.preventDefault();
+            }
+        }
     });
 })();
 </script>
