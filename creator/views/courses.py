@@ -22,12 +22,19 @@ from core.utils.roles import (
 # COURSE MANAGEMENT
 # =============================================================================
 
+def _invalidate_course_list_cache(user):
+    """Delete all course-list cache entries by bumping a global version."""
+    version = cache.get('course_list_version', 0) + 1
+    cache.set('course_list_version', version, timeout=None)
+
+
 @login_required
 def course_list(request):
     """List courses — scoped to user's department for coordinators."""
     user = request.user
     dept = getattr(user, 'department', None)
-    cache_key = f'course_list_{user.pk}_{dept.pk if dept else "all"}'
+    version = cache.get('course_list_version', 0)
+    cache_key = f'course_list_v{version}_{user.pk}_{dept.pk if dept else "all"}'
     courses = cache.get(cache_key)
     if courses is None:
         courses = list(
@@ -74,6 +81,7 @@ def course_create(request):
             osce_mark=int(osce_mark_raw) if osce_mark_raw else None,
             department_id=int(dept_id) if dept_id else None,
         )
+        _invalidate_course_list_cache(user)
         messages.success(request, f'Course "{course.code}" created successfully.')
         next_url = request.POST.get('next')
         if next_url:
@@ -128,6 +136,7 @@ def course_edit(request, course_id):
         dept_id = request.POST.get('department', '').strip()
         course.department_id = int(dept_id) if dept_id else None
         course.save()
+        _invalidate_course_list_cache(request.user)
         messages.success(request, f'Course "{course.code}" updated.')
         next_url = request.POST.get('next')
         if next_url:
