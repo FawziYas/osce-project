@@ -16,14 +16,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Login to Azure
+        uses: azure/login@v2
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Build deployment zip
         run: |
@@ -45,8 +41,8 @@ jobs:
             --exclude "deploy*.zip"
 
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: myosce-app
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: deploy.zip
+        run: |
+          az webapp deployment source config-zip \
+            -g osce-rg \
+            -n myosce-app \
+            --src deploy.zip
