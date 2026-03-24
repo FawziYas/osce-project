@@ -26,12 +26,61 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-check-circle me-1"></i> Create Department
                         </button>
-                        <a href="{% url 'creator:department_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                        <a href="{% url 'creator:department_list' %}" class="btn btn-outline-secondary" id="cancelBtn">Cancel</a>
                     </div>
 
                 </div>
             </form>
         </div>
     </div>
+</div>
+
+<script>
+(function () {
+    var theForm = document.querySelector('form');
+    var isDirty = false;
+    var allowLeave = false;
+    if (theForm) {
+        theForm.addEventListener('input', function() { isDirty = true; });
+        theForm.addEventListener('change', function() { isDirty = true; });
+        theForm.addEventListener('submit', function() { allowLeave = true; });
+    }
+    var cancelBtn = document.getElementById('cancelBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function (e) {
+            if (!isDirty) return;
+            e.preventDefault();
+            var dest = this.href;
+            document.getElementById('leaveConfirmBtn').onclick = function () { allowLeave = true; window.location.href = dest; };
+            new bootstrap.Modal(document.getElementById('unsavedChangesModal')).show();
+        });
+    }
+    window.addEventListener('beforeunload', function (e) {
+        if (isDirty && !allowLeave) { e.preventDefault(); e.returnValue = ''; }
+    });
+})();
+</script>
+
+<!-- Unsaved Changes Modal -->
+<div class="modal fade" id="unsavedChangesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Unsaved Changes</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">You have unsaved changes. If you leave now, your changes will be lost.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-pencil me-1"></i>Continue Editing
+        </button>
+        <button type="button" class="btn btn-danger" id="leaveConfirmBtn">
+          <i class="bi bi-box-arrow-left me-1"></i>Leave Without Saving
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
