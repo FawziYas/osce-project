@@ -293,5 +293,6 @@ AXES_RESET_ON_SUCCESS = True
 AXES_CACHE = 'default'
 # Enable in admin
 AXES_ENABLE_ADMIN = True
-# Enable access failure logging
-AXES_ENABLE_ACCESS_FAILURE_LOG = True
+# AccessFailureLog disabled — AuditLog already captures LOGIN_FAILED events
+# with richer context (role, department, user-agent, request path).
+AXES_ENABLE_ACCESS_FAILURE_LOG = False

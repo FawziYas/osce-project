@@ -16,8 +16,6 @@ from django.contrib.auth.signals import user_logged_in, user_login_failed, user_
 from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 
-from core.models.login_audit import LoginAuditLog
-
 logger = logging.getLogger('osce.audit')
 auth_logger = logging.getLogger('osce.auth')
 
@@ -52,17 +50,9 @@ def _get_client_ip(request):
 
 @receiver(user_logged_in)
 def log_successful_login(sender, request, user, **kwargs):
-    """Record a successful login attempt."""
+    """Record a successful login in the AuditLog (single source of truth)."""
     ip = _get_client_ip(request)
     user_agent = request.META.get('HTTP_USER_AGENT', '') if request else ''
-
-    LoginAuditLog.objects.create(
-        user=user,
-        username_attempted=getattr(user, 'username', str(user)),
-        ip_address=ip,
-        user_agent=user_agent,
-        success=True,
-    )
 
     logger.info(
         'LOGIN_SUCCESS | user=%s | ip=%s | ua=%s',
@@ -71,7 +61,6 @@ def log_successful_login(sender, request, user, **kwargs):
         user_agent[:120],
     )
 
-    # Also log to the main AuditLog
     from core.utils.audit import AuditLogService
     from core.models.audit import LOGIN_SUCCESS
     AuditLogService.log(
@@ -85,18 +74,10 @@ def log_successful_login(sender, request, user, **kwargs):
 
 @receiver(user_login_failed)
 def log_failed_login(sender, credentials, request, **kwargs):
-    """Record a failed login attempt."""
+    """Record a failed login in the AuditLog (single source of truth)."""
     ip = _get_client_ip(request) if request else None
     user_agent = request.META.get('HTTP_USER_AGENT', '') if request else ''
     username = credentials.get('username', '<unknown>')
-
-    LoginAuditLog.objects.create(
-        user=None,
-        username_attempted=username,
-        ip_address=ip,
-        user_agent=user_agent,
-        success=False,
-    )
 
     logger.warning(
         'LOGIN_FAILED | username=%s | ip=%s | ua=%s',

@@ -858,7 +858,7 @@ _ADMIN_GROUPS = [
     },
     {
         'name': 'Logs & Audit',
-        'models': ['AuditLog', 'AuditLogArchive', 'LoginAuditLog', 'AccessAttempt', 'AccessFailureLog', 'AccessLog'],
+        'models': ['AuditLog', 'AuditLogArchive', 'LoginAuditLog', 'AccessAttempt'],
     },
     {
         'name': 'Courses & Curriculum',
