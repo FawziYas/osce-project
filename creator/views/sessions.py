@@ -917,7 +917,7 @@ def session_dry_grading(request, session_id):
                 station_score__session_student__session=session,
                 station_score__station=selected_station,
             )
-            .select_related('station_score', 'station_score__session_student', 'station_score__examiner')
+            .select_related('station_score', 'station_score__session_student', 'station_score__examiner', 'graded_by')
             .order_by('station_score__session_student__student_number')
         )
 
@@ -952,7 +952,8 @@ def session_dry_grading(request, session_id):
                 row.score = value
                 row.max_points = selected_item.points
                 row.marked_at = TimestampMixin.utc_timestamp()
-                row.save(update_fields=['score', 'max_points', 'marked_at'])
+                row.graded_by = request.user
+                row.save(update_fields=['score', 'max_points', 'marked_at', 'graded_by'])
                 affected_station_scores[row.station_score.id] = row.station_score
                 updated += 1
 

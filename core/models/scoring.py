@@ -130,6 +130,13 @@ class ItemScore(models.Model):
     score = models.FloatField(default=0)
     max_points = models.FloatField(default=1)
     marked_at = models.IntegerField(null=True, blank=True)
+    graded_by = models.ForeignKey(
+        'core.Examiner',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='graded_item_scores',
+        db_index=True,
+    )
     notes = models.TextField(blank=True, default='')  # stores essay answer text
 
     class Meta:

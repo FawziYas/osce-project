@@ -293,6 +293,7 @@
                         <th style="width: 250px;" class="student-col">Student</th>
                         <th>Student Answer</th>
                         <th style="width: 150px; text-align: center;">Status</th>
+                        <th style="width: 180px; text-align: center;">Graded By</th>
                         <th style="width: 180px; text-align: center;">Score</th>
                     </tr>
                 </thead>
@@ -317,6 +318,13 @@
                                 <span class="badge bg-success rounded-pill px-3"><i class="bi bi-check-circle me-1"></i>Graded</span>
                             {% else %}
                                 <span class="badge bg-warning text-dark rounded-pill px-3"><i class="bi bi-hourglass-split me-1"></i>Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if row.graded_by %}
+                                <span class="text-body-secondary" style="font-size:0.85em;">{{ row.graded_by.display_name }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td class="text-center">

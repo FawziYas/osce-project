@@ -230,7 +230,7 @@ class ItemScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemScore
         fields = ['id', 'checklist_item_id', 'score', 'max_points',
-                  'marked_at', 'notes']
+                  'marked_at', 'graded_by_id', 'notes']
         read_only_fields = ['id']
 
 
