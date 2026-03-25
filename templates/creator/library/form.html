@@ -82,7 +82,8 @@
 
 <script>
 (function () {
-    var theForm = document.querySelector('form');
+    var cancelBtn = document.getElementById('cancelBtn');
+    var theForm = cancelBtn ? cancelBtn.closest('form') : null;
     var isDirty = false;
     var allowLeave = false;
     if (theForm) {
@@ -90,7 +91,6 @@
         theForm.addEventListener('change', function() { isDirty = true; });
         theForm.addEventListener('submit', function() { allowLeave = true; });
     }
-    var cancelBtn = document.getElementById('cancelBtn');
     if (cancelBtn) {
         cancelBtn.addEventListener('click', function (e) {
             if (!isDirty) return;
