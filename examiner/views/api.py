@@ -444,22 +444,39 @@ def submit_score(request, station_score_id):
 
     # Update student status
     student = score.session_student
-    completed_count = student.station_scores.filter(status='submitted').count()
 
     if student.path_id:
         try:
             path = Path.objects.get(pk=student.path_id)
-            total_stations = path.station_count
-            if completed_count >= total_stations:
+            # Count distinct stations (active & not deleted) in the student's path
+            total_stations = path.stations.filter(active=True, is_deleted=False).count()
+            # Count distinct path stations that have at least one submitted score
+            completed_station_count = (
+                student.station_scores
+                .filter(
+                    status='submitted',
+                    station__path_id=student.path_id,
+                    station__active=True,
+                    station__is_deleted=False,
+                )
+                .values('station_id')
+                .distinct()
+                .count()
+            )
+            if total_stations > 0 and completed_station_count >= total_stations:
                 student.status = 'completed'
                 student.completed_at = utc_timestamp()
-            elif completed_count > 0:
+            elif completed_station_count > 0:
                 student.status = 'in_progress'
         except Path.DoesNotExist:
-            if completed_count > 0:
+            # Path gone – fall back to raw submitted count
+            fallback = student.station_scores.filter(status='submitted').values('station_id').distinct().count()
+            if fallback > 0:
                 student.status = 'in_progress'
     else:
-        if completed_count > 0:
+        # No path assigned – just track progress
+        fallback = student.station_scores.filter(status='submitted').values('station_id').distinct().count()
+        if fallback > 0:
             student.status = 'in_progress'
     student.save()
 

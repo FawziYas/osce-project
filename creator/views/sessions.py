@@ -68,17 +68,42 @@ def live_student_search(request, session_id):
         )
     ).select_related('path').order_by('student_number').distinct()[:20]
 
-    results = [
-        {
+    # Precompute submitted station IDs per student for accurate completion check
+    student_ids = [s.id for s in qs]
+    submitted_map: dict = {}
+    for row in (
+        StationScore.objects
+        .filter(session_student_id__in=student_ids, status='submitted',
+                station__active=True, station__is_deleted=False)
+        .values('session_student_id', 'station_id', 'station__path_id')
+    ):
+        submitted_map.setdefault(row['session_student_id'], set()).add(row['station_id'])
+
+    results = []
+    for s in qs:
+        # Determine accurate display status
+        if s.path_id:
+            required = frozenset(
+                s.path.stations.filter(active=True, is_deleted=False).values_list('id', flat=True)
+            ) if s.path else frozenset()
+            submitted = submitted_map.get(s.id, set())
+            if required and required.issubset(submitted):
+                display_status = 'completed'
+            elif submitted:
+                display_status = 'in_progress'
+            else:
+                display_status = s.status
+        else:
+            display_status = s.status
+
+        results.append({
             'id': str(s.id),
             'student_number': s.student_number,
             'full_name': s.full_name,
-            'status': s.status,
+            'status': display_status,
             'path_id': str(s.path_id) if s.path_id else '',
             'path_name': s.path.name if s.path else None,
-        }
-        for s in qs
-    ]
+        })
     return JsonResponse({'results': results})
 
 
@@ -350,6 +375,37 @@ def session_detail(request, session_id):
         path.unassigned_count = len(unassigned)    # convenience count
         total_unassigned += len(unassigned)
 
+    # ── Compute truly-completed student IDs ─────────────────────────────
+    # A student is "completed" only when every active, non-deleted station
+    # in their path has at least one submitted score.
+    path_station_ids = {
+        p.id: frozenset(
+            p.stations.filter(active=True, is_deleted=False).values_list('id', flat=True)
+        )
+        for p in paths
+    }
+    # Submitted station IDs per student (scoped to their path's active stations)
+    student_submitted_station_ids: dict = {}
+    for row in (
+        StationScore.objects
+        .filter(session_student__session=session, status='submitted',
+                station__active=True, station__is_deleted=False)
+        .values('session_student_id', 'station_id', 'station__path_id')
+    ):
+        sid = row['session_student_id']
+        student_submitted_station_ids.setdefault(sid, set()).add(row['station_id'])
+
+    truly_completed_student_ids = set()
+    for student_obj in students_qs:
+        if not student_obj.path_id:
+            continue
+        required = path_station_ids.get(student_obj.path_id, frozenset())
+        if not required:
+            continue
+        submitted = student_submitted_station_ids.get(student_obj.id, set())
+        if required.issubset(submitted):
+            truly_completed_student_ids.add(str(student_obj.id))
+
     return render(request, 'creator/sessions/detail.html', {
         'session': session,
         'students': students,
@@ -363,6 +419,7 @@ def session_detail(request, session_id):
         'session_metrics': session_metrics,
         'submitted_scores': submitted_scores_list,
         'total_unassigned': total_unassigned,
+        'truly_completed_student_ids': truly_completed_student_ids,
         'can_delete_sessions': request.user.is_superuser or request.user.has_perm('core.can_delete_session'),
     })
 

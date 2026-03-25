@@ -2,6 +2,7 @@
 StationScore and ItemScore models.
 """
 import uuid
+from decimal import Decimal, ROUND_HALF_UP
 from django.db import models
 from .mixins import TimestampMixin
 
@@ -100,11 +101,11 @@ class StationScore(models.Model):
             total += score.total_score or 0
 
         if scores_list:
-            result['final_score'] = round(total / len(scores_list), 2)
+            avg = Decimal(str(total)) / Decimal(len(scores_list))
+            result['final_score'] = float(avg.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
             if result['max_score']:
-                result['percentage'] = round(
-                    (result['final_score'] / result['max_score']) * 100, 2
-                )
+                pct = Decimal(str(result['final_score'])) / Decimal(str(result['max_score'])) * 100
+                result['percentage'] = float(pct.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
         return result
 
     def calculate_total(self):

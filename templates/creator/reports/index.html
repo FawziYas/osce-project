@@ -21,7 +21,6 @@
                             {% for session in sessions %}
                             <option value="{{ session.id }}" {% if selected_session and selected_session.id == session.id %}selected{% endif %}>
                                 {{ session.exam.name }} - {{ session.name }} 
-                                - {{ session.status|status_label }}
                             </option>
                             {% endfor %}
                         </select>

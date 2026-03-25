@@ -114,6 +114,15 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# Password hashers — BCrypt is ~10x faster than Django 5.2's PBKDF2
+# (870k iterations). PBKDF2 is kept as fallback so existing hashes
+# still verify; on next login Django auto-upgrades to BCrypt.
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+]
+
 # Login URL
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/examiner/home/'

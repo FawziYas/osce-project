@@ -432,7 +432,8 @@
                                 {% if student.status == 'registered' %}<span class="badge bg-secondary-subtle text-secondary-emphasis">Registered</span>
                                 {% elif student.status == 'checked_in' %}<span class="badge bg-info-subtle text-info-emphasis">Checked In</span>
                                 {% elif student.status == 'in_progress' %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">In Progress</span>
-                                {% elif student.status == 'completed' %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Completed</span>
+                                {% elif student.status == 'completed' and student.id|stringformat:"s" in truly_completed_student_ids %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Completed</span>
+                                {% elif student.status == 'completed' %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">In Progress</span>
                                 {% elif student.status == 'absent' %}<span class="badge bg-danger-subtle text-danger-emphasis">Absent</span>
                                 {% else %}<span class="badge bg-light text-dark">{{ student.status|title }}</span>{% endif %}
                             </td>

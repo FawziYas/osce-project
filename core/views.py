@@ -127,10 +127,9 @@ def login_view(request):
             request.session['_last_activity'] = _time.time()
 
             # Record the new active session.
+            # Reuse existing_sessions from the pre-login check to avoid
+            # a second query on UserSession.
             if getattr(user, 'allow_multi_login', False):
-                # Multi-login: create a separate tracking record for each
-                # session so every browser appears in the admin list.
-                # Clean up any stale record that had the same session_key.
                 UserSession.objects.filter(
                     session_key=request.session.session_key,
                 ).exclude(user=user).delete()
@@ -140,11 +139,13 @@ def login_view(request):
                     defaults={},
                 )
             else:
-                # Single-session: kill any old Django sessions so the
-                # previous browser is truly logged out, then track the new one.
-                for old in UserSession.objects.filter(user=user):
-                    if old.session_key != request.session.session_key:
-                        old.kill_session()
+                # The pre-login loop already killed stale sessions via
+                # existing.kill_session(), so only leftover records that
+                # were alive-but-different (shouldn't exist if we reached
+                # here) need cleanup.  A single bulk operation is cheaper.
+                UserSession.objects.filter(user=user).exclude(
+                    session_key=request.session.session_key,
+                ).delete()
                 UserSession.objects.update_or_create(
                     user=user,
                     session_key=request.session.session_key,
@@ -266,6 +267,9 @@ def force_change_password_view(request):
             profile.must_change_password = False
             profile.password_changed_at = timezone.now()
             profile.save(update_fields=['must_change_password', 'password_changed_at'])
+
+            # Clear the cached flag so middleware won't redirect again
+            request.session.pop('_must_change_password', None)
 
             auth_logger.info(
                 "User '%s' changed their password from default.", user.username

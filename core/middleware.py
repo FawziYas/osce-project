@@ -75,17 +75,21 @@ class ForcePasswordChangeMiddleware:
             # Lazy-import to avoid circular imports at module load
             from core.models.user_profile import UserProfile
 
-            profile = getattr(request.user, 'profile', None)
-            if profile is None:
-                # Safety net: create the profile if somehow missing.
-                # Default to must_change_password=True (secure default) —
-                # only the force-change view or admin can clear this flag.
-                profile, _ = UserProfile.objects.get_or_create(
-                    user=request.user,
-                    defaults={'must_change_password': True},
-                )
+            # Fast path: check session cache first to avoid a DB query on
+            # every single authenticated request.
+            must_change = request.session.get('_must_change_password')
+            if must_change is None:
+                # First request after login (or session has no cached flag)
+                profile = getattr(request.user, 'profile', None)
+                if profile is None:
+                    profile, _ = UserProfile.objects.get_or_create(
+                        user=request.user,
+                        defaults={'must_change_password': True},
+                    )
+                must_change = profile.must_change_password
+                request.session['_must_change_password'] = must_change
 
-            if profile.must_change_password:
+            if must_change:
                 change_url = reverse('force_change_password')
                 exempt = (
                     change_url,
@@ -292,10 +296,14 @@ class SessionTimeoutMiddleware:
                     return redirect('/login/')
 
                 # Still active — stamp the session so the idle clock resets
-                # from THIS request.  set_expiry() also refreshes the browser
-                # cookie Max-Age so the client-side cookie stays in sync.
+                # from THIS request.
+                # Note: SESSION_SAVE_EVERY_REQUEST=True already slides the
+                # cookie expiry, so we only call set_expiry() once (first hit)
+                # to avoid marking the session modified a second time.
                 request.session['_last_activity'] = now
-                request.session.set_expiry(timeout)
+                if request.session.get('_timeout') != timeout:
+                    request.session.set_expiry(timeout)
+                    request.session['_timeout'] = timeout
 
         return self.get_response(request)
 

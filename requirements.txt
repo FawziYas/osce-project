@@ -6,6 +6,7 @@ sqlparse==0.5.5
 # Config & Security
 django-environ==0.13.0
 django-axes==8.3.1
+bcrypt==5.0.0
 packaging==26.0
 
 # Static files & Server
