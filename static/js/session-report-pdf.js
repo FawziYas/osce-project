@@ -599,49 +599,70 @@
         '/* ── 3-column path layout ──────────────────────────────────── */',
         '.spl-title { font-size: 16pt; font-weight: 700; margin: 0; color: var(--white); }',
 
-        '/* Each group of up to 3 paths sits in a flex row that breaks the page after it */',
+        '/* A4 page: 3 paths sit side-by-side as columns; page breaks after each group */',
         '.paths-page {',
-        '    display: flex; gap: 0;',
+        '    display: table; border-collapse: collapse;',
+        '    width: 100%; table-layout: fixed;',
         '    page-break-after: always; break-after: page;',
-        '    width: 100%;',
         '}',
         '.paths-page.last-page { page-break-after: auto; break-after: auto; }',
 
+        '/* Wrapper row inside the table */',
+        '.paths-row {',
+        '    display: table-row;',
+        '}',
+
         '.path-col {',
-        '    flex: 1; min-width: 0; overflow: hidden;',
-        '    border: 1px solid var(--mgray); border-right-width: 0;',
+        '    display: table-cell;',
+        '    width: 33.333%;',
+        '    vertical-align: top;',
+        '    border: 1px solid var(--mgray);',
+        '    border-right-width: 0;',
         '}',
         '.path-col:last-child { border-right-width: 1px; }',
+        '.path-col-placeholder { display: table-cell; width: 33.333%; }',
 
         '.path-col-header {',
         '    background: var(--navy); color: var(--white);',
-        '    text-align: center; font-weight: 700; font-size: 12pt;',
-        '    padding: 9px 8px;',
+        '    text-align: center; font-weight: 700; font-size: 11pt;',
+        '    padding: 8px 6px;',
         '    border-bottom: 3px solid var(--accent);',
         '    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;',
+        '    page-break-after: avoid; break-after: avoid;',
         '}',
         '.path-col-sub {',
         '    background: var(--navy2); color: rgba(255,255,255,.85);',
-        '    font-size: 7.5pt; text-align: center;',
+        '    font-size: 7pt; text-align: center;',
         '    padding: 3px 6px; border-bottom: 1px solid #1a3a5c;',
+        '    page-break-after: avoid; break-after: avoid;',
         '}',
 
+        '/* One student per row — never cut a row across a page */',
         '.student-row {',
-        '    padding: 6px 10px;',
+        '    display: block;',
+        '    padding: 5px 9px;',
         '    border-bottom: 1px solid var(--mgray);',
-        '    font-size: 12pt; line-height: 1.35;',
+        '    font-size: 11pt; line-height: 1.4;',
         '    text-align: center; word-break: break-word;',
+        '    page-break-inside: avoid; break-inside: avoid;',
         '}',
         '.student-row:nth-child(even) { background: var(--lgray); }',
         '.student-row.ar {',
-        '    font-family: "Times New Roman","Arabic Typesetting","Traditional Arabic",',
-        '                 "Simplified Arabic","Noto Naskh Arabic",serif;',
-        '    direction: rtl; text-align: right; padding-right: 12px;',
+        '    font-family: "Amiri","Noto Naskh Arabic","Traditional Arabic",',
+        '                 "Arabic Typesetting","Simplified Arabic",serif;',
+        '    direction: rtl; text-align: right; padding-right: 11px;',
         '}',
         '.path-empty {',
         '    padding: 10px; text-align: center;',
         '    color: var(--dgray); font-style: italic; font-size: 9pt;',
         '}',
+        '/* Row counter badge next to student name */',
+        '.row-num {',
+        '    display: inline-block; min-width: 18px;',
+        '    font-size: 7pt; color: var(--dgray);',
+        '    margin-right: 5px; text-align: right;',
+        '}',
+        '.student-row.ar .row-num { margin-right: 0; margin-left: 5px; }',
         ].join('\n');
     }
 
@@ -675,16 +696,22 @@
                 if (!count) {
                     return hdr + '<div class="path-empty">No students assigned</div>';
                 }
-                var rows = students.map(function (stu) {
+                /* One student per row with row number */
+                var rows = students.map(function (stu, idx) {
                     var name = stu.full_name || '\u2014';
                     var ar   = hasArabic(name);
-                    return '<div class="student-row' + (ar ? ' ar' : '') + '">' +
-                           (ar ? arabicCell(name) : esc(name)) + '</div>';
+                    var numSpan = '<span class="row-num">' + (idx + 1) + '.</span>';
+                    if (ar) {
+                        /* For Arabic: number on right side (RTL), name to left */
+                        return '<div class="student-row ar">' + arabicCell(name) +
+                               '&nbsp;<span class="row-num">' + (idx + 1) + '.</span></div>';
+                    }
+                    return '<div class="student-row">' + numSpan + esc(name) + '</div>';
                 }).join('');
                 return hdr + rows;
             }
 
-            /* ── Group paths into chunks of 3 ─────────────────────────── */
+            /* ── Group paths into chunks of 3 (table-cell columns) ─────── */
             var PER_PAGE  = 3;
             var pageGroups = [];
             for (var i = 0; i < paths.length; i += PER_PAGE) {
@@ -701,22 +728,19 @@
                     cols = group.map(function (p) {
                         return '<div class="path-col">' + buildPathColumn(p) + '</div>';
                     }).join('');
-                    /* Pad empty columns to keep flex row balanced */
+                    /* Pad with invisible placeholder cells to keep table balanced */
                     for (var k = group.length; k < PER_PAGE; k++) {
-                        cols += '<div class="path-col"></div>';
+                        cols += '<div class="path-col-placeholder"></div>';
                     }
                 }
-                return '<div class="paths-page' + (isLast ? ' last-page' : '') + '">' + cols + '</div>';
+                return '<div class="paths-page' + (isLast ? ' last-page' : '') + '"><div class="paths-row">' + cols + '</div></div>';
             }).join('\n');
 
             /* ── Page header (same design as session report) ───────────── */
             var reportHeader = [
-                '<div class="print-controls">',
-                '  <button class="btn-print" onclick="window.print()">\uD83D\uDDA8\uFE0F Print / Save as PDF</button>',
-                '  <button class="btn-close-w" onclick="window.close()">\u2715 Close</button>',
-                '  <span style="font-size:8pt;color:#555">Use your browser\'s <b>Print &rarr; Save as PDF</b> for the best Arabic rendering.</span>',
-                '</div>',
                 '<div class="rpt-header">',
+                '  <!-- Student Path Assignments Report — no UI chrome; printed via iframe -->',
+
                 '  <div class="rpt-header-top">',
                 '    <div class="rpt-logo-area">',
                 '      <div class="rpt-logo-box">',
@@ -759,24 +783,36 @@
                 pagesHtml,
                 '</div>',
                 footer,
-                '<script>',
-                '  window.addEventListener("load", function () {',
-                '    setTimeout(function () { window.print(); }, 700);',
-                '  });',
-                '<\/script>',
                 '</body>',
                 '</html>',
             ].join('\n');
 
-            var win = window.open('', '_blank', 'width=960,height=720,scrollbars=yes');
-            if (!win) {
-                alert('Pop-up blocked.\nPlease allow pop-ups for this site and click the button again.');
-                return;
-            }
-            win.document.open();
-            win.document.write(html);
-            win.document.close();
-            win.document.title = title;
+            /* ── Print via hidden iframe (no new tab opens) ──────────── */
+            var iframe = document.createElement('iframe');
+            iframe.setAttribute('aria-hidden', 'true');
+            /* Full-size but invisible so fonts and CSS render correctly */
+            iframe.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;' +
+                                   'z-index:-9999;border:none;opacity:0;pointer-events:none;';
+            document.body.appendChild(iframe);
+
+            var idoc = iframe.contentDocument || iframe.contentWindow.document;
+            idoc.open('text/html', 'replace');
+            idoc.write(html);
+            idoc.close();
+
+            /* Give fonts/images time to load, then open the Save-as-PDF print dialog */
+            setTimeout(function () {
+                try { iframe.contentWindow.focus(); } catch (e) {}
+                iframe.contentWindow.print();
+                /* Clean up the iframe:  on focus-return (user closed dialog) or after 60 s */
+                function cleanup() {
+                    setTimeout(function () {
+                        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                    }, 500);
+                }
+                window.addEventListener('focus', cleanup, { once: true });
+                setTimeout(cleanup, 60000);
+            }, 800);
 
         } catch (err) {
             console.error('[student-paths] Error:', err);
