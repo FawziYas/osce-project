@@ -224,9 +224,7 @@
                             <select class="scale-select" onchange="updateScalePreview(this)">
                                 <option value="binary" data-tip="binary">✓ Binary (Yes/No)</option>
                                 <option value="partial" data-tip="partial">◐ Partial (0-1-2)</option>
-                                <option value="bars3" data-tip="bars3" disabled>📊 BARS 3-Point</option>
-                                <option value="bars4" data-tip="bars4" disabled>📊 BARS 4-Point ⚠️</option>
-                                <option value="likert5" data-tip="likert5" disabled>⭐ Likert 5-Point ⚠️</option>
+                                <option value="likert5" data-tip="likert5" disabled>⭐ Likert 5-Point </option>
                             </select>
                             <button type="button" class="scale-info-btn" onclick="toggleScaleInfo(this)" title="Scale info">
                                 <i class="bi bi-info-circle"></i>
@@ -342,26 +340,6 @@ const SCALES = {
         cons: 'More examiner judgment • Needs clear descriptors',
         tip: 'Good balance of simplicity and nuance',
         warning: null
-    },
-    'bars3': {
-        levels: 3,
-        labels: ['Unsatisfactory (0)', 'Competent (1)', 'Excellent (2)'],
-        title: '📊 BARS 3-Point',
-        bestFor: 'Communication • Organization • Clinical judgment',
-        pros: 'Behavior-based • Clear pass boundary • Reduces variability',
-        cons: 'Requires behavioral anchors',
-        tip: '👉 Best practice for quality items',
-        warning: null
-    },
-    'bars4': {
-        levels: 4,
-        labels: ['Unsatisfactory (0)', 'Borderline (1)', 'Competent (2)', 'Excellent (3)'],
-        title: '📊 BARS 4-Point',
-        bestFor: 'High-stakes OSCEs • Communication • Ethics stations',
-        pros: 'High validity • Clear pass/fail between 1-2',
-        cons: 'Time-consuming to design anchors',
-        tip: 'Best if resources allow',
-        warning: '⚠️ 4-point may be difficult when resources and time are limited'
     },
     'likert5': {
         levels: 5,

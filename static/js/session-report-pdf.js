@@ -405,65 +405,6 @@
         ].join('\n');
     }
 
-    function buildSection4(paths, assignByStation) {
-        if (!paths.length) {
-            return [
-                '<div class="section-title">4.&nbsp; Paths &amp; Stations Breakdown</div>',
-                '<p class="no-data">No paths defined for this session.</p>',
-            ].join('\n');
-        }
-
-        var blocks = paths.map(function (path) {
-            var stations = path.stations || [];
-            var rotMin   = path.rotation_minutes ? (path.rotation_minutes + ' min/station') : '\u2014';
-            var hdr      = [
-                '<div class="path-header">',
-                'Path ' + esc(path.name) + ' &nbsp;&middot;&nbsp; ',
-                stations.length + ' station(s) &nbsp;&middot;&nbsp; ',
-                (path.student_count || 0) + ' student(s) &nbsp;&middot;&nbsp; ',
-                esc(rotMin),
-                '</div>',
-            ].join('');
-
-            if (!stations.length) {
-                return hdr + '<p class="no-data" style="padding-left:8px">No stations configured for this path.</p>';
-            }
-
-            var rows = stations.map(function (s, idx) {
-                var asgn  = assignByStation[s.id];
-                var durMin = s.duration_minutes || path.rotation_minutes;
-                var name   = asgn
-                    ? (asgn.examiner ? asgn.examiner.full_name : (asgn.examiner_name || '\u2014'))
-                    : 'Unassigned';
-                var ar = hasArabic(name);
-                return [
-                    '<tr>',
-                    '<td class="tc">Path ' + esc(path.name) + '</td>',
-                    '<td class="tc">' + esc(s.station_number != null ? s.station_number : idx + 1) + '</td>',
-                    '<td class="tl">' + esc(s.name || '\u2014') + '</td>',
-                    '<td class="tc">' + (durMin ? esc(String(durMin)) + ' min' : '\u2014') + '</td>',
-                    '<td class="' + (ar ? 'arc' : 'tl') + '">' + arabicCell(name) + '</td>',
-                    '</tr>',
-                ].join('');
-            }).join('');
-
-            return [
-                hdr,
-                '<table>',
-                '<thead><tr>',
-                '<th>Path</th><th>Stn #</th>',
-                '<th class="tl">Station Name</th>',
-                '<th>Duration</th>',
-                '<th class="tl">Assigned Examiner</th>',
-                '</tr></thead>',
-                '<tbody>' + rows + '</tbody>',
-                '</table>',
-            ].join('\n');
-        }).join('');
-
-        return '<div class="section-title">4.&nbsp; Paths &amp; Stations Breakdown</div>\n' + blocks;
-    }
-
     function buildSection5(paths) {
         var rows = [];
         paths.forEach(function (path) {
@@ -492,7 +433,7 @@
 
         if (!rows.length) {
             return [
-                '<div class="section-title">5.&nbsp; Student List</div>',
+                '<div class="section-title">4.&nbsp; Student List</div>',
                 '<p class="no-data">No students enrolled in this session.</p>',
             ].join('\n');
         }
@@ -510,7 +451,7 @@
         }).join('');
 
         return [
-            '<div class="section-title">5.&nbsp; Student List</div>',
+            '<div class="section-title">4.&nbsp; Student List</div>',
             '<table>',
             '<thead><tr>',
             '<th class="tl">Full Name</th>',
@@ -611,7 +552,6 @@
                 buildSection2({ students: totalStudents, examiners: totalExaminers,
                                 stations: totalStations, paths: totalPaths }),
                 buildSection3(assignments, stationToPath, examinerById),
-                buildSection4(paths, assignByStation),
                 buildSection5(paths),
                 '</div>',
                 buildFooter(generatedAt),
