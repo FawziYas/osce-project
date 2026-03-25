@@ -650,19 +650,12 @@
         '.student-row.ar {',
         '    font-family: "Amiri","Noto Naskh Arabic","Traditional Arabic",',
         '                 "Arabic Typesetting","Simplified Arabic",serif;',
-        '    direction: rtl; text-align: right; padding-right: 11px;',
+        '    direction: rtl; text-align: center;',
         '}',
         '.path-empty {',
         '    padding: 10px; text-align: center;',
         '    color: var(--dgray); font-style: italic; font-size: 9pt;',
         '}',
-        '/* Row counter badge next to student name */',
-        '.row-num {',
-        '    display: inline-block; min-width: 18px;',
-        '    font-size: 7pt; color: var(--dgray);',
-        '    margin-right: 5px; text-align: right;',
-        '}',
-        '.student-row.ar .row-num { margin-right: 0; margin-left: 5px; }',
         ].join('\n');
     }
 
@@ -696,17 +689,12 @@
                 if (!count) {
                     return hdr + '<div class="path-empty">No students assigned</div>';
                 }
-                /* One student per row with row number */
+                /* One student per row — centered, no numbering */
                 var rows = students.map(function (stu, idx) {
                     var name = stu.full_name || '\u2014';
                     var ar   = hasArabic(name);
-                    var numSpan = '<span class="row-num">' + (idx + 1) + '.</span>';
-                    if (ar) {
-                        /* For Arabic: number on right side (RTL), name to left */
-                        return '<div class="student-row ar">' + arabicCell(name) +
-                               '&nbsp;<span class="row-num">' + (idx + 1) + '.</span></div>';
-                    }
-                    return '<div class="student-row">' + numSpan + esc(name) + '</div>';
+                    return '<div class="student-row' + (ar ? ' ar' : '') + '">' +
+                           (ar ? arabicCell(name) : esc(name)) + '</div>';
                 }).join('');
                 return hdr + rows;
             }
@@ -749,7 +737,7 @@
                 '      </div>',
                 '      <div class="rpt-title-area">',
                 '        <h1 class="spl-title">Student Path Assignments</h1>',
-                '        <p>' + esc(sessionName) + ' &mdash; Confidential</p>',
+                '        <p>' + esc(sessionName) + '</p>',
                 '      </div>',
                 '    </div>',
                 '    <div class="rpt-meta">',
