@@ -7,6 +7,8 @@ on:
 
 env:
   PYTHON_VERSION: '3.12'
+  AZURE_WEBAPP_NAME: myosce-app
+  AZURE_RESOURCE_GROUP: osce-rg
 
 jobs:
   deploy:
@@ -16,15 +18,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login to Azure
-        uses: azure/login@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Collect static files
+        env:
+          DJANGO_SETTINGS_MODULE: osce_project.settings.production
+          SECRET_KEY: placeholder-for-collectstatic
+          ALLOWED_HOSTS: localhost
+          DB_PASSWORD: placeholder
+          DB_HOST: localhost
+        run: |
+          python manage.py collectstatic --noinput
 
       - name: Build deployment zip
         run: |
           zip -r deploy.zip . \
             --exclude "*.git*" \
+            --exclude ".github/*" \
             --exclude "venv/*" \
             --exclude "__pycache__/*" \
             --exclude "*/__pycache__/*" \
@@ -35,14 +53,24 @@ jobs:
             --exclude "applogs/*" \
             --exclude "logs/*" \
             --exclude "media/*" \
-            --exclude "staticfiles/*" \
             --exclude "frontend/*" \
             --exclude ".env" \
-            --exclude "deploy*.zip"
+            --exclude "deploy*.zip" \
+            --exclude "patch*.zip" \
+            --exclude "*.dump" \
+            --exclude "osce_dev*"
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Web App
-        run: |
-          az webapp deployment source config-zip \
-            -g osce-rg \
-            -n myosce-app \
-            --src deploy.zip
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: deploy.zip
+
+      - name: Logout of Azure
+        if: always()
+        run: az logout
