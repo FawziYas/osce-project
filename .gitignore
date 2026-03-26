@@ -62,6 +62,14 @@ osce_native.sql
 app_logs.zip
 deploy.zip
 
+# Deployment artifacts & zips (CI creates these; never commit)
+deploy*.zip
+patch*.zip
+
+# Azure deployment credentials & status
+publish-profile.xml
+deploy_status.json
+
 # Test/tmp
 *.tmp
 test_*.txt
