@@ -100,16 +100,16 @@ jobs:
             --output none
 
       - name: Deploy to Azure Web App
-        # Use az webapp deploy --type zip which goes through Kudu Zip Deploy.
-        # This triggers the Oryx BUILD step (pip install → creates wwwroot/antenv)
-        # unlike azure/webapps-deploy@v3 which uses OneDeploy and skips Oryx build.
+        # 'az webapp deployment source config-zip' uses Kudu's /api/zipdeploy endpoint.
+        # This is the ONLY az cli command that triggers the Oryx BUILD step
+        # (pip install → creates wwwroot/antenv).
+        # 'az webapp deploy --type zip' and 'azure/webapps-deploy@v3' both use
+        # OneDeploy (/api/publish) which skips Oryx entirely.
         run: |
-          az webapp deploy \
+          az webapp deployment source config-zip \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --src-path deploy.zip \
-            --type zip \
-            --timeout 600
+            --src deploy.zip
 
       - name: Logout of Azure
         if: always()
