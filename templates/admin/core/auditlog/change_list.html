@@ -1,0 +1,41 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+  {% if archive_url %}
+  <li>
+    <form method="post" action="{{ archive_url }}" id="archive-form"
+          onsubmit="return confirm('Archive ALL audit logs older than the selected number of days?\n\nThis moves them to the Archive table — nothing is deleted.');">
+      {% csrf_token %}
+      <span style="display:inline-flex;align-items:center;gap:6px;">
+        <label for="archive-days" style="font-size:13px;font-weight:600;color:#fff;">Days to keep:</label>
+        <input id="archive-days" name="days" type="number" value="90" min="30" max="3650"
+               style="width:70px;padding:4px 6px;border-radius:4px;border:1px solid #ccc;font-size:13px;">
+        <button type="submit"
+                style="background:#ba2121;color:#fff;padding:5px 14px;border:none;
+                       border-radius:4px;font-weight:bold;cursor:pointer;font-size:13px;">
+          🗄️ Archive Old Logs
+        </button>
+      </span>
+    </form>
+  </li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
+
+{% block content %}
+  {% if archive_url and hot_count is not None %}
+  <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;
+              padding:10px 16px;margin-bottom:16px;font-size:13px;">
+    <strong>📊 Audit Log Stats:</strong>
+    &nbsp; Hot table (active): <strong>{{ hot_count|floatformat:"0" }}</strong> records
+    &nbsp;|&nbsp;
+    Archive table: <strong>{{ archive_count|floatformat:"0" }}</strong> records
+    &nbsp;|&nbsp;
+    <span style="color:#6c757d;">
+      Auto-archival runs every Sunday at 02:00 (logs older than 90 days).
+    </span>
+  </div>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

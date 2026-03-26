@@ -618,6 +618,62 @@ def _export_audit_json(modeladmin, request, queryset):
 _export_audit_json.short_description = 'Export selected as JSON'
 
 
+def _admin_archive_old_logs(modeladmin, request, queryset):
+    """
+    Admin action: archive all audit logs older than 90 days.
+    The queryset selection is intentionally ignored — this always
+    archives everything beyond the cutoff, not just selected rows.
+    Only superusers may trigger this.
+    """
+    from django.contrib import messages
+    from core.tasks import archive_old_audit_logs
+    from core.utils.audit import AuditLogService
+    from core.models.audit import ADMIN_ACTION
+
+    if not request.user.is_superuser:
+        modeladmin.message_user(
+            request,
+            'Only superusers can trigger log archival.',
+            level=messages.ERROR,
+        )
+        return
+
+    try:
+        result = archive_old_audit_logs.delay(days=90, batch_size=2000)
+        AuditLogService.log(
+            action=ADMIN_ACTION,
+            user=request.user,
+            request=request,
+            resource_type='AuditLog',
+            description='Manual archive of audit logs older than 90 days queued via admin action',
+        )
+        modeladmin.message_user(
+            request,
+            f'Archival task queued (task id: {result.id}). '
+            'Logs older than 90 days will be moved to the archive table in the background.',
+            level=messages.SUCCESS,
+        )
+    except Exception:
+        # Celery not available — run synchronously
+        from core.management.commands.archive_old_logs import Command
+        cmd = Command()
+        cmd.stdout = type('_W', (), {'write': lambda self, msg: None})()
+        cmd.style = type('_S', (), {
+            'SUCCESS': lambda self, m: m,
+            'WARNING': lambda self, m: m,
+        })()
+        cmd.handle(days=90, batch_size=2000, dry_run=False)
+        modeladmin.message_user(
+            request,
+            'Archival completed synchronously (Celery not available). '
+            'Logs older than 90 days have been moved to the archive table.',
+            level=messages.SUCCESS,
+        )
+
+
+_admin_archive_old_logs.short_description = 'Archive logs older than 90 days (superuser only)'
+
+
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
     """
@@ -629,7 +685,9 @@ class AuditLogAdmin(admin.ModelAdmin):
     - CSV and JSON streaming exports
     - Anomaly flags for suspicious patterns
     - Checksum verification display
+    - Manual archive trigger (button + action, superuser only)
     """
+    change_list_template = 'admin/core/auditlog/change_list.html'
 
     list_display = (
         'timestamp', 'username', 'user_role', 'department_id',
@@ -655,7 +713,7 @@ class AuditLogAdmin(admin.ModelAdmin):
     )
     list_per_page = 50
     list_select_related = ('user',)
-    actions = [_export_audit_csv, _export_audit_json]
+    actions = [_export_audit_csv, _export_audit_json, _admin_archive_old_logs]
     ordering = ('-timestamp',)
 
     fieldsets = (
@@ -825,8 +883,84 @@ class AuditLogAdmin(admin.ModelAdmin):
             return {}
         return actions
 
+    def get_urls(self):
+        from django.urls import path as _path
+        urls = super().get_urls()
+        custom = [
+            _path(
+                'archive-old-logs/',
+                self.admin_site.admin_view(self.archive_old_logs_view),
+                name='core_auditlog_archive_old_logs',
+            ),
+        ]
+        return custom + urls
+
+    def archive_old_logs_view(self, request):
+        """Handle the 'Archive Old Logs' button POST from the changelist."""
+        from django.contrib import messages
+        from django.shortcuts import redirect
+        from core.utils.audit import AuditLogService
+        from core.models.audit import ADMIN_ACTION
+
+        if not request.user.is_superuser:
+            messages.error(request, 'Only superusers can trigger log archival.')
+            return redirect('admin:core_auditlog_changelist')
+
+        if request.method != 'POST':
+            messages.warning(request, 'Invalid request method.')
+            return redirect('admin:core_auditlog_changelist')
+
+        days = int(request.POST.get('days', 90))
+        days = max(30, min(days, 3650))  # clamp: 30 days – 10 years
+
+        try:
+            from core.tasks import archive_old_audit_logs
+            result = archive_old_audit_logs.delay(days=days, batch_size=2000)
+            AuditLogService.log(
+                action=ADMIN_ACTION,
+                user=request.user,
+                request=request,
+                resource_type='AuditLog',
+                description=f'Manual archive queued for logs older than {days} days (task {result.id})',
+            )
+            messages.success(
+                request,
+                f'Archival task queued (task id: {result.id}). '
+                f'Logs older than {days} days will be moved to the archive table in the background.',
+            )
+        except Exception:
+            # Celery not available — run synchronously in a thread to avoid HTTP timeout
+            import threading
+            from core.management.commands.archive_old_logs import Command
+
+            def _run():
+                cmd = Command()
+                cmd.stdout = type('_W', (), {'write': lambda self, m: None})()
+                cmd.style = type('_S', (), {
+                    'SUCCESS': lambda self, m: m,
+                    'WARNING': lambda self, m: m,
+                })()
+                cmd.handle(days=days, batch_size=2000, dry_run=False)
+
+            threading.Thread(target=_run, daemon=True).start()
+            AuditLogService.log(
+                action=ADMIN_ACTION,
+                user=request.user,
+                request=request,
+                resource_type='AuditLog',
+                description=f'Manual archive started synchronously for logs older than {days} days',
+            )
+            messages.success(
+                request,
+                f'Archival started in the background (Celery not available). '
+                f'Logs older than {days} days are being moved to the archive table.',
+            )
+
+        return redirect('admin:core_auditlog_changelist')
+
     def changelist_view(self, request, extra_context=None):
-        """Log that the audit log was viewed."""
+        """Log that the audit log was viewed; inject archive URL into context."""
+        from django.urls import reverse as _rev
         from core.models.audit import AUDIT_LOG_VIEWED
         from core.utils.audit import AuditLogService
         AuditLogService.log(
@@ -836,6 +970,12 @@ class AuditLogAdmin(admin.ModelAdmin):
             resource_type='AuditLog',
             description=f'{request.user.username} viewed audit log list',
         )
+        extra_context = extra_context or {}
+        if request.user.is_superuser:
+            extra_context['archive_url'] = _rev('admin:core_auditlog_archive_old_logs')
+            extra_context['hot_count'] = AuditLog.objects.count()
+            from core.models.audit import AuditLogArchive
+            extra_context['archive_count'] = AuditLogArchive.objects.count()
         return super().changelist_view(request, extra_context=extra_context)
 
 

@@ -155,6 +155,77 @@ def cleanup_old_audit_logs(days=365):
         logger.error('cleanup_old_audit_logs failed: %s', traceback.format_exc())
 
 
+@shared_task(
+    name='core.archive_old_audit_logs',
+    bind=True,
+    max_retries=2,
+    default_retry_delay=30,
+    ignore_result=False,
+)
+def archive_old_audit_logs(self, days=90, batch_size=2000):
+    """
+    Move AuditLog entries older than `days` days into AuditLogArchive.
+
+    Never deletes — only moves to the archive table.
+    Safe to run repeatedly; duplicate PKs are ignored via ignore_conflicts.
+
+    Returns a dict: {'archived': int, 'days': int}
+    Can be triggered:
+      - Automatically via Celery Beat (weekly)
+      - Manually from Django admin (Archive Old Logs button / action)
+    """
+    try:
+        from datetime import timedelta
+        from django.utils import timezone
+        from core.models.audit import AuditLog, AuditLogArchive
+
+        cutoff = timezone.now() - timedelta(days=days)
+        total_qs = AuditLog.objects.filter(timestamp__lt=cutoff)
+        total = total_qs.count()
+
+        if total == 0:
+            logger.info('archive_old_audit_logs: nothing to archive (cutoff=%s)', cutoff.date())
+            return {'archived': 0, 'days': days}
+
+        logger.info(
+            'archive_old_audit_logs: archiving %d entries older than %s (batch_size=%d)',
+            total, cutoff.date(), batch_size,
+        )
+
+        archived = 0
+        while True:
+            batch = list(
+                AuditLog.objects.filter(timestamp__lt=cutoff)
+                .order_by('id')[:batch_size]
+                .values(
+                    'id', 'timestamp', 'user_id', 'username', 'user_role',
+                    'department_id', 'action', 'status',
+                    'resource_type', 'resource_id', 'resource_label',
+                    'old_value', 'new_value', 'description',
+                    'ip_address', 'user_agent', 'request_method', 'request_path',
+                    'extra_data', 'checksum',
+                )
+            )
+            if not batch:
+                break
+
+            AuditLogArchive.objects.bulk_create(
+                [AuditLogArchive(**row) for row in batch],
+                ignore_conflicts=True,
+            )
+            batch_ids = [row['id'] for row in batch]
+            AuditLog.objects.filter(id__in=batch_ids).delete()
+            archived += len(batch)
+            logger.info('archive_old_audit_logs: progress %d/%d', archived, total)
+
+        logger.info('archive_old_audit_logs: completed, archived=%d, days=%d', archived, days)
+        return {'archived': archived, 'days': days}
+
+    except Exception as exc:
+        logger.error('archive_old_audit_logs failed: %s', traceback.format_exc())
+        raise self.retry(exc=exc)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. Periodic: pre-compute dashboard statistics (runs every 5 min via Beat)
 # ══════════════════════════════════════════════════════════════════════════════

@@ -7,6 +7,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 import environ
+from celery.schedules import crontab
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -216,10 +217,11 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'core.compute_dashboard_stats',
         'schedule': 300,  # every 5 minutes
     },
-    'cleanup-audit-logs': {
-        'task': 'core.cleanup_old_audit_logs',
-        'schedule': 86400,  # every 24 hours (nightly)
-        'kwargs': {'days': 365},
+    # Archive audit logs weekly (Sunday 02:00) — moves to audit_logs_archive, never deletes
+    'archive-audit-logs': {
+        'task': 'core.archive_old_audit_logs',
+        'schedule': crontab(hour=2, minute=0, day_of_week=0),  # weekly Sunday 02:00
+        'kwargs': {'days': 90, 'batch_size': 2000},
     },
 }
 
