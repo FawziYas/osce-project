@@ -77,14 +77,17 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Disable Oryx build (use startup.sh instead)
-        # Prevents Azure Oryx from re-running pip install / collectstatic with
-        # wrong paths. Our startup.sh handles migrate + collectstatic correctly.
+      - name: Configure Azure app settings
+        # Enable Oryx so it runs pip install from requirements.txt on Azure.
+        # DISABLE_COLLECTSTATIC=1 stops Oryx running its own collectstatic —
+        # we already ran it in CI and staticfiles/ is included in the zip.
         run: |
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+            --settings \
+              SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+              DISABLE_COLLECTSTATIC=1 \
             --output none
 
       - name: Deploy to Azure Web App
@@ -92,7 +95,7 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy.zip
-          # startup.sh runs: migrate --noinput, collectstatic --noinput, gunicorn
+          # startup.sh runs: migrate --noinput, then gunicorn
           startup-command: 'bash startup.sh'
 
       - name: Logout of Azure
