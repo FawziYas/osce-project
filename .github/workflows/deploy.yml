@@ -90,13 +90,26 @@ jobs:
               DISABLE_COLLECTSTATIC=1 \
             --output none
 
+      - name: Set startup command
+        # Set startup command explicitly so it survives re-deployments.
+        run: |
+          az webapp config set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --startup-file 'bash startup.sh' \
+            --output none
+
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: deploy.zip
-          # startup.sh runs: migrate --noinput, then gunicorn
-          startup-command: 'bash startup.sh'
+        # Use az webapp deploy --type zip which goes through Kudu Zip Deploy.
+        # This triggers the Oryx BUILD step (pip install → creates wwwroot/antenv)
+        # unlike azure/webapps-deploy@v3 which uses OneDeploy and skips Oryx build.
+        run: |
+          az webapp deploy \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --src-path deploy.zip \
+            --type zip \
+            --timeout 600
 
       - name: Logout of Azure
         if: always()
