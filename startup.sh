@@ -1,8 +1,9 @@
 #!/bin/bash
 
 # Azure App Service startup script for Django OSCE
-# Note: pip install is handled by Oryx during deployment (SCM_DO_BUILD_DURING_DEPLOYMENT=true).
-# collectstatic is pre-built in CI and included in the deployment zip (DISABLE_COLLECTSTATIC=1).
+# Oryx installs packages into /antenv. When Azure runs a custom startup command
+# the virtual environment is NOT auto-activated, so we source it explicitly.
+source /antenv/bin/activate
 
 # Run migrations using admin credentials if available (needed for ALTER TABLE
 # on tables created by the admin user).  Falls back to DATABASE_URL.
@@ -13,6 +14,6 @@ else
 fi
 
 # Start Gunicorn
-gunicorn osce_project.wsgi:application \
+exec gunicorn osce_project.wsgi:application \
   --bind 0.0.0.0:${PORT:-8000} \
   --config gunicorn.conf.py
