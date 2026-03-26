@@ -7,7 +7,6 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 import environ
-from celery.schedules import crontab
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -212,6 +211,12 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 300  # seconds (5 min; PDF/bulk tasks need headroom)
+try:
+    from celery.schedules import crontab as _crontab
+    _archive_schedule = _crontab(hour=2, minute=0, day_of_week=0)  # Sunday 02:00
+except ImportError:
+    _archive_schedule = 604800  # fallback: every 7 days in seconds
+
 CELERY_BEAT_SCHEDULE = {
     'compute-dashboard-stats': {
         'task': 'core.compute_dashboard_stats',
@@ -220,7 +225,7 @@ CELERY_BEAT_SCHEDULE = {
     # Archive audit logs weekly (Sunday 02:00) — moves to audit_logs_archive, never deletes
     'archive-audit-logs': {
         'task': 'core.archive_old_audit_logs',
-        'schedule': crontab(hour=2, minute=0, day_of_week=0),  # weekly Sunday 02:00
+        'schedule': _archive_schedule,
         'kwargs': {'days': 90, 'batch_size': 2000},
     },
 }
