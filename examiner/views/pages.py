@@ -16,7 +16,7 @@ from core.models import (
     StationScore, ItemScore, Path,
 )
 from core.models.mixins import TimestampMixin
-from core.utils.audit import log_action
+from core.utils.audit import log_action, AuditLogService
 from core.utils.sanitize import html_safe_json
 
 
@@ -327,6 +327,24 @@ def marking_interface(request, assignment_id, student_id):
             status='in_progress',
         )
 
+    # Log grading session start
+    from core.models.audit import GRADING_SESSION_STARTED
+    AuditLogService.log(
+        action=GRADING_SESSION_STARTED,
+        user=request.user,
+        request=request,
+        resource=score,
+        description=(
+            f'Examiner {request.user.username} opened marking for '
+            f'student {student.student_number} at station {assignment.station.name}'
+        ),
+        extra={
+            'student_id': str(student.pk),
+            'station_id': str(assignment.station_id),
+            'assignment_id': str(assignment_id),
+        },
+    )
+
     # Review mode: score is submitted, NOT unlocked, and past the 5-min grace window
     _now = TimestampMixin.utc_timestamp()
     within_undo_window = (
@@ -457,6 +475,25 @@ def dry_marking(request, assignment_id, student_id):
             started_at=TimestampMixin.utc_timestamp(),
             status='in_progress',
         )
+
+    # Log dry grading session start
+    from core.models.audit import GRADING_SESSION_STARTED
+    AuditLogService.log(
+        action=GRADING_SESSION_STARTED,
+        user=request.user,
+        request=request,
+        resource=score,
+        description=(
+            f'Dry marking started for student {student.student_number} '
+            f'at station {assignment.station.name}'
+        ),
+        extra={
+            'student_id': str(student.pk),
+            'station_id': str(assignment.station_id),
+            'assignment_id': str(assignment_id),
+            'is_dry': True,
+        },
+    )
 
     # Saved item scores
     saved_item_scores = {}

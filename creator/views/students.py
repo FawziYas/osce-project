@@ -11,6 +11,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 
 from core.models import Exam, ExamSession, SessionStudent, Path
+from core.utils.audit import AuditLogService
 from core.utils.roles import scope_queryset
 
 
@@ -89,12 +90,26 @@ def add_students(request, session_id):
         added += 1
 
     if added > 0 and skipped > 0:
+        AuditLogService.log(
+            action='STUDENT_BULK_IMPORT',
+            resource=session,
+            request=request,
+            description=f'Added {added} students to session {session.name} (textarea), {skipped} skipped',
+            extra={'added': added, 'skipped': skipped},
+        )
         return JsonResponse({
             'success': True,
             'message': f'Added {added} students to session.',
             'warning': f'{skipped} duplicate(s) were skipped.',
         })
     elif added > 0:
+        AuditLogService.log(
+            action='STUDENT_BULK_IMPORT',
+            resource=session,
+            request=request,
+            description=f'Added {added} students to session {session.name} (textarea)',
+            extra={'added': added},
+        )
         return JsonResponse({'success': True, 'message': f'Added {added} students to session.'})
     elif skipped > 0:
         return JsonResponse({
@@ -209,12 +224,26 @@ def upload_students_xlsx(request, session_id):
                 continue
 
         if added > 0 and skipped > 0:
+            AuditLogService.log(
+                action='STUDENT_BULK_IMPORT',
+                resource=session,
+                request=request,
+                description=f'Uploaded {added} students from XLSX to session {session.name}, {skipped} skipped',
+                extra={'added': added, 'skipped': skipped, 'source': 'xlsx'},
+            )
             return JsonResponse({
                 'success': True,
                 'message': f'Uploaded {added} students from XLSX.',
                 'warning': f'{skipped} duplicate(s) were skipped.',
             })
         elif added > 0:
+            AuditLogService.log(
+                action='STUDENT_BULK_IMPORT',
+                resource=session,
+                request=request,
+                description=f'Uploaded {added} students from XLSX to session {session.name}',
+                extra={'added': added, 'source': 'xlsx'},
+            )
             return JsonResponse({'success': True, 'message': f'Uploaded {added} students from XLSX.'})
         elif skipped > 0:
             return JsonResponse({

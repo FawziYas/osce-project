@@ -485,6 +485,110 @@ class RLSSessionMiddleware:
         return (user_id, role, dept_id, station_ids)
 
 
+class AuditTrailMiddleware:
+    """
+    Global audit trail — logs every successful mutating HTTP request
+    (POST, PUT, PATCH, DELETE) via Celery for async persistence.
+
+    This acts as a safety net so that even if a specific view doesn't
+    call AuditLogService.log(), there is still a record of the action
+    at the HTTP level.
+
+    Skips:
+      - GET / HEAD / OPTIONS requests (read-only)
+      - Failed responses (4xx/5xx — handled by UnauthorizedAccessMiddleware)
+      - Static / media file requests
+      - Login / logout (already logged by signals)
+      - CSRF validation requests
+    """
+
+    MUTATING_METHODS = frozenset({'POST', 'PUT', 'PATCH', 'DELETE'})
+
+    SKIP_PATHS = (
+        '/static/',
+        '/media/',
+        '/favicon.ico',
+        '/login/',
+        '/logout/',
+        '/examiner/login/',
+        '/examiner/logout/',
+        '/health/',
+        '/metrics/',
+        '/ping/',
+        '/api/schema/',
+        '/api/docs/',
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Reset the per-request audit flag and store the current user so
+        # signal-based log calls (which have no request) can read it.
+        from core.utils.audit import (
+            _reset_request_audit, _is_request_audited, _set_current_user,
+        )
+        _reset_request_audit()
+        user = getattr(request, 'user', None)
+        if user is not None and getattr(user, 'is_authenticated', False):
+            _set_current_user(user)
+
+        response = self.get_response(request)
+
+        if (
+            request.method in self.MUTATING_METHODS
+            and 200 <= response.status_code < 400
+            and not any(request.path.startswith(p) for p in self.SKIP_PATHS)
+            and not _is_request_audited()
+        ):
+            self._log_request(request, response)
+
+        return response
+
+    def _log_request(self, request, response):
+        """Dispatch the audit entry to Celery (or sync fallback)."""
+        try:
+            from core.utils.audit import AuditLogService, _get_client_ip, _resolve_user_role, _mask_sensitive
+
+            user = getattr(request, 'user', None)
+            is_auth = user is not None and getattr(user, 'is_authenticated', False)
+
+            # Capture request body for POST/PUT/PATCH (with sensitive masking)
+            request_body = None
+            if request.method in ('POST', 'PUT', 'PATCH'):
+                try:
+                    import json as _json
+                    content_type = request.content_type or ''
+                    if 'json' in content_type:
+                        body = _json.loads(request.body)
+                        request_body = _mask_sensitive(body)
+                    elif 'form' in content_type:
+                        request_body = _mask_sensitive(dict(request.POST))
+                except Exception:
+                    pass  # Don't fail on unparseable body
+
+            AuditLogService.log(
+                action='ADMIN_ACTION',
+                user=user if is_auth else None,
+                request=request,
+                resource_type='HTTP',
+                resource_id='',
+                resource_label_override=request.path[:200],
+                description=f'{request.method} {request.path} → {response.status_code}',
+                extra={
+                    'http_method': request.method,
+                    'http_status': response.status_code,
+                    'content_type': response.get('Content-Type', ''),
+                    'request_body': request_body,
+                },
+            )
+        except Exception:
+            import logging
+            logging.getLogger('osce.audit').error(
+                'AuditTrailMiddleware failed', exc_info=True,
+            )
+
+
 class SearchEngineBlockingMiddleware:
     """
     Adds X-Robots-Tag header to all responses to prevent search engine indexing.

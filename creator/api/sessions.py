@@ -13,6 +13,7 @@ from core.models import (
     ExamSession, SessionStudent, Path, Station, ExaminerAssignment, StationScore, ItemScore,
 )
 from core.models.mixins import TimestampMixin
+from core.utils.audit import AuditLogService
 from core.utils.roles import scope_queryset
 from core.utils.cache_utils import invalidate_session_detail, invalidate_exam_detail
 
@@ -128,6 +129,14 @@ def activate_session(request, session_id):
         session.save()
         _sync_exam_status(session.exam, session_id)
 
+        AuditLogService.log(
+            action='SESSION_ACTIVATED',
+            resource=session,
+            request=request,
+            description=f"Session '{session.name}' activated",
+            new_value={'status': 'in_progress', 'stations': station_count, 'students': student_count},
+        )
+
         resp = {
             'message': 'Session activated',
             'status': 'in_progress',
@@ -158,6 +167,16 @@ def deactivate_session(request, session_id):
         session.status = 'scheduled'
         session.save()
         _sync_exam_status(session.exam, session_id)
+
+        AuditLogService.log(
+            action='SESSION_DEACTIVATED',
+            resource=session,
+            request=request,
+            description=f"Session '{session.name}' deactivated",
+            old_value={'status': 'in_progress'},
+            new_value={'status': 'scheduled'},
+        )
+
         return JsonResponse({'message': 'Session deactivated', 'status': 'scheduled'})
 
 
@@ -186,6 +205,15 @@ def finish_session(request, session_id):
         # Use the exam-level "Complete Exam" action to finalize the whole exam.
         invalidate_session_detail(session_id)
         invalidate_exam_detail(str(session.exam_id))
+
+        AuditLogService.log(
+            action='SESSION_FINISHED',
+            resource=session,
+            request=request,
+            description=f"Session '{session.name}' finished",
+            new_value={'status': 'finished'},
+        )
+
         return JsonResponse({'message': 'Session finished', 'status': 'finished'})
 
 
@@ -234,6 +262,15 @@ def complete_session(request, session_id):
         session.status = 'completed'
         session.save()
         _sync_exam_status(session.exam, session_id)
+
+        AuditLogService.log(
+            action='SESSION_COMPLETED',
+            resource=session,
+            request=request,
+            description=f"Session '{session.name}' completed",
+            new_value={'status': 'completed'},
+        )
+
         return JsonResponse({'message': 'Session completed', 'status': 'completed'})
 
 
@@ -266,6 +303,15 @@ def delete_session_api(request, session_id):
     session.status = 'archived'
     session.save()
     _sync_exam_status(session.exam, session_id)
+
+    AuditLogService.log(
+        action='SESSION_DELETED',
+        resource=session,
+        request=request,
+        description=f"Session '{session.name}' archived (soft delete)",
+        new_value={'status': 'archived'},
+    )
+
     return JsonResponse({'message': f"Session '{session.name}' archived"})
 
 
@@ -292,6 +338,16 @@ def hard_delete_session_api(request, session_id):
         request.user.username,
         session.id,
         name,
+    )
+
+    AuditLogService.log(
+        action='SESSION_DELETED',
+        request=request,
+        resource_type='ExamSession',
+        resource_id=str(session_id),
+        resource_label_override=name,
+        description=f"Session '{name}' permanently deleted (hard delete)",
+        extra={'hard_delete': True},
     )
 
     session.delete()
@@ -321,6 +377,16 @@ def restore_session_api(request, session_id):
     session.status = 'completed'
     session.save()
     _sync_exam_status(session.exam, session_id)
+
+    AuditLogService.log(
+        action='SESSION_RESTORED',
+        resource=session,
+        request=request,
+        description=f"Session '{session.name}' restored from archive",
+        old_value={'status': 'archived'},
+        new_value={'status': 'completed'},
+    )
+
     return JsonResponse({'message': f"Session '{session.name}' restored"})
 
 
@@ -382,6 +448,15 @@ def revert_session_to_scheduled(request, session_id):
         session.id,
         previous_status,
         ip_address,
+    )
+
+    AuditLogService.log(
+        action='SESSION_REVERTED',
+        resource=session,
+        request=request,
+        description=f"Session '{session.name}' reverted from {previous_status} to scheduled",
+        old_value={'status': previous_status},
+        new_value={'status': 'scheduled'},
     )
 
     return JsonResponse({

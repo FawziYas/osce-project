@@ -17,6 +17,7 @@ from django.db.models import Max
 from core.models import (
     Exam, ExamSession, Path, ILO, StationTemplate, TemplateLibrary,
 )
+from core.utils.audit import AuditLogService
 from core.utils.image_validators import validate_question_image, sanitize_image_filename
 from core.utils.sanitize import strip_html, html_safe_json
 
@@ -142,7 +143,7 @@ def template_library_create(request, exam_id):
     )['m'] or 0
 
     if request.method == 'POST':
-        TemplateLibrary.objects.create(
+        lib = TemplateLibrary.objects.create(
             exam=exam,
             name=strip_html(request.POST['name']),
             description=strip_html(request.POST.get('description', '')),
@@ -150,6 +151,15 @@ def template_library_create(request, exam_id):
             display_order=max_order + 1,
             is_active=True,
         )
+
+        AuditLogService.log(
+            action='TEMPLATE_CREATED',
+            resource=lib,
+            request=request,
+            resource_type='TemplateLibrary',
+            description=f'Template library "{lib.name}" created',
+        )
+
         messages.success(request, f'Template library "{request.POST["name"]}" created.')
         return redirect('creator:station_library', exam_id=str(exam_id))
 
@@ -189,6 +199,15 @@ def template_library_delete(request, library_id):
     library = get_object_or_404(TemplateLibrary, pk=library_id)
     exam_id = str(library.exam_id)
     name = library.name
+    AuditLogService.log(
+        action='TEMPLATE_DELETED',
+        request=request,
+        resource_type='TemplateLibrary',
+        resource_id=str(library_id),
+        resource_label_override=name,
+        description=f'Template library "{name}" deleted',
+    )
+
     library.delete()
     messages.success(request, f'Template library "{name}" deleted.')
     return redirect('creator:station_library', exam_id=exam_id)
@@ -426,6 +445,15 @@ def station_template_delete(request, template_id):
     template = get_object_or_404(StationTemplate, pk=template_id)
     exam_id = str(template.exam_id)
     name = template.name
+    AuditLogService.log(
+        action='TEMPLATE_DELETED',
+        request=request,
+        resource_type='StationTemplate',
+        resource_id=str(template_id),
+        resource_label_override=name,
+        description=f'Station template "{name}" deleted',
+    )
+
     template.delete()
     messages.success(request, f'Station template "{name}" deleted.')
     return redirect('creator:station_library', exam_id=exam_id)
@@ -474,6 +502,17 @@ def apply_station_templates(request, session_id):
                 station = tmpl.apply_to_path(str(p.id))
                 if station:
                     station_count += 1
+
+        AuditLogService.log(
+            action='TEMPLATE_APPLIED',
+            resource=session,
+            request=request,
+            description=(
+                f'Applied {len(selected_ids)} template(s) to {len(paths)} path(s), '
+                f'creating {station_count} stations'
+            ),
+            extra={'templates': len(selected_ids), 'paths': len(paths), 'stations_created': station_count},
+        )
 
         messages.success(
             request,

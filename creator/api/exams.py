@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 from core.models import (
     Course, Exam, Station, ChecklistItem, ILO, ExamSession, ItemScore,
 )
+from core.utils.audit import AuditLogService
 from core.utils.roles import scope_queryset
 
 
@@ -169,6 +170,14 @@ def delete_exam_api(request, exam_id):
         return JsonResponse({'error': f'Cannot delete: {active} active sessions exist'}, status=400)
 
     exam.soft_delete()
+
+    AuditLogService.log(
+        action='EXAM_ARCHIVED',
+        resource=exam,
+        request=request,
+        description=f"Exam '{exam.name}' archived (soft delete)",
+    )
+
     return JsonResponse({'message': f"Exam '{exam.name}' archived"})
 
 
@@ -183,6 +192,14 @@ def restore_exam_api(request, exam_id):
     if not exam.is_deleted:
         return JsonResponse({'error': 'Exam is not deleted'}, status=400)
     exam.restore()
+
+    AuditLogService.log(
+        action='EXAM_RESTORED',
+        resource=exam,
+        request=request,
+        description=f"Exam '{exam.name}' restored",
+    )
+
     return JsonResponse({'message': f"Exam '{exam.name}' restored"})
 
 
@@ -265,6 +282,14 @@ def complete_exam(request, exam_id):
         request.user.username, exam.id, updated,
     )
 
+    AuditLogService.log(
+        action='EXAM_COMPLETED',
+        resource=exam,
+        request=request,
+        description=f'Exam "{exam.name}" completed. {updated} session(s) marked as completed.',
+        new_value={'status': 'completed', 'sessions_completed': updated},
+    )
+
     return JsonResponse({
         'message': f'Exam "{exam.name}" completed. {updated} session(s) marked as completed.',
         'status': 'completed',
@@ -306,6 +331,15 @@ def revert_exam_completion(request, exam_id):
     audit_logger.warning(
         'EXAM_REVERT_COMPLETION | admin=%s | exam_id=%s | sessions_reverted=%d',
         request.user.username, exam.id, reverted,
+    )
+
+    AuditLogService.log(
+        action='EXAM_REVERTED',
+        resource=exam,
+        request=request,
+        description=f'Exam "{exam.name}" completion reverted. {reverted} session(s) restored.',
+        old_value={'status': 'completed'},
+        new_value={'status': 'in_progress', 'sessions_reverted': reverted},
     )
 
     return JsonResponse({

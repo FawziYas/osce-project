@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 
 from core.models import ExamSession, SessionStudent, Path, StationScore
+from core.utils.audit import AuditLogService
 from core.utils.roles import scope_queryset
 
 
@@ -62,7 +63,18 @@ def delete_student(request, student_id):
 
     # Delete scores first
     StationScore.objects.filter(session_student=student).delete()
+    student_name = getattr(student, 'student_name', str(student_id))
     student.delete()
+
+    AuditLogService.log(
+        action='STUDENT_REMOVED',
+        request=request,
+        resource_type='SessionStudent',
+        resource_id=str(student_id),
+        resource_label_override=student_name,
+        description=f'Student {student_name} deleted from session',
+    )
+
     return JsonResponse({'success': True, 'message': 'Student deleted'})
 
 
@@ -86,6 +98,14 @@ def delete_all_students(request, session_id):
     if student_ids:
         StationScore.objects.filter(session_student_id__in=student_ids).delete()
         SessionStudent.objects.filter(session=session).delete()
+
+    AuditLogService.log(
+        action='BULK_OPERATION',
+        resource=session,
+        request=request,
+        description=f'Deleted all {len(student_ids)} students from session {session.name}',
+        extra={'deleted_count': len(student_ids)},
+    )
 
     return JsonResponse({'success': True, 'message': f'Deleted {len(student_ids)} students'})
 
@@ -115,6 +135,14 @@ def redistribute_students(request, session_id):
 
     # P7: Bulk update instead of save() per student
     SessionStudent.objects.bulk_update(students, ['path_id'])
+
+    AuditLogService.log(
+        action='BULK_OPERATION',
+        resource=session,
+        request=request,
+        description=f'Redistributed {len(students)} students across {len(paths)} paths',
+        extra={'student_count': len(students), 'path_count': len(paths)},
+    )
 
     return JsonResponse({
         'success': True,

@@ -12,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 
 from core.models import Examiner, ExaminerAssignment, ExamSession, Department
+from core.utils.audit import AuditLogService
 from core.utils.roles import scope_queryset
 from core.utils.sanitize import strip_html
 from core.utils.cache_utils import (
@@ -158,6 +159,14 @@ def examiner_create(request):
         examiner.save()
         invalidate_examiner_list()
 
+        AuditLogService.log(
+            action='EXAMINER_CREATED',
+            resource=examiner,
+            request=request,
+            description=f'Examiner "{examiner.display_name}" created',
+            new_value={'username': examiner.username, 'full_name': examiner.full_name},
+        )
+
         messages.success(request, f'Examiner "{examiner.display_name}" created successfully.')
         return redirect('creator:examiner_list')
 
@@ -221,6 +230,14 @@ def examiner_edit(request, examiner_id):
 
         examiner.save()
         invalidate_examiner_list()
+
+        AuditLogService.log(
+            action='EXAMINER_UPDATED',
+            resource=examiner,
+            request=request,
+            description=f'Examiner "{examiner.display_name}" updated',
+        )
+
         messages.success(request, f'Examiner "{examiner.display_name}" updated.')
         return redirect('creator:examiner_detail', examiner_id=examiner_id)
 
@@ -250,6 +267,13 @@ def examiner_delete(request, examiner_id):
     examiner.save()
     invalidate_examiner_list()
 
+    AuditLogService.log(
+        action='EXAMINER_DELETED',
+        resource=examiner,
+        request=request,
+        description=f'Examiner "{name}" soft-deleted',
+    )
+
     messages.success(request, f'Examiner "{name}" has been deleted. You can restore them from the deleted list.')
     return redirect('creator:examiner_list')
 
@@ -271,6 +295,14 @@ def examiner_restore(request, examiner_id):
     examiner.save()
     invalidate_examiner_list()
 
+    AuditLogService.log(
+        action='EXAMINER_RESTORED',
+        resource=examiner,
+        request=request,
+        resource_type='Examiner',
+        description=f'Examiner "{examiner.display_name}" restored',
+    )
+
     messages.success(request, f'Examiner "{examiner.display_name}" has been restored.')
     return redirect('creator:examiner_list')
 
@@ -291,8 +323,16 @@ def examiner_permanent_delete(request, examiner_id):
 
     examiner = get_object_or_404(Examiner, pk=examiner_id, is_deleted=True)
     name = examiner.display_name
-    # StationScore records are preserved (SET_NULL on examiner FK)
-    # ExaminerAssignment records are removed via CASCADE
+    AuditLogService.log(
+        action='EXAMINER_DELETED',
+        request=request,
+        resource_type='Examiner',
+        resource_id=str(examiner_id),
+        resource_label_override=name,
+        description=f'Examiner "{name}" permanently deleted',
+        extra={'hard_delete': True},
+    )
+
     examiner.delete()
     invalidate_examiner_list()
 
@@ -501,6 +541,14 @@ def examiner_bulk_upload(request):
         if success_count:
             invalidate_examiner_list()
             messages.success(request, f'Successfully imported {success_count} examiners.')
+
+            AuditLogService.log(
+                action='EXAMINER_BULK_IMPORT',
+                request=request,
+                resource_type='Examiner',
+                description=f'Bulk imported {success_count} examiners from XLSX',
+                extra={'success_count': success_count, 'error_count': len(errors_list)},
+            )
         if errors_list:
             messages.warning(request, f'Failed to import {len(errors_list)} rows.')
             for err in errors_list[:5]:

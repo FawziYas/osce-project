@@ -36,7 +36,7 @@ def write_audit_log(self, payload):
     try:
         from core.models.audit import AuditLog
 
-        AuditLog.objects.create(
+        obj = AuditLog(
             user_id=payload.get('user_id'),
             username=payload.get('username', ''),
             user_role=payload.get('user_role', ''),
@@ -55,6 +55,7 @@ def write_audit_log(self, payload):
             request_path=payload.get('request_path') or '',
             extra_data=payload.get('extra_data'),
         )
+        obj.save()  # triggers checksum computation
 
     except Exception as exc:
         logger.error(
@@ -63,6 +64,76 @@ def write_audit_log(self, payload):
             traceback.format_exc(),
         )
         raise self.retry(exc=exc)
+
+
+@shared_task(
+    name='core.write_audit_log_batch',
+    bind=True,
+    max_retries=3,
+    default_retry_delay=5,
+    acks_late=True,
+    ignore_result=True,
+)
+def write_audit_log_batch(self, payloads):
+    """
+    Write multiple audit log entries in a single DB round-trip.
+
+    Called from AuditLogService.log_bulk() when Celery is available.
+    Each item in `payloads` is a plain dict (same schema as write_audit_log).
+    """
+    try:
+        from core.models.audit import AuditLog, compute_checksum
+
+        objs = [
+            AuditLog(
+                user_id=p.get('user_id'),
+                username=p.get('username', ''),
+                user_role=p.get('user_role', ''),
+                department_id=p.get('department_id'),
+                action=p.get('action', ''),
+                status=p.get('status', 'SUCCESS'),
+                resource_type=p.get('resource_type', ''),
+                resource_id=p.get('resource_id', ''),
+                resource_label=p.get('resource_label', ''),
+                old_value=p.get('old_value'),
+                new_value=p.get('new_value'),
+                description=p.get('description', ''),
+                ip_address=p.get('ip_address'),
+                user_agent=p.get('user_agent') or '',
+                request_method=p.get('request_method') or '',
+                request_path=p.get('request_path') or '',
+                extra_data=p.get('extra_data'),
+            )
+            for p in payloads
+        ]
+        # bulk_create skips save(), so auto_now_add hasn't fired yet.
+        # Insert first, then compute checksums using the real timestamps.
+        AuditLog.objects.bulk_create(objs)
+        # Re-fetch timestamps from DB and compute checksums in one UPDATE pass.
+        pk_list = [obj.pk for obj in objs if obj.pk]
+        if pk_list:
+            db_rows = list(
+                AuditLog.objects.filter(pk__in=pk_list, checksum='')
+                .only('pk', 'user_id', 'action', 'resource_id',
+                      'timestamp', 'old_value', 'new_value')
+            )
+            for row in db_rows:
+                row.checksum = compute_checksum(
+                    row.user_id, row.action, row.resource_id,
+                    row.timestamp, row.old_value, row.new_value,
+                )
+            if db_rows:
+                AuditLog.objects.bulk_update(db_rows, ['checksum'])
+        logger.info('Batch audit log: wrote %d entries', len(objs))
+
+    except Exception as exc:
+        logger.error(
+            'Celery write_audit_log_batch failed (attempt %d): %s',
+            self.request.retries + 1,
+            traceback.format_exc(),
+        )
+        raise self.retry(exc=exc)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 2. Periodic: cleanup old audit logs (runs nightly via Celery Beat)

@@ -20,7 +20,7 @@ from core.models import (
     StationScore, ItemScore, Path,
 )
 from core.models.mixins import TimestampMixin
-from core.utils.audit import log_action
+from core.utils.audit import log_action, AuditLogService
 
 
 def utc_timestamp():
@@ -481,19 +481,36 @@ def submit_score(request, station_score_id):
     student.save()
 
     if is_correction:
-        log_action(request, 'CORRECTION', 'StationScore', str(score.id),
-                   f'Corrected score: {old_score} → {score.total_score}/{score.max_score} '
-                   f'| Examiner: {request.user.display_name}',
-                   extra_data={
-                       'examiner': request.user.username,
-                       'examiner_display': request.user.display_name,
-                       'old_score': old_score,
-                       'new_score': score.total_score,
-                       'max_score': score.max_score,
-                   })
+        from core.models.audit import SCORE_AMENDED
+        AuditLogService.log(
+            action=SCORE_AMENDED,
+            user=request.user,
+            request=request,
+            resource=score,
+            old_value={'total_score': old_score},
+            new_value={'total_score': score.total_score, 'max_score': score.max_score},
+            description=(
+                f'Corrected score: {old_score} → {score.total_score}/{score.max_score} '
+                f'| Examiner: {request.user.display_name}'
+            ),
+            extra={
+                'examiner': request.user.username,
+                'examiner_display': request.user.display_name,
+                'old_score': old_score,
+                'new_score': score.total_score,
+                'max_score': score.max_score,
+            },
+        )
     else:
-        log_action(request, 'SUBMIT', 'StationScore', str(score.id),
-                   f'Submitted score {score.total_score}/{score.max_score}')
+        from core.models.audit import SCORE_SUBMITTED
+        AuditLogService.log(
+            action=SCORE_SUBMITTED,
+            user=request.user,
+            request=request,
+            resource=score,
+            new_value={'total_score': score.total_score, 'max_score': score.max_score},
+            description=f'Submitted score {score.total_score}/{score.max_score}',
+        )
 
     return JsonResponse({
         'success': True,
@@ -526,7 +543,16 @@ def undo_submit(request, station_score_id):
     score.updated_at = utc_timestamp()
     score.save()
 
-    log_action(request, 'UPDATE', 'StationScore', str(score.id), 'Undo submit')
+    from core.models.audit import SCORE_UPDATED
+    AuditLogService.log(
+        action=SCORE_UPDATED,
+        user=request.user,
+        request=request,
+        resource=score,
+        old_value={'status': 'submitted'},
+        new_value={'status': 'in_progress'},
+        description='Undo submit — score reopened for editing',
+    )
 
     return JsonResponse({'success': True, 'message': 'Score reopened for editing'})
 
@@ -659,6 +685,17 @@ def verify_student_registration(request):
             'message': 'Student number, student ID, session ID, and assignment ID are required.',
         }, status=400)
 
+    from core.models.audit import EXAM_START_VERIFICATION_ATTEMPT, EXAM_START_VERIFICATION_SUCCESS, STATUS_FAILED
+    AuditLogService.log(
+        action=EXAM_START_VERIFICATION_ATTEMPT,
+        user=request.user,
+        request=request,
+        resource_type='SessionStudent',
+        resource_id=str(student_id),
+        description=f'Verification attempt for student {student_number}',
+        extra={'session_id': str(session_id), 'assignment_id': str(assignment_id)},
+    )
+
     student = SessionStudent.objects.filter(
         pk=student_id,
         session_id=session_id,
@@ -694,6 +731,16 @@ def verify_student_registration(request):
         kwargs={'assignment_id': assignment_id, 'student_id': student_id},
     )
 
+    AuditLogService.log(
+        action=EXAM_START_VERIFICATION_SUCCESS,
+        user=request.user,
+        request=request,
+        resource_type='SessionStudent',
+        resource_id=str(student_id),
+        description=f'Student {student_number} verified successfully',
+        extra={'session_id': str(session_id), 'assignment_id': str(assignment_id)},
+    )
+
     return JsonResponse({
         'valid': True,
         'redirect_url': redirect_url,
@@ -720,6 +767,20 @@ def verify_master_key(request):
             'message': 'Password, student ID, session ID, and assignment ID are required.',
         }, status=400)
 
+    from core.models.audit import (
+        MASTER_KEY_VERIFICATION_ATTEMPT, MASTER_KEY_VERIFICATION_SUCCESS,
+        STATUS_FAILED,
+    )
+    AuditLogService.log(
+        action=MASTER_KEY_VERIFICATION_ATTEMPT,
+        user=request.user,
+        request=request,
+        resource_type='Examiner',
+        resource_id=str(request.user.pk),
+        description=f'Master key verification attempt by {request.user.username}',
+        extra={'session_id': str(session_id), 'assignment_id': str(assignment_id)},
+    )
+
     user = authenticate(
         request=request,
         username=request.user.username,
@@ -727,6 +788,16 @@ def verify_master_key(request):
     )
 
     if user is None:
+        AuditLogService.log(
+            action=MASTER_KEY_VERIFICATION_ATTEMPT,
+            user=request.user,
+            request=request,
+            resource_type='Examiner',
+            resource_id=str(request.user.pk),
+            description=f'Master key verification FAILED for {request.user.username}',
+            status=STATUS_FAILED,
+            extra={'session_id': str(session_id), 'assignment_id': str(assignment_id)},
+        )
         return JsonResponse({
             'valid': False,
             'error': 'invalid_password',
@@ -747,6 +818,16 @@ def verify_master_key(request):
     redirect_url = reverse(
         'examiner:dry_marking',
         kwargs={'assignment_id': assignment_id, 'student_id': student_id},
+    )
+
+    AuditLogService.log(
+        action=MASTER_KEY_VERIFICATION_SUCCESS,
+        user=request.user,
+        request=request,
+        resource_type='Examiner',
+        resource_id=str(request.user.pk),
+        description=f'Master key verified successfully for {request.user.username}',
+        extra={'session_id': str(session_id), 'assignment_id': str(assignment_id)},
     )
 
     return JsonResponse({

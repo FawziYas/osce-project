@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from core.models import Examiner, ExaminerAssignment, ExamSession
+from core.utils.audit import AuditLogService
 from core.utils.roles import scope_queryset
 
 
@@ -66,6 +67,14 @@ def create_examiner_api(request):
     )
     examiner.set_password(data.get('password') or getattr(settings, 'DEFAULT_USER_PASSWORD', '12345678F'))
     examiner.save()
+
+    AuditLogService.log(
+        action='EXAMINER_CREATED',
+        resource=examiner,
+        request=request,
+        description=f"Examiner '{examiner.display_name}' created via API",
+        new_value={'username': examiner.username, 'full_name': examiner.full_name},
+    )
 
     return JsonResponse({
         'id': examiner.id,

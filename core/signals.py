@@ -16,6 +16,8 @@ from django.contrib.auth.signals import user_logged_in, user_login_failed, user_
 from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 
+from core.models.login_audit import LoginAuditLog
+
 logger = logging.getLogger('osce.audit')
 auth_logger = logging.getLogger('osce.auth')
 
@@ -50,9 +52,17 @@ def _get_client_ip(request):
 
 @receiver(user_logged_in)
 def log_successful_login(sender, request, user, **kwargs):
-    """Record a successful login in the AuditLog (single source of truth)."""
+    """Record a successful login attempt."""
     ip = _get_client_ip(request)
     user_agent = request.META.get('HTTP_USER_AGENT', '') if request else ''
+
+    LoginAuditLog.objects.create(
+        user=user,
+        username_attempted=getattr(user, 'username', str(user)),
+        ip_address=ip,
+        user_agent=user_agent,
+        success=True,
+    )
 
     logger.info(
         'LOGIN_SUCCESS | user=%s | ip=%s | ua=%s',
@@ -61,6 +71,7 @@ def log_successful_login(sender, request, user, **kwargs):
         user_agent[:120],
     )
 
+    # Also log to the main AuditLog
     from core.utils.audit import AuditLogService
     from core.models.audit import LOGIN_SUCCESS
     AuditLogService.log(
@@ -74,10 +85,18 @@ def log_successful_login(sender, request, user, **kwargs):
 
 @receiver(user_login_failed)
 def log_failed_login(sender, credentials, request, **kwargs):
-    """Record a failed login in the AuditLog (single source of truth)."""
+    """Record a failed login attempt."""
     ip = _get_client_ip(request) if request else None
     user_agent = request.META.get('HTTP_USER_AGENT', '') if request else ''
     username = credentials.get('username', '<unknown>')
+
+    LoginAuditLog.objects.create(
+        user=None,
+        username_attempted=username,
+        ip_address=ip,
+        user_agent=user_agent,
+        success=False,
+    )
 
     logger.warning(
         'LOGIN_FAILED | username=%s | ip=%s | ua=%s',
@@ -270,6 +289,10 @@ _HIERARCHY_ACTION_MAP = {
     'Station':             ('STATION_CREATED',    'STATION_UPDATED',   'STATION_DELETED'),
     'ChecklistItem':       ('CHECKLIST_CREATED',  'CHECKLIST_UPDATED', 'CHECKLIST_DELETED'),
     'ExaminerAssignment':  ('EXAMINER_ASSIGNED',  'EXAMINER_ASSIGNED', 'EXAMINER_UNASSIGNED'),
+    'SessionStudent':      ('STUDENT_ADDED',      'STUDENT_PATH_ASSIGNED', 'STUDENT_REMOVED'),
+    'ILO':                 ('CHECKLIST_CREATED',  'CHECKLIST_UPDATED', 'CHECKLIST_DELETED'),
+    'StationScore':        ('SCORE_SUBMITTED',    'SCORE_UPDATED',     'CHECKLIST_SCORE_DELETED'),
+    'ItemScore':           ('SCORE_SUBMITTED',    'SCORE_UPDATED',     'CHECKLIST_SCORE_DELETED'),
 }
 
 # Fields to track for old/new value diffs per model
@@ -284,6 +307,11 @@ _TRACKED_FIELDS = {
     'Station':        ('station_number', 'name', 'duration_minutes', 'active', 'is_deleted'),
     'ChecklistItem':  ('item_number', 'description', 'points', 'rubric_type'),
     'ExaminerAssignment': ('examiner_id', 'station_id', 'session_id'),
+    'SessionStudent': ('student_number', 'full_name', 'path_id', 'status'),
+    'ILO':            ('number', 'description', 'course_id'),
+    'StationScore':   ('total_score', 'max_score', 'percentage', 'status',
+                       'examiner_id', 'completed_at', 'unlocked_for_correction'),
+    'ItemScore':      ('score', 'max_points', 'notes', 'graded_by_id'),
 }
 
 
@@ -382,11 +410,14 @@ def connect_hierarchy_signals():
     """
     from core.models import (
         Department, Course, Exam, ExamSession, Path, Station,
-        ChecklistItem, ExaminerAssignment,
+        ChecklistItem, ExaminerAssignment, SessionStudent, ILO,
     )
+    from core.models.scoring import StationScore, ItemScore
+
     hierarchy_models = [
         Department, Course, Exam, ExamSession, Path, Station,
-        ChecklistItem, ExaminerAssignment,
+        ChecklistItem, ExaminerAssignment, SessionStudent, ILO,
+        StationScore, ItemScore,
     ]
     for model in hierarchy_models:
         pre_save.connect(_hierarchy_pre_save, sender=model, dispatch_uid=f'audit_pre_{model.__name__}')

@@ -627,12 +627,14 @@ class AuditLogAdmin(admin.ModelAdmin):
     - Role-scoped queryset (Coordinator sees own dept only, Examiner blocked)
     - JSON diff widget for old_value / new_value
     - CSV and JSON streaming exports
+    - Anomaly flags for suspicious patterns
+    - Checksum verification display
     """
 
     list_display = (
         'timestamp', 'username', 'user_role', 'department_id',
         'action', 'resource_type', 'resource_label', 'status',
-        'ip_address',
+        'ip_address', 'anomaly_flag', 'checksum_status',
     )
     list_filter = (
         'action', 'user_role', 'resource_type', 'status',
@@ -649,6 +651,7 @@ class AuditLogAdmin(admin.ModelAdmin):
         'formatted_old_value', 'formatted_new_value', 'formatted_diff',
         'description', 'ip_address', 'user_agent',
         'request_method', 'request_path', 'extra_data',
+        'checksum', 'checksum_status',
     )
     list_per_page = 50
     list_select_related = ('user',)
@@ -683,6 +686,10 @@ class AuditLogAdmin(admin.ModelAdmin):
                 'ip_address', 'user_agent', 'request_method',
                 'request_path', 'extra_data',
             ),
+        }),
+        ('Integrity', {
+            'classes': ('collapse',),
+            'fields': ('checksum', 'checksum_status'),
         }),
     )
 
@@ -724,6 +731,31 @@ class AuditLogAdmin(admin.ModelAdmin):
         )
         return mark_safe(table)
     formatted_diff.short_description = 'Change Diff'
+
+    def anomaly_flag(self, obj):
+        """Flag suspicious entries: failed status, security actions, or unusual patterns."""
+        flags = []
+        if obj.status in ('FAILED', 'BLOCKED'):
+            flags.append('⚠️')
+        if obj.action in (
+            'UNAUTHORIZED_ACCESS', 'SUSPICIOUS_ACTIVITY',
+            'RATE_LIMIT_HIT', 'TOKEN_VALIDATION_FAILED',
+        ):
+            flags.append('🚨')
+        extra = obj.extra_data or {}
+        if extra.get('amendment_count', 0) >= 3:
+            flags.append('🔄')
+        return ' '.join(flags) if flags else '✓'
+    anomaly_flag.short_description = 'Flags'
+
+    def checksum_status(self, obj):
+        """Show whether the checksum is valid for this record."""
+        if not obj.checksum:
+            return format_html('<span style="color:gray">—</span>')
+        if obj.verify_checksum():
+            return format_html('<span style="color:green">✓ Valid</span>')
+        return format_html('<span style="color:red;font-weight:bold">✗ TAMPERED</span>')
+    checksum_status.short_description = 'Integrity'
 
     @staticmethod
     def _format_json(data):
@@ -793,6 +825,19 @@ class AuditLogAdmin(admin.ModelAdmin):
             return {}
         return actions
 
+    def changelist_view(self, request, extra_context=None):
+        """Log that the audit log was viewed."""
+        from core.models.audit import AUDIT_LOG_VIEWED
+        from core.utils.audit import AuditLogService
+        AuditLogService.log(
+            action=AUDIT_LOG_VIEWED,
+            user=request.user,
+            request=request,
+            resource_type='AuditLog',
+            description=f'{request.user.username} viewed audit log list',
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
 
 # ── Login Audit Log ─────────────────────────────────────────────
 @admin.register(LoginAuditLog)
@@ -858,7 +903,7 @@ _ADMIN_GROUPS = [
     },
     {
         'name': 'Logs & Audit',
-        'models': ['AuditLog', 'AuditLogArchive', 'LoginAuditLog', 'AccessAttempt'],
+        'models': ['AuditLog', 'AuditLogArchive', 'LoginAuditLog', 'AccessAttempt', 'AccessFailureLog', 'AccessLog'],
     },
     {
         'name': 'Courses & Curriculum',

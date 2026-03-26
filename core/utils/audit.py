@@ -18,11 +18,73 @@ writes when Celery is not configured.
 """
 import json
 import logging
+import threading
 import traceback
 
 from django.conf import settings
 
 logger = logging.getLogger('osce.audit')
+
+# ── Per-request audit deduplication + current-user carrier (thread-local) ──
+# Prevents AuditTrailMiddleware from adding a redundant HTTP-level
+# entry when a view or signal already called AuditLogService.log().
+# Also carries the authenticated user so signal-based log calls
+# (which have no request) can still record who performed the action.
+
+_audit_local = threading.local()
+
+
+def _mark_request_audited():
+    """Mark the current request thread as already having an audit entry."""
+    _audit_local.logged = True
+
+
+def _is_request_audited():
+    """Return True if an audit entry was already written for this request."""
+    return getattr(_audit_local, 'logged', False)
+
+
+def _reset_request_audit():
+    """Reset the dedup flag and current-user at the start of each new request."""
+    _audit_local.logged = False
+    _audit_local.current_user = None
+
+
+def _set_current_user(user):
+    """Store the authenticated request user so signals can read it."""
+    _audit_local.current_user = user
+
+
+def _get_current_user():
+    """Return the user stored for this request thread, or None."""
+    return getattr(_audit_local, 'current_user', None)
+
+
+# ── Sensitive field masking ──────────────────────────────────────────
+
+SENSITIVE_FIELDS = frozenset({
+    'password', 'token', 'secret', 'key',
+    'authorization', 'cookie', 'session',
+    'credit_card', 'cvv', 'pin',
+    'password1', 'password2', 'new_password',
+    'old_password', 'csrfmiddlewaretoken',
+})
+
+_REDACTED = '***REDACTED***'
+
+
+def _mask_sensitive(data):
+    """Recursively mask values of sensitive keys in dicts/lists."""
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        return {
+            k: _REDACTED if k.lower() in SENSITIVE_FIELDS else _mask_sensitive(v)
+            for k, v in data.items()
+        }
+    if isinstance(data, (list, tuple)):
+        return [_mask_sensitive(v) for v in data]
+    return data
 
 
 def _get_client_ip(request):
@@ -191,6 +253,13 @@ class AuditLogService:
                 if u is not None and getattr(u, 'is_authenticated', False):
                     user = u
 
+            # Last-resort fallback: use the thread-local user stored by
+            # AuditTrailMiddleware (covers signal-based calls with no request)
+            if user is None:
+                u = _get_current_user()
+                if u is not None and getattr(u, 'is_authenticated', False):
+                    user = u
+
             # Build the log payload (all primitive types for Celery serialisation)
             payload = {
                 'user_id': user.pk if user and hasattr(user, 'pk') else None,
@@ -210,8 +279,8 @@ class AuditLogService:
                 'department_id': department_id or (
                     _resolve_department_id(resource) if resource else None
                 ),
-                'old_value': _make_serialisable(old_value),
-                'new_value': _make_serialisable(new_value),
+                'old_value': _mask_sensitive(_make_serialisable(old_value)),
+                'new_value': _mask_sensitive(_make_serialisable(new_value)),
                 'description': description[:1000] if description else '',
                 'ip_address': _get_client_ip(request) if request else None,
                 'user_agent': (
@@ -226,7 +295,7 @@ class AuditLogService:
                     getattr(request, 'path', '')[:500]
                     if request else ''
                 ),
-                'extra_data': _make_serialisable(extra),
+                'extra_data': _mask_sensitive(_make_serialisable(extra)),
             }
 
             # Dispatch to Celery if available, else write synchronously
@@ -236,9 +305,61 @@ class AuditLogService:
             else:
                 _write_audit_log_sync(payload)
 
+            # Mark this request thread so middleware won't double-log.
+            # Works even when called from signals (no request object).
+            _mark_request_audited()
+
         except Exception:
             logger.error(
                 'AuditLogService.log failed: %s',
+                traceback.format_exc(),
+            )
+
+    @staticmethod
+    def log_bulk(entries):
+        """
+        Record multiple audit log entries efficiently (single Celery task / bulk_create).
+
+        Parameters
+        ----------
+        entries : list[dict]
+            Each dict should have keys matching AuditLogService.log() parameters:
+            action, resource_type, resource_id, user_id, username, description, etc.
+        """
+        try:
+            from core.models.audit import STATUS_SUCCESS
+
+            payloads = []
+            for entry in entries:
+                payloads.append({
+                    'user_id': entry.get('user_id'),
+                    'username': entry.get('username', ''),
+                    'user_role': entry.get('user_role', ''),
+                    'action': entry.get('action', ''),
+                    'status': entry.get('status', STATUS_SUCCESS),
+                    'resource_type': entry.get('resource_type', ''),
+                    'resource_id': str(entry.get('resource_id', '')),
+                    'resource_label': entry.get('resource_label', '')[:200] if entry.get('resource_label') else '',
+                    'department_id': entry.get('department_id'),
+                    'old_value': _mask_sensitive(_make_serialisable(entry.get('old_value'))),
+                    'new_value': _mask_sensitive(_make_serialisable(entry.get('new_value'))),
+                    'description': (entry.get('description', '') or '')[:1000],
+                    'ip_address': entry.get('ip_address'),
+                    'user_agent': (entry.get('user_agent', '') or '')[:500],
+                    'request_method': entry.get('request_method', '') or '',
+                    'request_path': (entry.get('request_path', '') or '')[:500],
+                    'extra_data': _mask_sensitive(_make_serialisable(entry.get('extra_data'))),
+                })
+
+            if _celery_available():
+                from core.tasks import write_audit_log_batch
+                write_audit_log_batch.delay(payloads)
+            else:
+                _write_audit_log_bulk_sync(payloads)
+
+        except Exception:
+            logger.error(
+                'AuditLogService.log_bulk failed: %s',
                 traceback.format_exc(),
             )
 
@@ -284,6 +405,56 @@ def _write_audit_log_sync(payload):
     except Exception:
         logger.error(
             'Sync audit log write failed: %s',
+            traceback.format_exc(),
+        )
+
+
+def _write_audit_log_bulk_sync(payloads):
+    """Synchronous bulk fallback — writes multiple audit logs in one DB call."""
+    try:
+        from core.models.audit import AuditLog, compute_checksum
+
+        objs = [
+            AuditLog(
+                user_id=p.get('user_id'),
+                username=p.get('username', ''),
+                user_role=p.get('user_role', ''),
+                department_id=p.get('department_id'),
+                action=p.get('action', ''),
+                status=p.get('status', 'SUCCESS'),
+                resource_type=p.get('resource_type', ''),
+                resource_id=p.get('resource_id', ''),
+                resource_label=p.get('resource_label', ''),
+                old_value=p.get('old_value'),
+                new_value=p.get('new_value'),
+                description=p.get('description', ''),
+                ip_address=p.get('ip_address'),
+                user_agent=p.get('user_agent') or '',
+                request_method=p.get('request_method') or '',
+                request_path=p.get('request_path') or '',
+                extra_data=p.get('extra_data'),
+            )
+            for p in payloads
+        ]
+        # Insert first so auto_now_add sets timestamps, then compute checksums.
+        AuditLog.objects.bulk_create(objs)
+        pk_list = [obj.pk for obj in objs if obj.pk]
+        if pk_list:
+            db_rows = list(
+                AuditLog.objects.filter(pk__in=pk_list, checksum='')
+                .only('pk', 'user_id', 'action', 'resource_id',
+                      'timestamp', 'old_value', 'new_value')
+            )
+            for row in db_rows:
+                row.checksum = compute_checksum(
+                    row.user_id, row.action, row.resource_id,
+                    row.timestamp, row.old_value, row.new_value,
+                )
+            if db_rows:
+                AuditLog.objects.bulk_update(db_rows, ['checksum'])
+    except Exception:
+        logger.error(
+            'Sync bulk audit log write failed: %s',
             traceback.format_exc(),
         )
 
