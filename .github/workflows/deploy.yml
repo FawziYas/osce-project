@@ -29,47 +29,71 @@ jobs:
           pip install -r requirements.txt
 
       - name: Collect static files
+        # Uses production storage backend (WhiteNoise CompressedManifest) so the
+        # staticfiles/ manifest is correct for production serving.
+        # DB connection is never made during collectstatic — placeholder values are safe.
         env:
           DJANGO_SETTINGS_MODULE: osce_project.settings.production
-          SECRET_KEY: placeholder-for-collectstatic
-          ALLOWED_HOSTS: localhost
+          SECRET_KEY: ci-placeholder-not-used-in-production
+          ALLOWED_HOSTS: localhost,127.0.0.1
+          DATABASE_URL: sqlite:///ci-placeholder.sqlite3
           DB_PASSWORD: placeholder
           DB_HOST: localhost
+          SECURE_SSL_REDIRECT: "False"
         run: |
           python manage.py collectstatic --noinput
 
       - name: Build deployment zip
+        # Use -x (info-zip glob) instead of --exclude so patterns apply recursively.
+        # publish-profile.xml, .env, and large non-production files are excluded.
         run: |
           zip -r deploy.zip . \
-            --exclude "*.git*" \
-            --exclude ".github/*" \
-            --exclude "venv/*" \
-            --exclude "__pycache__/*" \
-            --exclude "*/__pycache__/*" \
-            --exclude "*.pyc" \
-            --exclude "*.pyo" \
-            --exclude "*.sqlite3" \
-            --exclude "node_modules/*" \
-            --exclude "applogs/*" \
-            --exclude "logs/*" \
-            --exclude "media/*" \
-            --exclude "frontend/*" \
-            --exclude ".env" \
-            --exclude "deploy*.zip" \
-            --exclude "patch*.zip" \
-            --exclude "*.dump" \
-            --exclude "osce_dev*"
+            -x "*.git*" \
+            -x ".github/*" \
+            -x "venv/*" \
+            -x "*/__pycache__/*" \
+            -x "*/.pytest_cache/*" \
+            -x "**/*.pyc" \
+            -x "**/*.pyo" \
+            -x "*.sqlite3" \
+            -x "node_modules/*" \
+            -x "applogs/*" \
+            -x "logs/*" \
+            -x "media/*" \
+            -x "frontend/*" \
+            -x ".env" \
+            -x "publish-profile.xml" \
+            -x "deploy*.zip" \
+            -x "patch*.zip" \
+            -x "*.dump" \
+            -x "osce_dev*" \
+            -x "fix_*.py" \
+            -x "restructure_layout.py" \
+            -x "generate_*.py" \
+            -x "check_storage.py"
 
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Disable Oryx build (use startup.sh instead)
+        # Prevents Azure Oryx from re-running pip install / collectstatic with
+        # wrong paths. Our startup.sh handles migrate + collectstatic correctly.
+        run: |
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false \
+            --output none
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           package: deploy.zip
+          # startup.sh runs: migrate --noinput, collectstatic --noinput, gunicorn
+          startup-command: 'bash startup.sh'
 
       - name: Logout of Azure
         if: always()
