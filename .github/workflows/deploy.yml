@@ -79,15 +79,16 @@ jobs:
 
       - name: Configure Azure app settings
         # Enable Oryx so it runs pip install from requirements.txt on Azure.
-        # DISABLE_COLLECTSTATIC=1 stops Oryx running its own collectstatic —
+        # DISABLE_COLLECTSTATIC=true stops Oryx running its own collectstatic —
         # we already ran it in CI and staticfiles/ is included in the zip.
+        # NOTE: Oryx ≥20260204 requires 'true'/'false', not '1'/'0'.
         run: |
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --settings \
               SCM_DO_BUILD_DURING_DEPLOYMENT=true \
-              DISABLE_COLLECTSTATIC=1 \
+              DISABLE_COLLECTSTATIC=true \
             --output none
 
       - name: Set startup command
