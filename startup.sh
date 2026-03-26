@@ -1,22 +1,31 @@
 #!/bin/bash
 # Azure App Service startup script.
-# Strategy: prefer the Oryx-built antenv (fastest start); fall back to a
-# persistent venv in /home/site/pyenv if antenv is absent.
+#
+# Oryx compressed deployment (--compress-destination-dir) extracts the build
+# to a temp path (e.g. /tmp/<uid>/) and sets CWD there before calling this
+# script. Non-compressed deployments (OneDeploy) use /home/site/wwwroot.
+# We derive APP_PATH from CWD so both modes work correctly.
 
 WWWROOT="/home/site/wwwroot"
-ANTENV="$WWWROOT/antenv"
+APP_PATH="$(pwd)"
 VENV_DIR="/home/site/pyenv"
-REQUIREMENTS="$WWWROOT/requirements.txt"
+REQUIREMENTS="$APP_PATH/requirements.txt"
 
-cd "$WWWROOT"
+echo ">>> App root: $APP_PATH"
 
-if [ -d "$ANTENV" ]; then
-  # Oryx already built the virtualenv during deployment — just use it.
-  echo ">>> Activating Oryx antenv at $ANTENV"
+# Find antenv: Oryx compressed mode places it in the extracted temp dir;
+# non-compressed mode places it directly in wwwroot.
+if [ -d "$APP_PATH/antenv" ]; then
+  echo ">>> Activating Oryx antenv at $APP_PATH/antenv"
   # shellcheck disable=SC1091
-  source "$ANTENV/bin/activate"
+  source "$APP_PATH/antenv/bin/activate"
+elif [ -d "$WWWROOT/antenv" ]; then
+  echo ">>> Activating Oryx antenv at $WWWROOT/antenv"
+  # shellcheck disable=SC1091
+  source "$WWWROOT/antenv/bin/activate"
 else
   # Oryx didn't build (e.g., OneDeploy) — create/reuse our own venv.
+  REQUIREMENTS="$WWWROOT/requirements.txt"
   MARKER="$VENV_DIR/.installed_marker"
   if [ ! -d "$VENV_DIR" ] || [ ! -f "$MARKER" ] || [ "$REQUIREMENTS" -nt "$MARKER" ]; then
     echo ">>> Building venv at $VENV_DIR (this takes a few minutes on first boot)..."
@@ -30,7 +39,7 @@ else
   source "$VENV_DIR/bin/activate"
 fi
 
-export PYTHONPATH="$WWWROOT:$PYTHONPATH"
+export PYTHONPATH="$APP_PATH:$PYTHONPATH"
 
 # Collect static files (WhiteNoise needs the manifest).
 echo ">>> Collecting static files ..."
@@ -50,4 +59,4 @@ fi
 echo ">>> Starting gunicorn ..."
 exec gunicorn osce_project.wsgi:application \
   --bind "0.0.0.0:${PORT:-8000}" \
-  --config "$WWWROOT/gunicorn.conf.py"
+  --config "$APP_PATH/gunicorn.conf.py"
