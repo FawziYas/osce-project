@@ -9,7 +9,7 @@ from .base import *   # noqa: F401,F403
 # ──────────────────────────────────────────────────────────────
 # Core
 # ──────────────────────────────────────────────────────────────
-DEBUG = False
+DEBUG = True
 
 SECRET_KEY = env('SECRET_KEY')  # REQUIRED — no default
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
