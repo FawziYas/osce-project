@@ -14,6 +14,12 @@ DEBUG = False
 SECRET_KEY = env('SECRET_KEY')  # REQUIRED — no default
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 
+# CSRF trusted origins — required for Django 4+ behind HTTPS reverse proxy (Azure)
+CSRF_TRUSTED_ORIGINS = env.list(
+    'CSRF_TRUSTED_ORIGINS',
+    default=['https://' + h for h in ALLOWED_HOSTS if h and h != '*'],
+)
+
 # ──────────────────────────────────────────────────────────────
 # Database — PostgreSQL with connection pooling
 # ──────────────────────────────────────────────────────────────

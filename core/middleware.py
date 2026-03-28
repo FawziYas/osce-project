@@ -414,6 +414,7 @@ class RLSSessionMiddleware:
 
     def _set_session_vars(self, request):
         """Set PostgreSQL session variables for RLS."""
+        import logging
         from django.db import connection
 
         if connection.vendor != 'postgresql':
@@ -422,26 +423,33 @@ class RLSSessionMiddleware:
         user = getattr(request, 'user', None)
         user_id, role, dept_id = self._resolve_vars(user)
 
-        # Set core vars first so RLS policies work for any follow-up queries
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT "
-                "set_config('app.current_user_id', %s, false), "
-                "set_config('app.current_role',    %s, false), "
-                "set_config('app.department_id',   %s, false), "
-                "set_config('app.station_ids',     %s, false)",
-                [user_id, role, dept_id, ''],
-            )
+        try:
+            # Set core vars first so RLS policies work for any follow-up queries
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT "
+                    "set_config('app.current_user_id', %s, false), "
+                    "set_config('app.current_role',    %s, false), "
+                    "set_config('app.department_id',   %s, false), "
+                    "set_config('app.station_ids',     %s, false)",
+                    [user_id, role, dept_id, ''],
+                )
 
-        # Now that RLS vars are set, resolve station_ids for examiners
-        if role == 'EXAMINER' and user_id:
-            station_ids = self._resolve_station_ids(user)
-            if station_ids:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        "SELECT set_config('app.station_ids', %s, false)",
-                        [station_ids],
-                    )
+            # Now that RLS vars are set, resolve station_ids for examiners
+            if role == 'EXAMINER' and user_id:
+                station_ids = self._resolve_station_ids(user)
+                if station_ids:
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('app.station_ids', %s, false)",
+                            [station_ids],
+                        )
+        except Exception:
+            logger = logging.getLogger('django.request')
+            logger.exception(
+                'RLSSessionMiddleware: failed to set session vars '
+                '(user_id=%s, role=%s)', user_id, role,
+            )
 
     def _resolve_vars(self, user):
         """Resolve (user_id, role, department_id) from user model fields only.

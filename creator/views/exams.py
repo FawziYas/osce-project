@@ -5,6 +5,7 @@ import json
 from datetime import datetime, time
 
 from django.core.cache import cache
+from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -93,6 +94,7 @@ def exam_wizard(request):
         departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
+      with transaction.atomic():
         # ---------- Exam ----------
         exam = Exam(
             course_id=int(request.POST['course_id']),

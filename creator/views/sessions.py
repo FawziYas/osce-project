@@ -1073,7 +1073,8 @@ def session_dry_grading(request, session_id):
 @require_POST
 def unlock_score_for_correction(request, score_id):
     """Allow coordinator/admin to unlock a submitted score so the examiner can correct it."""
-    if request.user.role not in ('coordinator', 'admin') and not request.user.is_superuser:
+    _role = getattr(request.user, 'role', None)
+    if _role not in ('coordinator', 'admin') and not request.user.is_superuser:
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
     score = get_object_or_404(StationScore, pk=score_id)
