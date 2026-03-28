@@ -380,6 +380,15 @@ CREATE POLICY score_insert ON station_scores FOR INSERT WITH CHECK (
 DROP POLICY IF EXISTS score_update ON station_scores;
 CREATE POLICY score_update ON station_scores FOR UPDATE USING (
   is_global_role() OR
+  (is_coordinator() AND (
+    SELECT c.department_id
+    FROM stations st
+    JOIN paths p ON p.id = st.path_id
+    JOIN exam_sessions es ON es.id = p.session_id
+    JOIN exams e ON e.id = es.exam_id
+    JOIN courses c ON c.id = e.course_id
+    WHERE st.id = station_scores.station_id
+  ) = app_department_id()) OR
   (app_role() = 'EXAMINER' AND examiner_id = app_user_id())
 );
 
@@ -424,6 +433,16 @@ CREATE POLICY item_score_insert ON item_scores FOR INSERT WITH CHECK (
 DROP POLICY IF EXISTS item_score_update ON item_scores;
 CREATE POLICY item_score_update ON item_scores FOR UPDATE USING (
   is_global_role() OR
+  (is_coordinator() AND (
+    SELECT c.department_id
+    FROM checklist_items ci
+    JOIN stations st ON st.id = ci.station_id
+    JOIN paths p ON p.id = st.path_id
+    JOIN exam_sessions es ON es.id = p.session_id
+    JOIN exams e ON e.id = es.exam_id
+    JOIN courses c ON c.id = e.course_id
+    WHERE ci.id = item_scores.checklist_item_id
+  ) = app_department_id()) OR
   (app_role() = 'EXAMINER' AND EXISTS (
     SELECT 1 FROM station_scores ss
     WHERE ss.id = item_scores.station_score_id
