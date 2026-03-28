@@ -2,6 +2,8 @@
 Exam CRUD views – list, wizard, detail, edit, delete/archive/restore.
 """
 import json
+import logging
+import traceback
 from datetime import datetime, time
 
 from django.core.cache import cache
@@ -94,7 +96,8 @@ def exam_wizard(request):
         departments = Department.objects.order_by('name')
 
     if request.method == 'POST':
-      with transaction.atomic():
+      try:
+       with transaction.atomic():
         # ---------- Exam ----------
         exam = Exam(
             course_id=int(request.POST['course_id']),
@@ -194,6 +197,13 @@ def exam_wizard(request):
             f'Exam "{exam.name}" created with {total_sessions} session(s). Now add stations to each path.',
         )
         return redirect('creator:exam_detail', exam_id=str(exam.id))
+      except Exception as e:
+        logger = logging.getLogger('django.request')
+        logger.error(
+            'exam_wizard POST error for user=%s: %s\n%s',
+            request.user, e, traceback.format_exc(),
+        )
+        raise
 
     return render(request, 'creator/exams/wizard.html', {'courses': courses, 'departments': departments})
 
