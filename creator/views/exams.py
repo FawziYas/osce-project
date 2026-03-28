@@ -199,11 +199,17 @@ def exam_wizard(request):
         return redirect('creator:exam_detail', exam_id=str(exam.id))
       except Exception as e:
         logger = logging.getLogger('django.request')
+        tb = traceback.format_exc()
         logger.error(
             'exam_wizard POST error for user=%s: %s\n%s',
-            request.user, e, traceback.format_exc(),
+            request.user, e, tb,
         )
-        raise
+        # Temporary: return error details for remote debugging
+        from django.http import HttpResponse
+        return HttpResponse(
+            f"ERROR: {type(e).__name__}: {e}\n\nTRACEBACK:\n{tb}",
+            content_type='text/plain', status=500,
+        )
 
     return render(request, 'creator/exams/wizard.html', {'courses': courses, 'departments': departments})
 
