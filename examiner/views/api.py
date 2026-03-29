@@ -842,29 +842,29 @@ def verify_master_key(request):
 @require_POST
 def save_dry_pdf(request, score_id):
     """
-    Receive a PDF snapshot of the completed dry-marking page and upload it
-    to the configured Google Drive folder.
-
-    Expects multipart/form-data with a single field:
-      - pdf_file: the PDF binary
+    Receive a screenshot PDF of the dry-marking page (captured client-side
+    with html2canvas + jsPDF) and forward it to Telegram.
     """
     import re
+    import logging
+    log = logging.getLogger(__name__)
 
     score = get_object_or_404(
         StationScore.objects.select_related(
             'session_student__session__exam',
+            'session_student__session',
             'station',
         ),
         pk=score_id,
-        examiner=request.user,  # only the owning examiner may upload
+        examiner=request.user,
     )
 
     pdf_file = request.FILES.get('pdf_file')
     if not pdf_file:
         return JsonResponse({'success': False, 'error': 'No PDF file received.'}, status=400)
 
-    if pdf_file.size > 50 * 1024 * 1024:  # 50 MB hard cap
-        return JsonResponse({'success': False, 'error': 'PDF file too large.'}, status=400)
+    if pdf_file.size > 50 * 1024 * 1024:
+        return JsonResponse({'success': False, 'error': 'PDF too large (max 50 MB).'}, status=400)
 
     pdf_bytes = pdf_file.read()
 
@@ -872,7 +872,7 @@ def save_dry_pdf(request, score_id):
     def _safe(s):
         return re.sub(r'[\\/:*?"<>|]+', '_', str(s)).strip()
 
-    student_name = _safe(score.session_student.full_name)
+    student_name = _safe(score.session_student.full_name or 'Unknown')
     try:
         exam_name = _safe(score.session_student.session.exam.name)
     except AttributeError:
@@ -888,13 +888,7 @@ def save_dry_pdf(request, score_id):
         from examiner.google_drive import upload_pdf
         file_id = upload_pdf(pdf_bytes, filename)
     except Exception as exc:
-        import logging
-        logging.getLogger(__name__).error(
-            'Failed to upload dry-marking PDF to Drive: %s', exc, exc_info=True
-        )
-        return JsonResponse(
-            {'success': False, 'error': f'Drive upload failed: {exc}'},
-            status=500,
-        )
+        log.error('Telegram upload failed: %s', exc, exc_info=True)
+        return JsonResponse({'success': False, 'error': f'Upload failed: {exc}'}, status=500)
 
-    return JsonResponse({'success': True, 'drive_file_id': file_id, 'filename': filename})
+    return JsonResponse({'success': True, 'file_id': file_id, 'filename': filename})

@@ -8,9 +8,9 @@
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/examiner-evaluation.css' %}">
 <script src="{% static 'js/exam-timer.js' %}"></script>
-<!-- PDF capture libraries -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6o/5tYDkDTu0/w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfYEvidU/uvw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- Page screenshot libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 /* ── Dry OSCE Self-Evaluation Styles ── */
 .dry-mcq-options { display:flex; flex-direction:column; gap:10px; margin-top:12px; padding:0 16px 14px; }
@@ -800,78 +800,81 @@ function closeWarnModal() {
 }
 
 // ============================================================================
-// PDF CAPTURE & GOOGLE DRIVE UPLOAD
+// PAGE SCREENSHOT → PDF → TELEGRAM
 // ============================================================================
 
 async function captureAndUploadPdf() {
-    if (!window.html2canvas || !window.jspdf) {
-        console.warn('PDF libraries not loaded — skipping Drive upload.');
+    if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+        console.warn('html2canvas / jsPDF not loaded — skipping screenshot.');
         return;
     }
 
     try {
-        // Temporarily exit fullscreen so the entire page is scrollable/capturable
+        // Exit fullscreen so the full page is capturable
         if (document.fullscreenElement) {
             await document.exitFullscreen().catch(() => {});
         }
 
-        const { jsPDF } = window.jspdf;
-        const pageEl = document.body;
+        // Scroll to top for a clean capture
+        window.scrollTo(0, 0);
+        await new Promise(r => setTimeout(r, 300));
 
-        // Capture the entire document (not just viewport)
-        const canvas = await html2canvas(pageEl, {
-            scale: 1.5,                   // balance quality vs file size
+        const canvas = await html2canvas(document.body, {
+            scale: 2,
             useCORS: true,
             allowTaint: false,
             scrollX: 0,
-            scrollY: -window.scrollY,
+            scrollY: 0,
             windowWidth: document.documentElement.scrollWidth,
             windowHeight: document.documentElement.scrollHeight,
-            ignoreElements: (el) => {
-                // Skip modals and fullscreen/confirm overlays from the capture
-                return el.classList.contains('confirm-modal');
-            },
+            ignoreElements: (el) =>
+                el.id === 'confirm-modal' ||
+                el.id === 'warn-modal' ||
+                el.id === 'submit-btn' ||
+                el.id === 'submit-success-overlay' ||
+                el.classList.contains('confirm-modal') ||
+                el.classList.contains('warn-modal'),
         });
 
-        const imgData   = canvas.toDataURL('image/jpeg', 0.85);
-        const imgWidth  = 210;   // A4 width in mm
-        const pageHeight = 297;  // A4 height in mm
-        const imgHeight  = (canvas.height * imgWidth) / canvas.width;
+        const { jsPDF } = window.jspdf;
+        const imgData  = canvas.toDataURL('image/jpeg', 0.92);
+        const pdfWidth  = 210;   // A4 mm
+        const pdfHeight = 297;
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
         let heightLeft = imgHeight;
         let position   = 0;
 
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
 
         while (heightLeft > 0) {
-            position -= pageHeight;
+            position -= pdfHeight;
             pdf.addPage();
-            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+            pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
         }
 
         const pdfBlob = pdf.output('blob');
 
-        // Upload to Google Drive via the Django endpoint
+        // Upload screenshot PDF to server → Telegram
         const formData = new FormData();
-        formData.append('pdf_file', pdfBlob, 'dry_marking.pdf');
+        formData.append('pdf_file', pdfBlob, 'screenshot.pdf');
 
-        const uploadResp = await fetch(MARKING_DATA.pdfUploadUrl, {
+        const resp = await fetch(MARKING_DATA.pdfUploadUrl, {
             method: 'POST',
             headers: { 'X-CSRFToken': MARKING_DATA.csrfToken },
             credentials: 'same-origin',
             body: formData,
         });
 
-        if (!uploadResp.ok) {
-            const err = await uploadResp.json().catch(() => ({}));
-            console.error('PDF upload failed:', err);
+        if (resp.ok) {
+            const res = await resp.json();
+            console.log('Screenshot PDF sent to Telegram:', res.filename);
         } else {
-            const res = await uploadResp.json();
-            console.log('PDF uploaded to Drive:', res.filename, '(id:', res.drive_file_id + ')');
+            const err = await resp.json().catch(() => ({}));
+            console.error('Screenshot PDF upload failed:', err);
         }
     } catch (err) {
         // Never block navigation on PDF errors
@@ -943,8 +946,32 @@ async function confirmSubmit() {
             if (examTimer) examTimer.stop();
             scoreIsSubmitted = true;
 
-            // Capture the page as PDF and upload to Google Drive (non-blocking).
-            // Navigation only happens after the upload resolves (or fails).
+            // Show a clear success overlay immediately — student knows it worked.
+            const overlay = document.createElement('div');
+            overlay.id = 'submit-success-overlay';
+            overlay.style.cssText = [
+                'position:fixed', 'inset:0', 'z-index:9999',
+                'background:rgba(17,24,39,0.85)',
+                'display:flex', 'flex-direction:column',
+                'align-items:center', 'justify-content:center', 'gap:16px',
+            ].join(';');
+            overlay.innerHTML = `
+                <div style="width:64px;height:64px;border-radius:50%;
+                     background:#22c55e;display:flex;align-items:center;justify-content:center;">
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none"
+                       stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <p style="color:#fff;font-size:1.25rem;font-weight:600;margin:0;">
+                    Submitted successfully!
+                </p>
+                <p style="color:#9ca3af;font-size:0.9rem;margin:0;">
+                    Saving your report&hellip;
+                </p>`;
+            document.body.appendChild(overlay);
+
+            // Capture the page as a screenshot PDF behind the overlay and upload.
             await captureAndUploadPdf();
 
             // Navigate away.
