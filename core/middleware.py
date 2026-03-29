@@ -171,10 +171,10 @@ class ContentSecurityPolicyMiddleware:
     # CSP directives - adjust per deployment needs
     CSP_DIRECTIVES = {
         "default-src": "'self'",
-        "script-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-        "style-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-        "font-src": "'self' https://cdn.jsdelivr.net https://fonts.gstatic.com",
-        "img-src": "'self' data: https://myoscemedia.blob.core.windows.net",
+        "script-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+        "style-src": "'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+        "font-src": "'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com",
+        "img-src": "'self' data: blob: https://myoscemedia.blob.core.windows.net",
         "connect-src": "'self'",
         "frame-ancestors": "'none'",
         "form-action": "'self'",
