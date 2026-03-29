@@ -11,7 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import F, Max
 from django.http import HttpResponseForbidden, JsonResponse
 
 from core.models import ILO, Station, ChecklistItem, Path, Exam
@@ -376,6 +376,15 @@ def station_edit(request, station_id):
                 for pk in removed_ids:
                     existing_by_id[pk].delete()
 
+                # Temporarily offset surviving item_numbers to avoid the unique
+                # constraint when a duplicated (new) item is created with an
+                # item_number that an existing item still holds in the DB.
+                surviving_pks = set(existing_by_id.keys()) - removed_ids
+                if surviving_pks:
+                    ChecklistItem.objects.filter(pk__in=surviving_pks).update(
+                        item_number=F('item_number') + 10000
+                    )
+
                 item_count = 0
                 for item_data in checklist_items:
                     section = item_data.get('section')
@@ -548,6 +557,15 @@ def station_edit_dry(request, station_id):
                 # Safe to delete: no student submissions on these removed items
                 for pk in removed_ids:
                     existing_by_id[pk].delete()
+
+                # Temporarily offset surviving item_numbers to avoid the unique
+                # constraint when a duplicated (new) item is created with an
+                # item_number that an existing item still holds in the DB.
+                surviving_pks = set(existing_by_id.keys()) - removed_ids
+                if surviving_pks:
+                    ChecklistItem.objects.filter(pk__in=surviving_pks).update(
+                        item_number=F('item_number') + 10000
+                    )
 
                 item_count = 0
                 for item_data in checklist_items:
