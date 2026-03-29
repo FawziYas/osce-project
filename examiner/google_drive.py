@@ -93,7 +93,12 @@ def upload_pdf(pdf_bytes: bytes, filename: str) -> str:
 
     created = (
         service.files()
-        .create(body=file_metadata, media_body=media, fields='id,name')
+        .create(
+            body=file_metadata,
+            media_body=media,
+            fields='id,name',
+            supportsAllDrives=True,  # required for Shared Drive (Team Drive) folders
+        )
         .execute()
     )
 
