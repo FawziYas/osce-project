@@ -38,7 +38,10 @@
                 <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
                     <i class="bi bi-trash me-1"></i>Delete Exam
                 </button>
-            {% elif exam.status == 'in_progress' %}
+            {% endif %}
+        {% endif %}
+        {% if exam.status == 'in_progress' %}
+            {% if can_complete_exam %}
                 {% if all_sessions_finished %}
                 <button type="button" class="btn btn-success" onclick="completeExam()">
                     <i class="bi bi-check2-all me-1"></i>Complete Exam
@@ -48,10 +51,15 @@
                     <i class="bi bi-check2-all me-1"></i>Complete Exam
                 </button>
                 {% endif %}
-                <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#archiveModal">
-                    <i class="bi bi-archive me-1"></i>Archive Exam
-                </button>
-            {% elif exam.status == 'completed' %}
+            {% endif %}
+            {% if can_delete_exam %}
+            <button type="button" class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#archiveModal">
+                <i class="bi bi-archive me-1"></i>Archive Exam
+            </button>
+            {% endif %}
+        {% endif %}
+        {% if can_delete_exam %}
+            {% if exam.status == 'completed' %}
                 {% if request.user.is_superuser or request.user.is_staff %}
                 <button type="button" class="btn btn-outline-secondary" onclick="revertExamCompletion()" title="Admin only: undo exam completion">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Revert Completion

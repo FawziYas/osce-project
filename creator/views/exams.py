@@ -251,11 +251,23 @@ def exam_detail(request, exam_id):
 
     u = request.user
     _role = getattr(u, 'role', None)
+    _coord_pos = getattr(u, 'coordinator_position', None)
     can_dry_grade = (
         u.is_superuser
         or _role == 'admin'
-        or (_role == 'coordinator' and getattr(u, 'coordinator_position', None) in ('head', 'organizer'))
+        or (_role == 'coordinator' and _coord_pos in ('head', 'organizer'))
         or u.has_perm('core.can_open_dry_grading')
+    )
+
+    can_complete_exam = (
+        u.is_superuser
+        or _role == 'admin'
+        or (_role == 'coordinator' and _coord_pos in ('head', 'organizer'))
+    )
+
+    active_sessions = [s for s in sessions if s.status not in ('archived', 'cancelled')]
+    all_sessions_finished = bool(active_sessions) and all(
+        s.status == 'finished' for s in active_sessions
     )
 
     return render(request, 'creator/exams/detail.html', {
@@ -265,6 +277,8 @@ def exam_detail(request, exam_id):
         'total_students': total_students,
         'can_delete_sessions': can_delete_sessions,
         'can_delete_exam': _can_delete_exam(request.user),
+        'can_complete_exam': can_complete_exam,
+        'all_sessions_finished': all_sessions_finished,
         'has_dry_stations': has_dry_stations,
         'can_dry_grade': can_dry_grade,
     })
