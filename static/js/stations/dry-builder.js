@@ -568,6 +568,22 @@ function previewChecklist() {
     const stationName = document.querySelector('input[name="name"]').value || 'Untitled Station';
     const duration = '8';
     
+    // Gather scenario / instructions from the form
+    const scenario = document.querySelector('textarea[name="scenario"]')?.value?.trim() || '';
+    const instructions = document.querySelector('textarea[name="instructions"]')?.value?.trim() || '';
+
+    // Build ILO id → number map from the first ilo-select's options
+    const iloNumberMap = {};
+    const firstIloSelect = document.querySelector('.checklist-item-card .ilo-select');
+    if (firstIloSelect) {
+        Array.from(firstIloSelect.options).forEach(opt => {
+            if (opt.value) {
+                const match = opt.text.match(/^(\d+)\./);
+                if (match) iloNumberMap[opt.value] = parseInt(match[1], 10);
+            }
+        });
+    }
+    
     let previewHtml = `<html><head><title>Examiner Preview — ${stationName}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -617,6 +633,15 @@ function previewChecklist() {
         .progress-row{display:flex;justify-content:space-between;font-size:0.75rem;color:#6B7280;margin-bottom:4px}
         .progress-bar{height:5px;background:#E5E7EB;border-radius:3px;overflow:hidden}
         .progress-fill{height:100%;background:#10B981;transition:width 0.3s}
+                .case-card{background:#fff;border:2px solid #ccfbf1;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+        .case-title{font-size:1.1rem;font-weight:700;color:#0f766e;margin:0 0 12px 0;display:flex;align-items:center;gap:8px}
+        .case-instructions{color:#374151;line-height:1.6;font-size:0.95rem}
+        .case-instructions p{margin:0 0 8px 0;white-space:pre-wrap;word-break:break-word}
+        .case-instructions p:last-child{margin-bottom:0}
+        .ilo-badge,.marks-badge{display:inline-flex;align-items:center;font-size:0.65rem;font-weight:700;padding:0.1rem 0.45rem;border-radius:9999px;gap:3px;vertical-align:middle;margin-left:6px;white-space:nowrap;line-height:1.4}
+        .ilo-badge{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+        .marks-badge{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+
     </style></head><body>
     <header class="evaluation-header">
         <div class="header-title">
@@ -639,6 +664,14 @@ function previewChecklist() {
     </div>
     <div class="content-wrapper">
         <div class="demo-note"><i class="bi bi-hand-index"></i> Preview only — tap buttons to simulate marking</div>
+        ${(scenario || instructions) ? `
+        <div class="case-card">
+            <h3 class="case-title"><i class="bi bi-file-text"></i> Case Scenario</h3>
+            <div class="case-instructions">
+                ${scenario ? `<p><strong>Scenario:</strong> ${scenario}</p>` : ''}
+                ${instructions ? `<p><strong>Instructions:</strong> ${instructions}</p>` : ''}
+            </div>
+        </div>` : ''}
         <div id="checklistArea">`;
     
     let totalPts = 0;
@@ -652,6 +685,11 @@ function previewChecklist() {
             const desc = card.querySelector('.item-description-input').value || '(No description)';
             const pts = getItemPoints(card) ?? 0;
             const qtype = card.querySelector('.question-type-select').value;
+
+            // Get ILO and render ILO badge
+            const iloId = card.querySelector('.ilo-select')?.value;
+            const iloNum = iloId ? iloNumberMap[iloId] : null;
+            const iloBadge = iloNum != null ? `<span class="ilo-badge"><i class="bi bi-tag-fill"></i> ILO ${iloNum}</span>` : '';
 
             // Collect image if available
             const imgThumb = card.querySelector('.img-preview-thumb');
@@ -692,8 +730,7 @@ function previewChecklist() {
                 <div class="question-header"><div class="question-header-inner">
                     <span class="question-number-badge">${qtype === 'mcq' ? 'MCQ' : 'SAQ'} ${itemNum}</span>
                     <div class="question-body">
-                        <span class="question-text-inline">${desc}</span>
-                        <span class="marks-badge"><i class="bi bi-star-fill"></i> ${pts} pt${pts !== 1 ? 's' : ''}</span>
+                        <span class="question-text-inline">${desc}</span>${iloBadge}<span class="marks-badge"><i class="bi bi-star-fill"></i> ${pts} pt${pts !== 1 ? 's' : ''}</span>
                     </div>
                 </div></div>
                 ${imgHtml}
