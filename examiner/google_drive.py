@@ -1,101 +1,67 @@
 """
-Google Drive upload helper for dry-marking PDFs.
+PDF upload helper for dry-marking snapshots — uses Telegram Bot API.
 
-Uses OAuth 2.0 with a pre-authorised refresh token so files are uploaded
-to any regular Google Drive folder (personal or university account).
+No OAuth, no user login, no shared drives — just two string tokens.
 
 Required settings / .env variables:
-  GOOGLE_OAUTH_CLIENT_ID      – OAuth 2.0 client ID (Desktop App type)
-  GOOGLE_OAUTH_CLIENT_SECRET  – OAuth 2.0 client secret
-  GOOGLE_OAUTH_REFRESH_TOKEN  – long-lived refresh token (one-time setup)
-  GOOGLE_DRIVE_FOLDER_ID      – target Drive folder ID (from URL)
+  TELEGRAM_BOT_TOKEN  – token from @BotFather (e.g. 123456:ABC-xyz...)
+  TELEGRAM_CHAT_ID    – numeric ID of the private channel/group the bot is in
 
-One-time setup:
-  1. In Google Cloud Console → APIs & Services → Credentials:
-       Create an OAuth 2.0 Client ID of type "Desktop app".
-       Copy the Client ID and Client Secret into .env.
-  2. Enable the Google Drive API for the project.
-  3. Run:  python get_drive_token.py
-       Follow the browser prompt and paste the code back.
-       Copy the printed refresh token into .env as GOOGLE_OAUTH_REFRESH_TOKEN.
-  4. Set GOOGLE_DRIVE_FOLDER_ID to your Drive folder ID.
+One-time setup (takes ~3 minutes):
+  1. Open Telegram, search for @BotFather, send /newbot, follow the prompts.
+     Copy the token you receive.  Set TELEGRAM_BOT_TOKEN in .env.
+  2. Create a private Telegram channel (or group) called e.g. "OSCE Dry Marking".
+  3. Add your bot to the channel as an Administrator.
+  4. Get the channel's chat ID:
+       a. Forward any message from the channel to @userinfobot, or
+       b. Temporarily add @RawDataBot to the channel, send a message, it shows the chat ID.
+     Channel chat IDs are negative, e.g. -1001234567890.
+     Set TELEGRAM_CHAT_ID in .env.
+  5. Deploy / restart the server.  That's it.
+
+Each submitted PDF will be sent to that channel as a document named
+"{student} - {exam} - {session}.pdf", accessible to anyone in the channel.
+Telegram stores it permanently and you can search/download it any time.
 """
-import io
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def _build_service():
-    """Return an authenticated Google Drive service object (OAuth2 refresh token)."""
-    from django.conf import settings
-
-    try:
-        from google.oauth2.credentials import Credentials
-        from google.auth.transport.requests import Request
-        from googleapiclient.discovery import build
-    except ImportError as exc:
-        raise ImportError(
-            'google-api-python-client and google-auth are required. '
-            'Run: pip install google-api-python-client google-auth-httplib2 google-auth'
-        ) from exc
-
-    client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
-    client_secret = getattr(settings, 'GOOGLE_OAUTH_CLIENT_SECRET', '')
-    refresh_token = getattr(settings, 'GOOGLE_OAUTH_REFRESH_TOKEN', '')
-
-    if not all([client_id, client_secret, refresh_token]):
-        raise ValueError(
-            'GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, and '
-            'GOOGLE_OAUTH_REFRESH_TOKEN must all be set in .env / App Settings.'
-        )
-
-    credentials = Credentials(
-        token=None,
-        refresh_token=refresh_token,
-        token_uri='https://oauth2.googleapis.com/token',
-        client_id=client_id,
-        client_secret=client_secret,
-    )
-    # Exchange refresh token for a fresh access token
-    credentials.refresh(Request())
-
-    return build('drive', 'v3', credentials=credentials, cache_discovery=False)
-
-
 def upload_pdf(pdf_bytes: bytes, filename: str) -> str:
     """
-    Upload *pdf_bytes* as *filename* to the configured Google Drive folder.
+    Send *pdf_bytes* as a Telegram document to the configured chat.
 
-    Returns the Drive file ID of the newly created file.
+    Returns the Telegram file_id of the uploaded document.
     Raises on any error so the caller can handle gracefully.
     """
+    import requests
     from django.conf import settings
-    from googleapiclient.http import MediaIoBaseUpload
 
-    folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', '')
-    if not folder_id:
-        raise ValueError('GOOGLE_DRIVE_FOLDER_ID is not configured in settings.')
+    token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    chat_id = getattr(settings, 'TELEGRAM_CHAT_ID', '')
 
-    service = _build_service()
+    if not token or not chat_id:
+        raise ValueError(
+            'TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in .env / App Settings. '
+            'See examiner/google_drive.py for setup instructions.'
+        )
 
-    file_metadata = {
-        'name': filename,
-        'parents': [folder_id],
-    }
+    url = f'https://api.telegram.org/bot{token}/sendDocument'
 
-    media = MediaIoBaseUpload(
-        io.BytesIO(pdf_bytes),
-        mimetype='application/pdf',
-        resumable=False,
+    response = requests.post(
+        url,
+        data={'chat_id': chat_id, 'caption': filename},
+        files={'document': (filename, pdf_bytes, 'application/pdf')},
+        timeout=60,
     )
 
-    created = (
-        service.files()
-        .create(body=file_metadata, media_body=media, fields='id,name')
-        .execute()
-    )
+    if not response.ok:
+        raise RuntimeError(
+            f'Telegram upload failed ({response.status_code}): {response.text}'
+        )
 
-    file_id = created.get('id')
-    logger.info('Dry-marking PDF uploaded to Drive: %s (id=%s)', filename, file_id)
+    result = response.json()
+    file_id = result['result']['document']['file_id']
+    logger.info('Dry-marking PDF sent to Telegram: %s (file_id=%s)', filename, file_id)
     return file_id

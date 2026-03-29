@@ -199,14 +199,12 @@ ILO_THEMES = {
 TRUSTED_PROXIES = env.list('TRUSTED_PROXIES', default=[])
 
 # ==========================================================================
-# GOOGLE DRIVE — Dry Marking PDF Upload (OAuth 2.0 Desktop App)
-# Run `python get_drive_token.py` once to obtain the refresh token.
-# Set these three vars in .env / Azure App Service Application Settings.
+# TELEGRAM BOT — Dry Marking PDF Upload
+# Create a bot via @BotFather, add it to a private channel, set these two vars.
+# See examiner/google_drive.py for full setup instructions (3 minutes).
 # ==========================================================================
-GOOGLE_OAUTH_CLIENT_ID = env('GOOGLE_OAUTH_CLIENT_ID', default='')
-GOOGLE_OAUTH_CLIENT_SECRET = env('GOOGLE_OAUTH_CLIENT_SECRET', default='')
-GOOGLE_OAUTH_REFRESH_TOKEN = env('GOOGLE_OAUTH_REFRESH_TOKEN', default='')
-GOOGLE_DRIVE_FOLDER_ID = env('GOOGLE_DRIVE_FOLDER_ID', default='13kWHKkaEi1S40L5nRKAU6z5YRwTrIn6-')
+TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID', default='')
 
 # ==========================================================================
 # CELERY (async task queue for audit logging)
