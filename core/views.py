@@ -265,8 +265,11 @@ def force_change_password_view(request):
             # is_session_alive() and the session-activity admin view remain
             # accurate and don't show the session as expired.
             update_session_auth_hash(request, user)
-            UserSession.objects.filter(user=user).update(
-                session_key=request.session.session_key
+            new_key = request.session.session_key
+            UserSession.objects.filter(user=user).exclude(session_key=new_key).delete()
+            UserSession.objects.update_or_create(
+                session_key=new_key,
+                defaults={'user': user},
             )
 
             # Clear the flag
@@ -307,8 +310,11 @@ def profile_view(request):
             # Cycle Django session key; sync UserSession to new key so
             # is_session_alive() doesn't falsely show the session as expired.
             update_session_auth_hash(request, user)
-            UserSession.objects.filter(user=user).update(
-                session_key=request.session.session_key
+            new_key = request.session.session_key
+            UserSession.objects.filter(user=user).exclude(session_key=new_key).delete()
+            UserSession.objects.update_or_create(
+                session_key=new_key,
+                defaults={'user': user},
             )
             auth_logger.info(
                 "User '%s' successfully changed their password.", user.username
