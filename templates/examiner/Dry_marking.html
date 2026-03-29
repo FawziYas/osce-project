@@ -8,9 +8,9 @@
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/examiner-evaluation.css' %}">
 <script src="{% static 'js/exam-timer.js' %}"></script>
-<!-- Page screenshot libraries -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- Page screenshot libraries (defer = non-blocking; no integrity = avoid SRI mismatch on CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
 <style>
 /* ── Dry OSCE Self-Evaluation Styles ── */
 .dry-mcq-options { display:flex; flex-direction:column; gap:10px; margin-top:12px; padding:0 16px 14px; }
@@ -803,24 +803,24 @@ function closeWarnModal() {
 // PAGE SCREENSHOT → PDF → TELEGRAM
 // ============================================================================
 
-async function captureAndUploadPdf() {
-    if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
-        console.warn('html2canvas / jsPDF not loaded — skipping screenshot.');
-        return;
-    }
+// Holds the pre-capture promise started when the confirm modal opens.
+// This decouples the heavy screenshot work from the submit confirmation,
+// so by the time the user clicks Confirm the blob is usually already ready.
+let _pdfBlobPromise = null;
 
+async function _capturePageAsPdfBlob() {
+    if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
+        return null;
+    }
     try {
-        // Exit fullscreen so the full page is capturable
         if (document.fullscreenElement) {
             await document.exitFullscreen().catch(() => {});
         }
-
-        // Scroll to top for a clean capture
         window.scrollTo(0, 0);
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 200));
 
         const canvas = await html2canvas(document.body, {
-            scale: 2,
+            scale: 1,
             useCORS: true,
             allowTaint: false,
             scrollX: 0,
@@ -837,7 +837,7 @@ async function captureAndUploadPdf() {
         });
 
         const { jsPDF } = window.jspdf;
-        const imgData  = canvas.toDataURL('image/jpeg', 0.92);
+        const imgData  = canvas.toDataURL('image/jpeg', 0.80);
         const pdfWidth  = 210;   // A4 mm
         const pdfHeight = 297;
         const imgHeight = (canvas.height * pdfWidth) / canvas.width;
@@ -856,9 +856,22 @@ async function captureAndUploadPdf() {
             heightLeft -= pdfHeight;
         }
 
-        const pdfBlob = pdf.output('blob');
+        return pdf.output('blob');
+    } catch (err) {
+        console.error('_capturePageAsPdfBlob error:', err);
+        return null;
+    }
+}
 
-        // Upload screenshot PDF to server → Telegram
+async function captureAndUploadPdf() {
+    try {
+        // Use the pre-captured blob if available; fall back to capturing now.
+        const pdfBlob = await (_pdfBlobPromise || _capturePageAsPdfBlob());
+        if (!pdfBlob) {
+            console.warn('Screenshot capture unavailable — skipping Telegram upload.');
+            return;
+        }
+
         const formData = new FormData();
         formData.append('pdf_file', pdfBlob, 'screenshot.pdf');
 
@@ -877,7 +890,6 @@ async function captureAndUploadPdf() {
             console.error('Screenshot PDF upload failed:', err);
         }
     } catch (err) {
-        // Never block navigation on PDF errors
         console.error('captureAndUploadPdf error:', err);
     }
 }
@@ -890,6 +902,8 @@ function showConfirmModal() {
     const message = document.getElementById('confirm-message');
     message.textContent = `You have answered ${Object.keys(evaluations).length}/${checklistItems.length} questions. Submit your answers?`;
     document.getElementById('confirm-modal').style.display = 'flex';
+    // Start capturing in background now so the blob is ready by confirm time.
+    _pdfBlobPromise = _capturePageAsPdfBlob();
 }
 
 function closeConfirmModal() {
