@@ -1,6 +1,6 @@
 """Examiner page URLs."""
 from django.urls import path
-from .views import pages
+from .views import pages, api
 from core.views import profile_view
 
 app_name = 'examiner'
@@ -16,5 +16,6 @@ urlpatterns = [
     path('station/<uuid:assignment_id>/select-student/', pages.select_student, name='select_student'),
     path('mark/<uuid:assignment_id>/<uuid:student_id>/', pages.marking_interface, name='marking_interface'),
     path('dry-mark/<uuid:assignment_id>/<uuid:student_id>/', pages.dry_marking, name='dry_marking'),
+    path('dry-mark/save-pdf/<uuid:score_id>/', api.save_dry_pdf, name='save_dry_pdf'),
     path('profile/', profile_view, name='profile'),
 ]

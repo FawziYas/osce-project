@@ -834,3 +834,67 @@ def verify_master_key(request):
         'valid': True,
         'redirect_url': redirect_url,
     })
+
+
+# ── Dry Marking PDF Upload ─────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def save_dry_pdf(request, score_id):
+    """
+    Receive a PDF snapshot of the completed dry-marking page and upload it
+    to the configured Google Drive folder.
+
+    Expects multipart/form-data with a single field:
+      - pdf_file: the PDF binary
+    """
+    import re
+
+    score = get_object_or_404(
+        StationScore.objects.select_related(
+            'session_student__session__exam',
+            'station',
+        ),
+        pk=score_id,
+        examiner=request.user,  # only the owning examiner may upload
+    )
+
+    pdf_file = request.FILES.get('pdf_file')
+    if not pdf_file:
+        return JsonResponse({'success': False, 'error': 'No PDF file received.'}, status=400)
+
+    if pdf_file.size > 50 * 1024 * 1024:  # 50 MB hard cap
+        return JsonResponse({'success': False, 'error': 'PDF file too large.'}, status=400)
+
+    pdf_bytes = pdf_file.read()
+
+    # Build filename: "Student Name - Exam Name - Session Name.pdf"
+    def _safe(s):
+        return re.sub(r'[\\/:*?"<>|]+', '_', str(s)).strip()
+
+    student_name = _safe(score.session_student.full_name)
+    try:
+        exam_name = _safe(score.session_student.session.exam.name)
+    except AttributeError:
+        exam_name = 'Exam'
+    try:
+        session_name = _safe(score.session_student.session.name)
+    except AttributeError:
+        session_name = 'Session'
+
+    filename = f'{student_name} - {exam_name} - {session_name}.pdf'
+
+    try:
+        from examiner.google_drive import upload_pdf
+        file_id = upload_pdf(pdf_bytes, filename)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error(
+            'Failed to upload dry-marking PDF to Drive: %s', exc, exc_info=True
+        )
+        return JsonResponse(
+            {'success': False, 'error': f'Drive upload failed: {exc}'},
+            status=500,
+        )
+
+    return JsonResponse({'success': True, 'drive_file_id': file_id, 'filename': filename})

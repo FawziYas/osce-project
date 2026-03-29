@@ -8,6 +8,9 @@
 {% block head %}
 <link rel="stylesheet" href="{% static 'css/examiner-evaluation.css' %}">
 <script src="{% static 'js/exam-timer.js' %}"></script>
+<!-- PDF capture libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6o/5tYDkDTu0/w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfYEvidU/uvw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
 /* ── Dry OSCE Self-Evaluation Styles ── */
 .dry-mcq-options { display:flex; flex-direction:column; gap:10px; margin-top:12px; padding:0 16px 14px; }
@@ -296,7 +299,8 @@ body.evaluation-page input {
         savedItemScores: {{ saved_item_scores_json|safe }},
         csrfToken: "{{ csrf_token }}",
         reviewMode: {{ review_mode|yesno:'true,false' }},
-        scoreStatus: "{{ score_status }}"
+        scoreStatus: "{{ score_status }}",
+        pdfUploadUrl: "{% url 'examiner:save_dry_pdf' score.id %}"
     };
 </script>
 {% endblock %}
@@ -796,6 +800,86 @@ function closeWarnModal() {
 }
 
 // ============================================================================
+// PDF CAPTURE & GOOGLE DRIVE UPLOAD
+// ============================================================================
+
+async function captureAndUploadPdf() {
+    if (!window.html2canvas || !window.jspdf) {
+        console.warn('PDF libraries not loaded — skipping Drive upload.');
+        return;
+    }
+
+    try {
+        // Temporarily exit fullscreen so the entire page is scrollable/capturable
+        if (document.fullscreenElement) {
+            await document.exitFullscreen().catch(() => {});
+        }
+
+        const { jsPDF } = window.jspdf;
+        const pageEl = document.body;
+
+        // Capture the entire document (not just viewport)
+        const canvas = await html2canvas(pageEl, {
+            scale: 1.5,                   // balance quality vs file size
+            useCORS: true,
+            allowTaint: false,
+            scrollX: 0,
+            scrollY: -window.scrollY,
+            windowWidth: document.documentElement.scrollWidth,
+            windowHeight: document.documentElement.scrollHeight,
+            ignoreElements: (el) => {
+                // Skip modals and fullscreen/confirm overlays from the capture
+                return el.classList.contains('confirm-modal');
+            },
+        });
+
+        const imgData   = canvas.toDataURL('image/jpeg', 0.85);
+        const imgWidth  = 210;   // A4 width in mm
+        const pageHeight = 297;  // A4 height in mm
+        const imgHeight  = (canvas.height * imgWidth) / canvas.width;
+
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        let heightLeft = imgHeight;
+        let position   = 0;
+
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft > 0) {
+            position -= pageHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+
+        const pdfBlob = pdf.output('blob');
+
+        // Upload to Google Drive via the Django endpoint
+        const formData = new FormData();
+        formData.append('pdf_file', pdfBlob, 'dry_marking.pdf');
+
+        const uploadResp = await fetch(MARKING_DATA.pdfUploadUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': MARKING_DATA.csrfToken },
+            credentials: 'same-origin',
+            body: formData,
+        });
+
+        if (!uploadResp.ok) {
+            const err = await uploadResp.json().catch(() => ({}));
+            console.error('PDF upload failed:', err);
+        } else {
+            const res = await uploadResp.json();
+            console.log('PDF uploaded to Drive:', res.filename, '(id:', res.drive_file_id + ')');
+        }
+    } catch (err) {
+        // Never block navigation on PDF errors
+        console.error('captureAndUploadPdf error:', err);
+    }
+}
+
+// ============================================================================
 // CONFIRMATION MODAL
 // ============================================================================
 
@@ -858,13 +942,16 @@ async function confirmSubmit() {
         if (result.success) {
             if (examTimer) examTimer.stop();
             scoreIsSubmitted = true;
-            // If we are running inside a popup opened by the dashboard, reload
-            // the dashboard tab and close this popup window.
+
+            // Capture the page as PDF and upload to Google Drive (non-blocking).
+            // Navigation only happens after the upload resolves (or fails).
+            await captureAndUploadPdf();
+
+            // Navigate away.
             if (window.opener && !window.opener.closed) {
                 window.opener.location.href = "{% url 'examiner:station_dashboard' assignment.id %}";
                 window.close();
             } else {
-                // Fallback: not a popup — just navigate in the same tab.
                 window.location.replace("{% url 'examiner:station_dashboard' assignment.id %}");
             }
         } else {

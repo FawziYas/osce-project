@@ -199,6 +199,15 @@ ILO_THEMES = {
 TRUSTED_PROXIES = env.list('TRUSTED_PROXIES', default=[])
 
 # ==========================================================================
+# GOOGLE DRIVE — Dry Marking PDF Upload
+# Path to service account credentials JSON file, or raw JSON string.
+# Set GOOGLE_SERVICE_ACCOUNT_JSON in .env / Azure App Service env vars.
+# The target folder must be shared with the service account's email address.
+# ==========================================================================
+GOOGLE_SERVICE_ACCOUNT_JSON = env('GOOGLE_SERVICE_ACCOUNT_JSON', default='')
+GOOGLE_DRIVE_FOLDER_ID = env('GOOGLE_DRIVE_FOLDER_ID', default='13kWHKkaEi1S40L5nRKAU6z5YRwTrIn6-')
+
+# ==========================================================================
 # CELERY (async task queue for audit logging)
 # ==========================================================================
 # Set CELERY_BROKER_URL in .env to enable async audit writes.

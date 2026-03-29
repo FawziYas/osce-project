@@ -46,3 +46,8 @@ django-storages[azure]==1.14.4
 
 # Timezone
 tzdata==2025.3
+
+# Google Drive upload (dry marking PDF)
+google-api-python-client==2.163.0
+google-auth-httplib2==0.2.0
+google-auth==2.40.0
