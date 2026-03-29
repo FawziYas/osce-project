@@ -92,19 +92,30 @@
 }
 /* Visual warning/danger on compact inline timer */
 .compact-timer-inline.warning {
-    background: rgba(234,179,8,0.25);
-    border-color: rgba(234,179,8,0.7);
-    color: #fbbf24;
+    background: rgba(234,179,8,0.28);
+    border-color: rgba(234,179,8,0.8);
+    color: #facc15;
 }
 .compact-timer-inline.danger {
-    background: rgba(239,68,68,0.25);
-    border-color: rgba(239,68,68,0.7);
-    color: #f87171;
-    animation: pulse-danger .8s ease-in-out infinite alternate;
+    background: rgba(220,38,38,0.35);
+    border-color: rgba(220,38,38,0.9);
+    color: #ff3636;
+    animation: pulse-danger .75s ease-in-out infinite alternate;
 }
 @keyframes pulse-danger {
-    from { opacity: 1; }
-    to   { opacity: 0.6; }
+    from {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: none;
+        color: #ff3636;
+    }
+    to {
+        opacity: 0.88;
+        transform: scale(1.07);
+        box-shadow: 0 0 14px rgba(220,38,38,0.65);
+        color: #ff6b6b;
+        background: rgba(220,38,38,0.55);
+    }
 }
 </style>
 {% endblock %}
@@ -118,7 +129,7 @@
             <i class="bi bi-chevron-left"></i>
             <span class="back-btn-text">Back to Dashboard</span>
         </a>
-        <span class="hdr-compact-student">{{ student.first_name }} {{ student.last_name }}</span>
+        <span class="hdr-compact-student">{{ student.full_name }}</span>
         <div class="station-name-large">{{ assignment.station.name }}</div>
         <span class="compact-timer-inline" id="timer-inline">
             <i class="bi bi-clock"></i>
