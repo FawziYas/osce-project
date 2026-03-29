@@ -78,7 +78,7 @@ function previewChecklist() {
         .case-card{background:#fff;border:2px solid #ccfbf1;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
         .case-title{font-size:1.1rem;font-weight:700;color:#0f766e;margin:0 0 12px 0;display:flex;align-items:center;gap:8px}
         .case-instructions{color:#374151;line-height:1.6;font-size:0.95rem}
-        .case-instructions p{margin:0 0 8px 0}
+        .case-instructions p{margin:0 0 8px 0;white-space:pre-wrap;word-break:break-word}
         .case-instructions p:last-child{margin-bottom:0}
         .ilo-badge,.marks-badge{display:inline-flex;align-items:center;font-size:0.65rem;font-weight:700;padding:0.1rem 0.45rem;border-radius:9999px;gap:3px;vertical-align:middle;margin-left:6px;white-space:nowrap;line-height:1.4}
         .ilo-badge{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}

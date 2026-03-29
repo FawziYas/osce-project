@@ -224,7 +224,7 @@ class PermissionsPolicyMiddleware:
 class SessionTimeoutMiddleware:
     """
     Enforces idle-based session timeouts per user role:
-    - Creator roles (superuser / admin / coordinator): 10 minutes of inactivity
+    - Creator roles (superuser / admin / coordinator): 15 minutes of inactivity
     - Examiner role: 20 minutes of inactivity
 
     On every authenticated request the middleware:
@@ -238,7 +238,7 @@ class SessionTimeoutMiddleware:
     API / AJAX calls count as real user activity.
     """
 
-    CREATOR_TIMEOUT = 600    # 10 minutes — superuser, admin, coordinator
+    CREATOR_TIMEOUT = 900    # 15 minutes — superuser, admin, coordinator
     EXAMINER_TIMEOUT = 1200  # 20 minutes — examiner
 
     # Paths that must never trigger a timeout redirect (avoid loops)
