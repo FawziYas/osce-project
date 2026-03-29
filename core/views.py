@@ -259,8 +259,15 @@ def force_change_password_view(request):
             user.set_password(form.cleaned_data['new_password'])
             user.save(update_fields=['password'])
 
-            # Keep the session alive after the password change
+            # Keep the session alive after the password change.
+            # update_session_auth_hash cycles the Django session key (old key
+            # is deleted).  Sync UserSession to the new key so
+            # is_session_alive() and the session-activity admin view remain
+            # accurate and don't show the session as expired.
             update_session_auth_hash(request, user)
+            UserSession.objects.filter(user=user).update(
+                session_key=request.session.session_key
+            )
 
             # Clear the flag
             profile = user.profile
@@ -297,7 +304,12 @@ def profile_view(request):
         if password_form.is_valid():
             user.set_password(password_form.cleaned_data['new_password'])
             user.save(update_fields=['password'])
+            # Cycle Django session key; sync UserSession to new key so
+            # is_session_alive() doesn't falsely show the session as expired.
             update_session_auth_hash(request, user)
+            UserSession.objects.filter(user=user).update(
+                session_key=request.session.session_key
+            )
             auth_logger.info(
                 "User '%s' successfully changed their password.", user.username
             )
