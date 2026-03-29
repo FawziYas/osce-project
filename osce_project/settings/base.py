@@ -199,12 +199,13 @@ ILO_THEMES = {
 TRUSTED_PROXIES = env.list('TRUSTED_PROXIES', default=[])
 
 # ==========================================================================
-# GOOGLE DRIVE — Dry Marking PDF Upload
-# Path to service account credentials JSON file, or raw JSON string.
-# Set GOOGLE_SERVICE_ACCOUNT_JSON in .env / Azure App Service env vars.
-# The target folder must be shared with the service account's email address.
+# GOOGLE DRIVE — Dry Marking PDF Upload (OAuth 2.0 Desktop App)
+# Run `python get_drive_token.py` once to obtain the refresh token.
+# Set these three vars in .env / Azure App Service Application Settings.
 # ==========================================================================
-GOOGLE_SERVICE_ACCOUNT_JSON = env('GOOGLE_SERVICE_ACCOUNT_JSON', default='')
+GOOGLE_OAUTH_CLIENT_ID = env('GOOGLE_OAUTH_CLIENT_ID', default='')
+GOOGLE_OAUTH_CLIENT_SECRET = env('GOOGLE_OAUTH_CLIENT_SECRET', default='')
+GOOGLE_OAUTH_REFRESH_TOKEN = env('GOOGLE_OAUTH_REFRESH_TOKEN', default='')
 GOOGLE_DRIVE_FOLDER_ID = env('GOOGLE_DRIVE_FOLDER_ID', default='13kWHKkaEi1S40L5nRKAU6z5YRwTrIn6-')
 
 # ==========================================================================

@@ -1,36 +1,38 @@
 """
 Google Drive upload helper for dry-marking PDFs.
 
-Requires GOOGLE_SERVICE_ACCOUNT_JSON and GOOGLE_DRIVE_FOLDER_ID in settings.
+Uses OAuth 2.0 with a pre-authorised refresh token so files are uploaded
+to any regular Google Drive folder (personal or university account).
 
-GOOGLE_SERVICE_ACCOUNT_JSON can be:
-  - A file path to the service account JSON file, or
-  - The raw JSON string of the service account credentials.
+Required settings / .env variables:
+  GOOGLE_OAUTH_CLIENT_ID      – OAuth 2.0 client ID (Desktop App type)
+  GOOGLE_OAUTH_CLIENT_SECRET  – OAuth 2.0 client secret
+  GOOGLE_OAUTH_REFRESH_TOKEN  – long-lived refresh token (one-time setup)
+  GOOGLE_DRIVE_FOLDER_ID      – target Drive folder ID (from URL)
 
-Setup steps:
-  1. Create a Google Cloud project and enable the Google Drive API.
-  2. Create a service account and download its JSON key.
-  3. Share the target Drive folder with the service account's email
-     (give it "Editor" access).
-  4. Set GOOGLE_SERVICE_ACCOUNT_JSON to the JSON file path or content string.
-  5. Set GOOGLE_DRIVE_FOLDER_ID to the folder ID from the Drive URL.
+One-time setup:
+  1. In Google Cloud Console → APIs & Services → Credentials:
+       Create an OAuth 2.0 Client ID of type "Desktop app".
+       Copy the Client ID and Client Secret into .env.
+  2. Enable the Google Drive API for the project.
+  3. Run:  python get_drive_token.py
+       Follow the browser prompt and paste the code back.
+       Copy the printed refresh token into .env as GOOGLE_OAUTH_REFRESH_TOKEN.
+  4. Set GOOGLE_DRIVE_FOLDER_ID to your Drive folder ID.
 """
 import io
-import json
 import logging
-import os
 
 logger = logging.getLogger(__name__)
 
-_SCOPES = ['https://www.googleapis.com/auth/drive.file']
-
 
 def _build_service():
-    """Return an authenticated Google Drive service object."""
+    """Return an authenticated Google Drive service object (OAuth2 refresh token)."""
     from django.conf import settings
 
     try:
-        from google.oauth2 import service_account
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
     except ImportError as exc:
         raise ImportError(
@@ -38,29 +40,26 @@ def _build_service():
             'Run: pip install google-api-python-client google-auth-httplib2 google-auth'
         ) from exc
 
-    raw = getattr(settings, 'GOOGLE_SERVICE_ACCOUNT_JSON', '')
-    if not raw:
+    client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
+    client_secret = getattr(settings, 'GOOGLE_OAUTH_CLIENT_SECRET', '')
+    refresh_token = getattr(settings, 'GOOGLE_OAUTH_REFRESH_TOKEN', '')
+
+    if not all([client_id, client_secret, refresh_token]):
         raise ValueError(
-            'GOOGLE_SERVICE_ACCOUNT_JSON is not set. '
-            'Provide a file path or the raw JSON string of your service account key.'
+            'GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, and '
+            'GOOGLE_OAUTH_REFRESH_TOKEN must all be set in .env / App Settings.'
         )
 
-    # Determine if it's a file path or inline JSON
-    if raw.strip().startswith('{'):
-        # Inline JSON string
-        info = json.loads(raw)
-    elif os.path.isfile(raw):
-        with open(raw, 'r', encoding='utf-8') as f:
-            info = json.load(f)
-    else:
-        raise ValueError(
-            f'GOOGLE_SERVICE_ACCOUNT_JSON is set but is neither valid JSON nor '
-            f'an existing file path: {raw!r}'
-        )
-
-    credentials = service_account.Credentials.from_service_account_info(
-        info, scopes=_SCOPES
+    credentials = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri='https://oauth2.googleapis.com/token',
+        client_id=client_id,
+        client_secret=client_secret,
     )
+    # Exchange refresh token for a fresh access token
+    credentials.refresh(Request())
+
     return build('drive', 'v3', credentials=credentials, cache_discovery=False)
 
 
@@ -93,12 +92,7 @@ def upload_pdf(pdf_bytes: bytes, filename: str) -> str:
 
     created = (
         service.files()
-        .create(
-            body=file_metadata,
-            media_body=media,
-            fields='id,name',
-            supportsAllDrives=True,  # required for Shared Drive (Team Drive) folders
-        )
+        .create(body=file_metadata, media_body=media, fields='id,name')
         .execute()
     )
 
