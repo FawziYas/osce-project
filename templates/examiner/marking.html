@@ -30,29 +30,28 @@
     opacity: 0;
     pointer-events: none;
 }
+/* header-title: left=back+student, center=station (strictly centred), right=timer */
 .evaluation-header .header-title {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    position: relative;
+    display: flex;
     align-items: center;
+    gap: 8px;
     transition: gap .25s ease;
-    gap: 12px;
 }
-.evaluation-header.hdr-compact .header-title {
-    gap: 12px;
-    align-items: center;
-}
-/* Station name stays visible, shrinks in compact mode */
+/* Station name: absolutely centred so it never shifts with left/right content */
 .station-name-large {
-    transition: font-size .25s ease;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     white-space: nowrap;
-    flex-shrink: 0;
     text-align: center;
-    justify-self: center;
+    transition: font-size .25s ease;
+    pointer-events: none; /* clicks fall through to buttons behind it */
 }
 .evaluation-header.hdr-compact .station-name-large {
     font-size: 0.9rem;
 }
-/* Student name hidden by default, shows in compact */
+/* Student name: hidden by default, visible beside back btn in compact */
 .hdr-compact-student {
     display: none;
     font-size: 0.85rem;
@@ -60,27 +59,30 @@
     color: #fff;
     white-space: nowrap;
     flex-shrink: 0;
-    margin-left: 16px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .evaluation-header.hdr-compact .hdr-compact-student {
-    display: none;
+    display: block;
 }
-/* Compact inline timer (hidden until scrolled) */
+/* Push timer all the way to the right */
 .compact-timer-inline {
     display: none;
+    margin-left: auto;
+    flex-shrink: 0;
     font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
     font-size: 1.2rem;
     font-weight: 700;
     color: #fff;
     white-space: nowrap;
-    flex-shrink: 0;
     background: rgba(255,255,255,0.15);
     border: 1px solid rgba(255,255,255,0.25);
     border-radius: 8px;
     padding: 4px 10px;
     align-items: center;
     gap: 4px;
-    margin-left: auto;
+    transition: background .3s ease, border-color .3s ease, color .3s ease;
 }
 .evaluation-header.hdr-compact .compact-timer-inline { 
     display: flex;
@@ -88,18 +90,35 @@
 .evaluation-header.hdr-compact .timer-widget { 
     display: none; 
 }
+/* Visual warning/danger on compact inline timer */
+.compact-timer-inline.warning {
+    background: rgba(234,179,8,0.25);
+    border-color: rgba(234,179,8,0.7);
+    color: #fbbf24;
+}
+.compact-timer-inline.danger {
+    background: rgba(239,68,68,0.25);
+    border-color: rgba(239,68,68,0.7);
+    color: #f87171;
+    animation: pulse-danger .8s ease-in-out infinite alternate;
+}
+@keyframes pulse-danger {
+    from { opacity: 1; }
+    to   { opacity: 0.6; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- Sticky Header -->
 <header class="evaluation-header" id="eval-header">
-    <!-- Row 1: Back button | Student Name | Station Name | Timer -->
+    <!-- Row 1: Back button + student name (compact) | Station Name (centred) | Timer (compact) -->
     <div class="header-title">
         <a href="{% url 'examiner:station_dashboard' assignment.id %}" class="header-back-btn">
             <i class="bi bi-chevron-left"></i>
             <span class="back-btn-text">Back to Dashboard</span>
         </a>
+        <span class="hdr-compact-student">{{ student.first_name }} {{ student.last_name }}</span>
         <div class="station-name-large">{{ assignment.station.name }}</div>
         <span class="compact-timer-inline" id="timer-inline">
             <i class="bi bi-clock"></i>

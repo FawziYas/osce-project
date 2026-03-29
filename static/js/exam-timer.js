@@ -156,12 +156,14 @@ class ExamTimer {
      */
     checkWarnings() {
         const timerWidget = document.querySelector('.timer-widget');
+        const timerInline = document.getElementById('timer-inline');
         if (!timerWidget) return;
         
         // Warning at 1 minute (60 seconds)
         if (this.remaining === 60) {
             timerWidget.classList.add('warning');
             timerWidget.classList.remove('danger');
+            if (timerInline) { timerInline.classList.add('warning'); timerInline.classList.remove('danger'); }
             
             // Play beep sound on first occurrence
             if (!this.soundPlayed.oneMinute) {
@@ -178,6 +180,7 @@ class ExamTimer {
         if (this.remaining === 30) {
             timerWidget.classList.remove('warning');
             timerWidget.classList.add('danger');
+            if (timerInline) { timerInline.classList.remove('warning'); timerInline.classList.add('danger'); }
             if (this.callbacks.onWarning) {
                 this.callbacks.onWarning('30 seconds remaining');
             }
@@ -187,6 +190,7 @@ class ExamTimer {
         if (this.remaining === 0) {
             timerWidget.classList.remove('warning');
             timerWidget.classList.add('danger');
+            if (timerInline) { timerInline.classList.remove('warning'); timerInline.classList.add('danger'); }
             if (this.callbacks.onWarning) {
                 this.callbacks.onWarning('Time is up!');
             }
@@ -200,6 +204,10 @@ class ExamTimer {
         const timerWidget = document.querySelector('.timer-widget');
         if (timerWidget) {
             timerWidget.classList.remove('warning', 'danger');
+        }
+        const timerInline = document.getElementById('timer-inline');
+        if (timerInline) {
+            timerInline.classList.remove('warning', 'danger');
         }
     }
 
